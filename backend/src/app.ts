@@ -33,7 +33,7 @@ app.use(helmet({
 
 app.use(
   cors({
-    origin: env.FRONTEND_URL,
+    origin: env.FRONTEND_URL || (env.NODE_ENV === 'development' ? 'http://localhost:5173' : true),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -59,6 +59,13 @@ app.get('/health', (req, res) => {
     success: true,
     message: 'be11 Backend API is fully operational',
     timestamp: new Date().toISOString(),
+  });
+});
+
+app.get('/api/health', (req, res) => {
+  res.status(HttpStatus.OK).json({
+    success: true,
+    message: 'BE11 API is running',
   });
 });
 
