@@ -1,0 +1,539 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                String              @id @default(uuid())
+  email             String              @unique
+  passwordHash      String
+  firstName         String
+  lastName          String
+  phone             String?
+  role              String              @default("CUSTOMER") // CUSTOMER, OWNER, ADMIN, ORGANIZER, COACH
+  walletBalance     Float               @default(5000.0)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  grounds           Ground[]            @relation("OwnedGrounds")
+  bookings          Booking[]           @relation("CustomerBookings")
+  reviews           Review[]
+  transactions      WalletTransaction[]
+  notifications     Notification[]
+  favorites         Favorite[]
+  vendors           Vendor[]
+  orders            Order[]
+  tournaments       Tournament[]        @relation("OrganizerTournaments")
+  tournamentFavs    TournamentFavorite[]
+
+  coach             Coach?
+  enrollments       StudentEnrollment[]
+  attendances       Attendance[]
+  certificates      Certificate[]
+  sessions          Session[]
+  jerseyDesigns     JerseyDesign[]
+  cartItems         CartItem[]
+  wishlistItems     WishlistItem[]
+  addresses         Address[]
+  productReviews    ProductReview[]
+  refreshTokens     RefreshToken[]
+}
+
+model Ground {
+  id            String       @id @default(uuid())
+  name          String
+  description   String
+  location      String
+  city          String
+  pricePerHour  Float
+  sport         String
+  amenities     Json
+  images        Json
+  ownerId       String
+  owner         User         @relation("OwnedGrounds", fields: [ownerId], references: [id], onDelete: Cascade)
+  rating        Float        @default(0.0)
+  reviewsCount  Int          @default(0)
+  isActive      Boolean      @default(true)
+  latitude      Float        @default(0.0)
+  longitude     Float        @default(0.0)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  bookings      Booking[]
+  reviews       Review[]
+  favorites     Favorite[]
+  tournaments   Tournament[]
+  matches       Match[]
+}
+
+model Booking {
+  id            String        @id @default(uuid())
+  groundId      String
+  ground        Ground        @relation(fields: [groundId], references: [id], onDelete: Cascade)
+  customerId    String
+  customer      User          @relation("CustomerBookings", fields: [customerId], references: [id], onDelete: Cascade)
+  date          String
+  startTime     String
+  endTime       String
+  totalPrice    Float
+  status        String        @default("PENDING")
+  paymentStatus String        @default("PENDING")
+  bookingType   String        @default("INDIVIDUAL") // INDIVIDUAL, TEAM, FULL_GROUND
+  playerCount   Int           @default(1)
+  captainName   String?
+  teamName      String?
+  groundReserved Boolean      @default(false)
+  invoice       String?
+  transactionId String?
+  qrCode        String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model Review {
+  id           String      @id @default(uuid())
+  groundId     String?
+  ground       Ground?     @relation(fields: [groundId], references: [id], onDelete: Cascade)
+  tournamentId String?
+  tournament   Tournament? @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  coachId      String?
+  coach        Coach?      @relation("CoachReviews", fields: [coachId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating       Int
+  comment      String
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model WalletTransaction {
+  id          String          @id @default(uuid())
+  userId      String
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount      Float
+  type        String
+  description String
+  createdAt   DateTime        @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Favorite {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  groundId  String
+  ground    Ground   @relation(fields: [groundId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, groundId])
+}
+
+model Vendor {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  groundName      String?
+  ownerName       String
+  location        String?
+  pricing         Float?
+  amenities       Json?
+  availability    Json?
+  
+  // Enhanced vendor registration details
+  businessType    String   @default("VENUE_OWNER")
+  gstNumber       String?
+  panNumber       String?
+  city            String   @default("Mumbai")
+  pincode         String?
+  businessDetails Json?    // Category-specific details (step 4A or 4B)
+  bankingDetails  Json?    // Step 5 banking parameters
+  documents       Json?    // Step 6 verified files list
+  status          String   @default("PENDING")
+  createdAt       DateTime @default(now())
+}
+
+model Product {
+  id            String          @id @default(uuid())
+  name          String
+  description   String
+  price         Float
+  image         String
+  category      String   // BATS, BALLS, GLOVES, PADS, JERSEYS, FOOTBALLS, SHOES, SHIN_GUARDS, GK_GLOVES
+  sport         String   // CRICKET, FOOTBALL
+  stock         Int      @default(50)
+  createdAt     DateTime @default(now())
+
+  cartItems     CartItem[]
+  wishlistItems WishlistItem[]
+  reviews       ProductReview[]
+}
+
+model Order {
+  id            String          @id @default(uuid())
+  userId        String
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  totalPrice    Float
+  status        String          @default("PENDING") // PENDING, CONFIRMED, COMPLETED, CANCELLED
+  items         Json            // array of { productId, name, price, quantity, customDesign?: {} }
+  createdAt     DateTime        @default(now())
+
+  transactions  Transaction[]
+  invoice       Invoice?
+  returns       ReturnRequest[]
+}
+
+model Tournament {
+  id              String               @id @default(uuid())
+  name            String
+  description     String
+  sport           String               // CRICKET, FOOTBALL
+  status          String               @default("UPCOMING") // UPCOMING, ONGOING, COMPLETED
+  startDate       String
+  endDate         String
+  registrationDeadline String?
+  teamsLimit      Int
+  entryFee        Float                @default(0.0)
+  prizePool       Float                @default(0.0)
+  organizerId     String
+  organizer       User                 @relation("OrganizerTournaments", fields: [organizerId], references: [id], onDelete: Cascade)
+  groundId        String?
+  ground          Ground?              @relation(fields: [groundId], references: [id], onDelete: SetNull)
+  city            String
+  rules           String?
+  sponsors        Json?                // Array of sponsor names/logos
+  gallery         Json?                // Array of images
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  registrations   TournamentRegistration[]
+  matches         TournamentMatch[]
+  reviews         Review[]
+  favorites       TournamentFavorite[]
+}
+
+model TournamentRegistration {
+  id           String     @id @default(uuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  teamName     String
+  captainName  String
+  contactPhone String
+  playersList  Json       // Array of player names
+  status       String     @default("PENDING") // PENDING, APPROVED, REJECTED
+  createdAt    DateTime   @default(now())
+}
+
+model TournamentMatch {
+  id           String     @id @default(uuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  homeTeam     String
+  awayTeam     String
+  date         String
+  time         String
+  status       String     @default("UPCOMING") // UPCOMING, LIVE, COMPLETED
+  score        String?    // e.g. "124/3 vs 120/8" or "2 - 1"
+  overs        String?    // e.g. "18.2 overs" (for cricket)
+  result       String?    // e.g. "Mumbai Mavericks won by 7 wickets"
+  createdAt    DateTime   @default(now())
+}
+
+model TournamentFavorite {
+  id           String     @id @default(uuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@unique([userId, tournamentId])
+}
+
+model Match {
+  id             String    @id @default(uuid())
+  groundId       String
+  ground         Ground    @relation(fields: [groundId], references: [id], onDelete: Cascade)
+  sport          String
+  date           String
+  startTime      String
+  entryFee       Float     @default(0.0)
+  playersJoined  Int       @default(0)
+  totalPlayers   Int       @default(10)
+  skillLevel     String    @default("Intermediate")
+  hostId         String
+  hostName       String
+  verifiedHost   Boolean   @default(true)
+  status         String    @default("Open")
+  teamA          Json      @default("[]")
+  teamB          Json      @default("[]")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model Coach {
+  id              String         @id @default(uuid())
+  userId          String         @unique
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  academyId       String?
+  academy         Academy?       @relation(fields: [academyId], references: [id], onDelete: SetNull)
+  experienceYears Int            @default(1)
+  certifications  Json           @default("[]") // Array of certification strings
+  sports          Json           @default("[]") // Array of sports e.g. ["Cricket", "Football"]
+  languages       Json           @default("[]") // Array of languages e.g. ["English", "Hindi"]
+  city            String         @default("Mumbai")
+  about           String         @default("")
+  achievements    Json           @default("[]") // Array of achievement strings
+  gallery         Json           @default("[]") // Array of image URLs
+  videos          Json           @default("[]") // Array of video URLs
+  trainingStyle   String         @default("Personalized coaching")
+  hourlyRate      Float          @default(1000.0)
+  status          String         @default("PENDING") // PENDING, APPROVED, REJECTED
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  camps           Camp[]
+  sessions        Session[]
+  reviews         Review[]       @relation("CoachReviews")
+  availabilities  Availability[]
+  certificates    Certificate[]
+}
+
+model Academy {
+  id            String    @id @default(uuid())
+  name          String
+  logo          String    @default("")
+  city          String
+  sports        Json      @default("[]") // Array of sports offered
+  rating        Float     @default(5.0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  coaches       Coach[]
+  camps         Camp[]
+}
+
+model Camp {
+  id              String               @id @default(uuid())
+  coachId         String
+  coach           Coach                @relation(fields: [coachId], references: [id], onDelete: Cascade)
+  academyId       String?
+  academy         Academy?             @relation(fields: [academyId], references: [id], onDelete: SetNull)
+  name            String
+  description     String               @default("")
+  sport           String
+  venue           String
+  city            String
+  startDate       String
+  durationWeeks   Int                  @default(4)
+  skillLevel      String               @default("Beginner")
+  seatsLimit      Int                  @default(20)
+  seatsLeft       Int                  @default(20)
+  fee             Float                @default(2000.0)
+  timings         String               @default("Weekend 08:00 - 10:00")
+  banner          String               @default("")
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  enrollments     StudentEnrollment[]
+  attendances     Attendance[]
+}
+
+model StudentEnrollment {
+  id            String     @id @default(uuid())
+  campId        String
+  camp          Camp       @relation(fields: [campId], references: [id], onDelete: Cascade)
+  studentId     String
+  student       User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  status        String     @default("CONFIRMED") // CONFIRMED, CANCELLED
+  paymentStatus String     @default("PAID") // PAID, REFUNDED
+  createdAt     DateTime   @default(now())
+}
+
+model Attendance {
+  id            String     @id @default(uuid())
+  studentId     String
+  student       User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  campId        String?
+  camp          Camp?      @relation(fields: [campId], references: [id], onDelete: Cascade)
+  sessionId     String?
+  session       Session?   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  date          String
+  status        String     @default("PRESENT") // PRESENT, ABSENT
+  createdAt     DateTime   @default(now())
+}
+
+model Certificate {
+  id            String     @id @default(uuid())
+  studentId     String
+  student       User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  coachId       String
+  coach         Coach      @relation(fields: [coachId], references: [id], onDelete: Cascade)
+  title         String
+  sport         String
+  issueDate     String
+  certificateUrl String    @default("")
+  createdAt     DateTime   @default(now())
+}
+
+model Session {
+  id            String         @id @default(uuid())
+  coachId       String
+  coach         Coach          @relation(fields: [coachId], references: [id], onDelete: Cascade)
+  studentId     String
+  student       User           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  type          String         @default("ONE_TO_ONE") // ONE_TO_ONE, GROUP
+  date          String
+  time          String
+  fee           Float          @default(1000.0)
+  status        String         @default("BOOKED") // BOOKED, COMPLETED, CANCELLED
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  attendances   Attendance[]
+}
+
+model Availability {
+  id            String     @id @default(uuid())
+  coachId       String
+  coach         Coach          @relation(fields: [coachId], references: [id], onDelete: Cascade)
+  dayOfWeek     Int        // 0 (Sunday) to 6 (Saturday)
+  startTime     String     // e.g. "09:00"
+  endTime       String     // e.g. "10:00"
+  isBooked      Boolean    @default(false)
+}
+
+model JerseyDesign {
+  id              String      @id @default(uuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String      @default("My Custom Jersey")
+  sport           String      @default("Cricket")
+  config          Json        // Stores the customization options
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model JerseyTemplate {
+  id              String      @id @default(uuid())
+  name            String
+  sport           String
+  config          Json
+  popularity      Int         @default(0)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model CartItem {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+}
+
+model WishlistItem {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Coupon {
+  id              String   @id @default(uuid())
+  code            String   @unique
+  discountPercent Int      @default(10)
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+}
+
+model Transaction {
+  id        String   @id @default(uuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  paymentId String?
+  signature String?
+  amount    Float
+  status    String   @default("PENDING") // PENDING, SUCCESS, FAILED
+  method    String   @default("RAZORPAY")
+  createdAt DateTime @default(now())
+}
+
+model Invoice {
+  id            String   @id @default(uuid())
+  orderId       String   @unique
+  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  invoiceNumber String   @unique
+  url           String   @default("")
+  createdAt     DateTime @default(now())
+}
+
+model Address {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName    String
+  phone       String
+  addressLine String
+  city        String
+  state       String
+  pincode     String
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+model ProductReview {
+  id          String   @id @default(uuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating      Int      @default(5)
+  comment     String   @default("")
+  createdAt   DateTime @default(now())
+}
+
+model ReturnRequest {
+  id        String   @id @default(uuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  reason    String
+  status    String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  createdAt DateTime @default(now())
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ipAddress String?
+  userAgent String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Otp {
+  id        String   @id @default(uuid())
+  email     String
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+

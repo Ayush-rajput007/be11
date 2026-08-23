@@ -1,0 +1,619 @@
+<!DOCTYPE html><html class="scroll-smooth" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Become a Vendor | be11 Sports</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "outline": "#747781",
+                        "on-error": "#ffffff",
+                        "background": "#f7f9fb",
+                        "primary-fixed": "#dae2ff",
+                        "on-secondary-fixed-variant": "#6d3a00",
+                        "on-primary-fixed": "#001947",
+                        "tertiary": "#012300",
+                        "on-tertiary-fixed-variant": "#035300",
+                        "on-surface-variant": "#444650",
+                        "surface-container-highest": "#e0e3e5",
+                        "surface-container-high": "#e6e8ea",
+                        "inverse-primary": "#b1c5ff",
+                        "error": "#ba1a1a",
+                        "on-background": "#191c1e",
+                        "tertiary-fixed-dim": "#72de5c",
+                        "on-tertiary-container": "#44af33",
+                        "on-secondary-container": "#683700",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-container": "#fe9832",
+                        "on-primary-container": "#7d98de",
+                        "on-surface": "#191c1e",
+                        "primary": "#001a49",
+                        "inverse-surface": "#2d3133",
+                        "secondary-fixed": "#ffdcc2",
+                        "surface-dim": "#d8dadc",
+                        "secondary": "#8f4e00",
+                        "primary-container": "#0a2e6e",
+                        "on-secondary-fixed": "#2e1500",
+                        "on-error-container": "#93000a",
+                        "surface-variant": "#e0e3e5",
+                        "tertiary-fixed": "#8dfc75",
+                        "primary-fixed-dim": "#b1c5ff",
+                        "on-primary": "#ffffff",
+                        "surface-tint": "#415c9e",
+                        "inverse-on-surface": "#eff1f3",
+                        "surface-container": "#eceef0",
+                        "surface-bright": "#f7f9fb",
+                        "surface": "#f7f9fb",
+                        "surface-container-low": "#f2f4f6",
+                        "secondary-fixed-dim": "#ffb77a",
+                        "on-secondary": "#ffffff",
+                        "on-primary-fixed-variant": "#274484",
+                        "on-tertiary-fixed": "#012200",
+                        "tertiary-container": "#023b00",
+                        "outline-variant": "#c4c6d2",
+                        "on-tertiary": "#ffffff",
+                        "error-container": "#ffdad6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "section-gap": "80px",
+                        "gutter": "20px",
+                        "container-padding": "24px",
+                        "base": "8px",
+                        "card-inner": "24px"
+                    },
+                    "fontFamily": {
+                        "display-hero": ["Montserrat"],
+                        "label-sm": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-bold": ["Inter"],
+                        "headline-md": ["Montserrat"],
+                        "headline-lg-mobile": ["Montserrat"],
+                        "headline-lg": ["Montserrat"]
+                    },
+                    "fontSize": {
+                        "display-hero": ["72px", {"lineHeight": "80px", "letterSpacing": "-0.04em", "fontWeight": "800"}],
+                        "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "label-bold": ["14px", {"lineHeight": "20px", "fontWeight": "600"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                        "headline-lg-mobile": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "headline-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .glass {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        .text-glow:hover {
+            text-shadow: 0 0 15px rgba(254, 152, 50, 0.5);
+        }
+        .reveal { opacity: 0; transform: translateY(30px); transition: all 0.8s cubic-bezier(0.22, 1, 0.36, 1); }
+        .reveal.active { opacity: 1; transform: translateY(0); }
+        .hover-lift { transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .hover-lift:hover { transform: translateY(-8px) scale(1.02); }
+        .ease-spring { transition-timing-function: cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        
+        .timeline-line {
+            background: linear-gradient(90deg, #001a49 0%, #fe9832 50%, #001a49 100%);
+            background-size: 200% auto;
+            animation: moveGradient 3s linear infinite;
+        }
+        @keyframes moveGradient {
+            to { background-position: 200% center; }
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md selection:bg-secondary-container selection:text-on-secondary-container">
+<!-- Navbar -->
+<nav class="sticky top-0 z-[60] glass backdrop-blur-md bg-white/80 w-full shadow-sm"><div class="max-w-full mx-auto px-10 h-20 flex items-center justify-between gap-8">
+    <!-- Left: Logo -->
+    <div class="flex items-center shrink-0">
+        <a class="block" href="/">
+            <img alt="be11 Logo" class="h-12 object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAJ5Ixkxfh8Vr_NcnHXPGZV4gYRuzLMJ5My9Fi9zDpeCH0akaAIyN2fkxOEDFrqlNlTh0R5yDrjfJAHUswYQYaQGbwQtCqSfmDU-b4aZCf6o1bQsaTsOVHEmCJHPzYmni4XuWekLjLjWtoEYn_eZbfiEe0mYCrxXx2ZSDGYtdJCkvIPGGzpq8_CFV7p8v_eYdqDdEGfAkGOwmYvAL8AilbPlhE0wAw9UvLk3mNrJiE30XfPEcZcTX40SSBaMGp6nnvLSA">
+        </a>
+    </div>
+
+    <!-- Center: Primary Nav -->
+    <div class="hidden xl:flex items-center gap-8">
+        <a class="font-label-bold text-[14px] text-on-surface-variant hover:text-secondary transition-colors whitespace-nowrap" href="/">Home</a>
+        <a class="font-label-bold text-[14px] text-on-surface-variant hover:text-secondary transition-colors whitespace-nowrap" href="/venues">Venues</a>
+        <a class="font-label-bold text-[14px] text-on-surface-variant hover:text-secondary transition-colors whitespace-nowrap" href="/shop">Shop</a>
+        <a class="font-label-bold text-[14px] text-on-surface-variant hover:text-secondary transition-colors whitespace-nowrap" href="/jersey-builder">Jersey Builder</a>
+        <a class="font-label-bold text-[14px] text-on-surface-variant hover:text-secondary transition-colors whitespace-nowrap" href="/tournaments">Tournaments</a>
+        <a class="font-label-bold text-[14px] text-on-surface-variant hover:text-secondary transition-colors whitespace-nowrap" href="/cricket-kits">Cricket Kits</a>
+        <a class="font-label-bold text-[14px] text-secondary border-b-2 border-secondary pb-1 whitespace-nowrap" href="/become-vendor">Become a Vendor</a>
+    </div>
+
+    <!-- Right: Utilities -->
+    <div class="flex items-center gap-4">
+        <!-- Search Bar -->
+        <div class="hidden lg:flex items-center gap-2 bg-surface-container-low border border-outline-variant/20 rounded-full px-4 py-2 w-[240px] group focus-within:border-secondary transition-all">
+            <span class="material-symbols-outlined text-outline group-focus-within:text-secondary text-xl">search</span>
+            <input class="bg-transparent border-none focus:ring-0 text-sm w-full text-on-surface" placeholder="Search..." type="text">
+        </div>
+
+        <!-- Location -->
+        <div class="hidden md:flex items-center gap-1 text-on-surface-variant cursor-pointer hover:text-secondary transition-colors">
+            <span class="material-symbols-outlined text-lg">location_on</span>
+            <span class="font-label-bold text-sm">Mumbai</span>
+            <span class="material-symbols-outlined text-sm">expand_more</span>
+        </div>
+
+        <!-- Icons -->
+        <div class="flex items-center gap-[18px] border-l border-outline-variant/20 pl-4">
+            <button class="hover:text-secondary transition-all hover:scale-110">
+                <span class="material-symbols-outlined">favorite</span>
+            </button>
+            <button class="hover:text-secondary transition-all hover:scale-110">
+                <span class="material-symbols-outlined">shopping_cart</span>
+            </button>
+            <button class="hover:text-secondary transition-all hover:scale-110">
+                <span class="material-symbols-outlined">notifications</span>
+            </button>
+            <button class="hover:text-secondary transition-all hover:scale-110">
+                <span class="material-symbols-outlined">person</span>
+            </button>
+        </div>
+
+        <!-- CTA -->
+        <button class="hidden md:block ml-2 px-6 py-2.5 rounded-full bg-primary text-on-primary font-label-bold shadow-lg hover:shadow-secondary-container/20 hover:brightness-110 active:scale-95 transition-all">
+            List Your Venue
+        </button>
+    </div>
+</div></nav>
+<!-- Hero Section -->
+<header class="relative min-h-[85vh] flex items-center overflow-hidden">
+<div class="absolute inset-0 z-0">
+<div class="absolute inset-0 bg-primary/40 mix-blend-multiply z-10"></div>
+<div class="w-full h-full bg-cover bg-center" data-alt="A cinematic, high-angle photograph of a modern, well-lit sports retail store with polished concrete floors and minimalist displays. The store features neatly organized jerseys, premium athletic gear, and high-performance cricket bats under soft studio lighting. A vibrant, energetic mood is created by soft glows of saffron and emerald green accents throughout the shop. The atmosphere is professional, elite, and inviting." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCL8pZUjkgp0YP1F6pFIN7XhMVdWLnkcFh4ROAR2K-VHqfYmurMPSYU-J8gRVb2ayjtkZdQKj4xJejhOocR04_HJlJKOfNnet-m_KJhtooYdu3B4zWpZML0Ljmj4BZa_vbIKsVX3ys91TRhcpfbMf4Ajdj2mRaDiXVsrH7es17yGYRojjbPqoOAGQ4lkI7rGy_OsrOycXlQAhw7uXmGfzE4Czqt9bnvAkEtlVVPXi7q2OUGMAjkkd-2')"></div>
+</div>
+<div class="relative z-20 max-w-7xl mx-auto px-6 py-24 grid lg:grid-cols-2 gap-12 items-center">
+<div class="reveal active">
+<span class="inline-block px-4 py-1.5 rounded-full bg-secondary-container text-on-secondary-container font-label-bold text-sm mb-6">VENDOR PROGRAM 2026</span>
+<h1 class="font-display-hero text-headline-lg text-white mb-6 leading-tight">
+                    Grow Your Sports <span class="text-secondary-container">Business</span> with be11
+                </h1>
+<p class="font-body-lg text-white/90 mb-10 max-w-lg">
+                    Sell your sports products to thousands of players, academies, and clubs across India through our premium digital ecosystem.
+                </p>
+<div class="flex flex-wrap gap-4">
+<button class="px-8 py-4 rounded-[14px] bg-secondary-container text-on-secondary-container font-headline-md shadow-xl hover:shadow-secondary/30 hover:-translate-y-1 transition-all flex items-center gap-3">
+                        Register as Vendor <span class="material-symbols-outlined">arrow_forward</span>
+</button>
+<button class="px-8 py-4 rounded-[14px] glass border border-white/20 text-white font-headline-md hover:bg-white/10 transition-all flex items-center gap-3">
+                        Watch Demo <span class="material-symbols-outlined" data-weight="fill">play_circle</span>
+</button>
+</div>
+</div>
+</div>
+</header>
+<!-- Why Sell on be11 -->
+<section class="py-section-gap max-w-7xl mx-auto px-6">
+<div class="text-center mb-16 reveal active">
+<h2 class="font-headline-lg text-primary mb-4">Why Sell on be11?</h2>
+<p class="text-on-surface-variant max-w-2xl mx-auto">Leverage India's most advanced athletic platform to scale your reach and streamline your operations.</p>
+</div>
+<div class="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+<div class="reveal p-card-inner rounded-[24px] bg-white shadow-[0px_10px_30px_rgba(10,46,110,0.04)] hover-lift border border-outline-variant/10 group active">
+<div class="w-14 h-14 rounded-2xl bg-primary/5 flex items-center justify-center mb-6 group-hover:bg-primary transition-colors">
+<span class="material-symbols-outlined text-primary text-3xl group-hover:text-white">groups</span>
+</div>
+<h3 class="font-headline-md text-primary mb-3">Reach Thousands</h3>
+<p class="text-on-surface-variant font-body-md">Connect directly with a dedicated community of active sports enthusiasts and professional clubs.</p>
+</div>
+<div class="reveal p-card-inner rounded-[24px] bg-white shadow-[0px_10px_30px_rgba(10,46,110,0.04)] hover-lift border border-outline-variant/10 group active" style="transition-delay: 100ms;">
+<div class="w-14 h-14 rounded-2xl bg-secondary-container/10 flex items-center justify-center mb-6 group-hover:bg-secondary-container transition-colors">
+<span class="material-symbols-outlined text-secondary-container text-3xl group-hover:text-on-secondary-container">payments</span>
+</div>
+<h3 class="font-headline-md text-primary mb-3">Zero Setup Cost</h3>
+<p class="text-on-surface-variant font-body-md">List your products for free. Our simple commission model ensures you only pay when you sell.</p>
+</div>
+<div class="reveal p-card-inner rounded-[24px] bg-white shadow-[0px_10px_30px_rgba(10,46,110,0.04)] hover-lift border border-outline-variant/10 group active" style="transition-delay: 200ms;">
+<div class="w-14 h-14 rounded-2xl bg-tertiary-fixed/20 flex items-center justify-center mb-6 group-hover:bg-tertiary-fixed transition-colors">
+<span class="material-symbols-outlined text-on-tertiary-container text-3xl">dashboard</span>
+</div>
+<h3 class="font-headline-md text-primary mb-3">Vendor Dashboard</h3>
+<p class="text-on-surface-variant font-body-md">Manage inventory, track orders, and analyze sales performance with powerful real-time tools.</p>
+</div>
+<div class="reveal p-card-inner rounded-[24px] bg-white shadow-[0px_10px_30px_rgba(10,46,110,0.04)] hover-lift border border-outline-variant/10 group active" style="transition-delay: 300ms;">
+<div class="w-14 h-14 rounded-2xl bg-error-container/20 flex items-center justify-center mb-6 group-hover:bg-error-container transition-colors">
+<span class="material-symbols-outlined text-error text-3xl">verified_user</span>
+</div>
+<h3 class="font-headline-md text-primary mb-3">Secure Payments</h3>
+<p class="text-on-surface-variant font-body-md">Experience peace of mind with encrypted transactions and timely automated payouts to your bank.</p>
+</div>
+</div>
+</section>
+<!-- Registration Timeline -->
+<section class="py-section-gap bg-primary relative overflow-hidden">
+<div class="absolute top-0 right-0 w-1/3 h-full opacity-10">
+</div>
+<div class="max-w-7xl mx-auto px-6 relative z-10">
+<div class="text-center mb-20 reveal active">
+<h2 class="font-headline-lg text-white mb-4">Start Selling in Minutes</h2>
+<p class="text-primary-fixed/80">Our onboarding process is fast, simple, and fully digital.</p>
+</div>
+<div class="relative">
+<div class="hidden md:block absolute top-1/2 left-0 w-full h-1 timeline-line -translate-y-1/2"></div>
+<div class="grid md:grid-cols-5 gap-8 relative z-20">
+<!-- Step 1 -->
+<div class="text-center reveal group active" style="transition-delay: 100ms;">
+<div class="w-16 h-16 rounded-full bg-white text-primary font-headline-md flex items-center justify-center mx-auto mb-6 shadow-lg group-hover:scale-110 transition-transform">1</div>
+<h4 class="font-label-bold text-white mb-2">Create Account</h4>
+<p class="text-sm text-primary-fixed/60 px-4">Basic info &amp; business details</p>
+</div>
+<!-- Step 2 -->
+<div class="text-center reveal group active" style="transition-delay: 200ms;">
+<div class="w-16 h-16 rounded-full bg-white text-primary font-headline-md flex items-center justify-center mx-auto mb-6 shadow-lg group-hover:scale-110 transition-transform">2</div>
+<h4 class="font-label-bold text-white mb-2">Verify Business</h4>
+<p class="text-sm text-primary-fixed/60 px-4">KYC &amp; Document upload</p>
+</div>
+<!-- Step 3 -->
+<div class="text-center reveal group active" style="transition-delay: 300ms;">
+<div class="w-16 h-16 rounded-full bg-white text-primary font-headline-md flex items-center justify-center mx-auto mb-6 shadow-lg group-hover:scale-110 transition-transform">3</div>
+<h4 class="font-label-bold text-white mb-2">Upload Products</h4>
+<p class="text-sm text-primary-fixed/60 px-4">Bulk upload via CSV or UI</p>
+</div>
+<!-- Step 4 -->
+<div class="text-center reveal group active" style="transition-delay: 400ms;">
+<div class="w-16 h-16 rounded-full bg-white text-primary font-headline-md flex items-center justify-center mx-auto mb-6 shadow-lg group-hover:scale-110 transition-transform">4</div>
+<h4 class="font-label-bold text-white mb-2">Approval</h4>
+<p class="text-sm text-primary-fixed/60 px-4">Quick 24h quality check</p>
+</div>
+<!-- Step 5 -->
+<div class="text-center reveal group active" style="transition-delay: 500ms;">
+<div class="w-16 h-16 rounded-full bg-secondary-container text-on-secondary-container font-headline-md flex items-center justify-center mx-auto mb-6 shadow-lg group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined">rocket_launch</span>
+</div>
+<h4 class="font-label-bold text-white mb-2">Start Selling</h4>
+<p class="text-sm text-primary-fixed/60 px-4">Receive orders instantly</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Vendor Categories -->
+<section class="py-section-gap max-w-7xl mx-auto px-6">
+<div class="flex justify-between items-end mb-12 reveal active">
+<div>
+<h2 class="font-headline-lg text-primary mb-2">What Can You Sell?</h2>
+<p class="text-on-surface-variant">Choose your niche or list products across multiple categories.</p>
+</div>
+<button class="font-label-bold text-secondary flex items-center gap-1 hover:gap-2 transition-all">View All Categories <span class="material-symbols-outlined">chevron_right</span></button>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+<div class="reveal group cursor-pointer active" style="transition-delay: 50ms;">
+<div class="aspect-square rounded-[24px] bg-white shadow-sm border border-outline-variant/10 flex flex-col items-center justify-center p-6 hover:border-secondary transition-all group-hover:shadow-md">
+<span class="material-symbols-outlined text-4xl text-on-surface-variant group-hover:text-secondary group-hover:scale-110 transition-all mb-4">sports_cricket</span>
+<span class="font-label-bold text-center">Cricket Equipment</span>
+</div>
+</div>
+<div class="reveal group cursor-pointer active" style="transition-delay: 100ms;">
+<div class="aspect-square rounded-[24px] bg-white shadow-sm border border-outline-variant/10 flex flex-col items-center justify-center p-6 hover:border-secondary transition-all group-hover:shadow-md">
+<span class="material-symbols-outlined text-4xl text-on-surface-variant group-hover:text-secondary group-hover:scale-110 transition-all mb-4">sports_soccer</span>
+<span class="font-label-bold text-center">Football Gear</span>
+</div>
+</div>
+<div class="reveal group cursor-pointer active" style="transition-delay: 150ms;">
+<div class="aspect-square rounded-[24px] bg-white shadow-sm border border-outline-variant/10 flex flex-col items-center justify-center p-6 hover:border-secondary transition-all group-hover:shadow-md">
+<span class="material-symbols-outlined text-4xl text-on-surface-variant group-hover:text-secondary group-hover:scale-110 transition-all mb-4">checkroom</span>
+<span class="font-label-bold text-center">Custom Jerseys</span>
+</div>
+</div>
+<div class="reveal group cursor-pointer active" style="transition-delay: 200ms;">
+<div class="aspect-square rounded-[24px] bg-white shadow-sm border border-outline-variant/10 flex flex-col items-center justify-center p-6 hover:border-secondary transition-all group-hover:shadow-md">
+<span class="material-symbols-outlined text-4xl text-on-surface-variant group-hover:text-secondary group-hover:scale-110 transition-all mb-4">fitness_center</span>
+<span class="font-label-bold text-center">Gym Equipment</span>
+</div>
+</div>
+<div class="reveal group cursor-pointer active" style="transition-delay: 250ms;">
+<div class="aspect-square rounded-[24px] bg-white shadow-sm border border-outline-variant/10 flex flex-col items-center justify-center p-6 hover:border-secondary transition-all group-hover:shadow-md">
+<span class="material-symbols-outlined text-4xl text-on-surface-variant group-hover:text-secondary group-hover:scale-110 transition-all mb-4">sports_tennis</span>
+<span class="font-label-bold text-center">Tennis &amp; Rackets</span>
+</div>
+</div>
+<div class="reveal group cursor-pointer active" style="transition-delay: 300ms;">
+<div class="aspect-square rounded-[24px] bg-white shadow-sm border border-outline-variant/10 flex flex-col items-center justify-center p-6 hover:border-secondary transition-all group-hover:shadow-md">
+<span class="material-symbols-outlined text-4xl text-on-surface-variant group-hover:text-secondary group-hover:scale-110 transition-all mb-4">nutrition</span>
+<span class="font-label-bold text-center">Sports Nutrition</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Dashboard Preview (Bento Grid Style) -->
+<section class="py-section-gap bg-surface-container-low overflow-hidden">
+<div class="max-w-7xl mx-auto px-6">
+<div class="grid lg:grid-cols-2 gap-16 items-center">
+<div class="reveal active">
+<h2 class="font-headline-lg text-primary mb-6">Manage Everything with Intelligence</h2>
+<p class="text-on-surface-variant font-body-lg mb-8">Your be11 Dashboard is more than just a tool—it's your command center. Track growth, predict inventory needs, and respond to customers in real-time.</p>
+<ul class="space-y-4">
+<li class="flex items-start gap-4">
+<span class="material-symbols-outlined text-on-tertiary-container bg-tertiary-fixed/30 p-1 rounded">check_circle</span>
+<span class="font-body-md text-on-surface">Real-time sales tracking with visual analytics.</span>
+</li>
+<li class="flex items-start gap-4">
+<span class="material-symbols-outlined text-on-tertiary-container bg-tertiary-fixed/30 p-1 rounded">check_circle</span>
+<span class="font-body-md text-on-surface">Integrated shipping partners for hassle-free delivery.</span>
+</li>
+<li class="flex items-start gap-4">
+<span class="material-symbols-outlined text-on-tertiary-container bg-tertiary-fixed/30 p-1 rounded">check_circle</span>
+<span class="font-body-md text-on-surface">Dynamic pricing tools to stay competitive.</span>
+</li>
+</ul>
+</div>
+<div class="reveal relative active">
+<div class="absolute -inset-4 bg-secondary-container/20 blur-3xl rounded-full opacity-50"></div>
+<!-- Mockup Dashboard -->
+<div class="relative bg-white rounded-[24px] shadow-2xl border border-outline-variant/20 overflow-hidden">
+<div class="bg-primary px-6 py-4 flex justify-between items-center">
+<div class="flex gap-2">
+<div class="w-3 h-3 rounded-full bg-red-400"></div>
+<div class="w-3 h-3 rounded-full bg-yellow-400"></div>
+<div class="w-3 h-3 rounded-full bg-green-400"></div>
+</div>
+<span class="text-white/50 font-label-sm">be11-vendor-v2.0</span>
+</div>
+<div class="p-8 grid grid-cols-2 gap-6">
+<div class="bg-surface-container rounded-xl p-4 border border-outline-variant/10">
+<p class="font-label-sm text-outline mb-1">Total Revenue</p>
+<p class="font-headline-md text-secondary">₹1,24,500</p>
+<div class="h-1 bg-secondary/20 rounded-full mt-3 overflow-hidden">
+<div class="h-full bg-secondary w-2/3"></div>
+</div>
+</div>
+<div class="bg-surface-container rounded-xl p-4 border border-outline-variant/10">
+<p class="font-label-sm text-outline mb-1">Active Orders</p>
+<p class="font-headline-md text-primary">42</p>
+<div class="flex gap-1 mt-3">
+<div class="h-2 w-full bg-primary rounded-full"></div>
+<div class="h-2 w-1/2 bg-primary/20 rounded-full"></div>
+</div>
+</div>
+<div class="col-span-2 bg-surface-container rounded-xl p-6 border border-outline-variant/10 h-40 relative">
+<div class="flex justify-between items-end h-full gap-2">
+<div class="w-full bg-primary/10 rounded-t h-1/4"></div>
+<div class="w-full bg-primary/20 rounded-t h-1/2"></div>
+<div class="w-full bg-primary/40 rounded-t h-3/4"></div>
+<div class="w-full bg-secondary rounded-t h-full"></div>
+<div class="w-full bg-primary/60 rounded-t h-2/3"></div>
+<div class="w-full bg-primary/30 rounded-t h-1/3"></div>
+</div>
+<p class="absolute top-4 left-6 font-label-bold text-primary">Weekly Performance</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Marketplace Stats -->
+<section class="py-20 bg-white border-y border-outline-variant/10">
+<div class="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-12 text-center">
+<div class="reveal active">
+<p class="font-display-hero text-headline-lg text-primary counter" data-target="10000">10k+</p>
+<p class="font-label-bold text-on-surface-variant uppercase tracking-widest">Products Sold</p>
+</div>
+<div class="reveal active" style="transition-delay: 100ms;">
+<p class="font-display-hero text-headline-lg text-secondary counter" data-target="5000">5k+</p>
+<p class="font-label-bold text-on-surface-variant uppercase tracking-widest">Global Vendors</p>
+</div>
+<div class="reveal active" style="transition-delay: 200ms;">
+<p class="font-display-hero text-headline-lg text-primary counter" data-target="250">250+</p>
+<p class="font-label-bold text-on-surface-variant uppercase tracking-widest">Cities Covered</p>
+</div>
+<div class="reveal active" style="transition-delay: 300ms;">
+<p class="font-display-hero text-headline-lg text-tertiary-fixed-dim counter" data-target="98">98%</p>
+<p class="font-label-bold text-on-surface-variant uppercase tracking-widest">Seller Rating</p>
+</div>
+</div>
+</section>
+<!-- Pricing Plans -->
+<section class="py-section-gap max-w-7xl mx-auto px-6">
+<div class="text-center mb-16 reveal active">
+<h2 class="font-headline-lg text-primary mb-4">Simple, Transparent Pricing</h2>
+<p class="text-on-surface-variant">Choose a plan that fits your business scale. No hidden fees.</p>
+</div>
+<div class="grid md:grid-cols-3 gap-8">
+<!-- Starter -->
+<div class="reveal p-card-inner rounded-[24px] border border-outline-variant/30 flex flex-col hover-lift active">
+<h4 class="font-headline-md text-primary mb-2">Starter</h4>
+<p class="text-on-surface-variant text-sm mb-6">For individual sellers &amp; small shops</p>
+<div class="mb-8">
+<span class="text-4xl font-display-hero text-primary">5%</span>
+<span class="text-on-surface-variant">Commission</span>
+</div>
+<ul class="space-y-4 mb-10 flex-grow">
+<li class="flex items-center gap-3 text-sm"><span class="material-symbols-outlined text-green-500 text-lg">check</span> Up to 50 Products</li>
+<li class="flex items-center gap-3 text-sm"><span class="material-symbols-outlined text-green-500 text-lg">check</span> Standard Support</li>
+<li class="flex items-center gap-3 text-sm"><span class="material-symbols-outlined text-green-500 text-lg">check</span> Basic Analytics</li>
+</ul>
+<button class="w-full py-4 rounded-xl border-2 border-primary text-primary font-label-bold hover:bg-primary hover:text-white transition-all">Choose Plan</button>
+</div>
+<!-- Professional -->
+<div class="reveal p-card-inner rounded-[24px] bg-primary text-white flex flex-col hover-lift relative overflow-hidden scale-105 shadow-2xl active">
+<div class="absolute top-4 right-4 bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full text-xs font-bold">MOST POPULAR</div>
+<h4 class="font-headline-md mb-2">Professional</h4>
+<p class="text-primary-fixed/60 text-sm mb-6">For established sports retailers</p>
+<div class="mb-8">
+<span class="text-4xl font-display-hero text-secondary-container">3.5%</span>
+<span class="text-primary-fixed/80">Commission</span>
+</div>
+<ul class="space-y-4 mb-10 flex-grow">
+<li class="flex items-center gap-3 text-sm"><span class="material-symbols-outlined text-secondary-container text-lg">check</span> Unlimited Products</li>
+<li class="flex items-center gap-3 text-sm"><span class="material-symbols-outlined text-secondary-container text-lg">check</span> Priority 24/7 Support</li>
+<li class="flex items-center gap-3 text-sm"><span class="material-symbols-outlined text-secondary-container text-lg">check</span> Advanced Growth Insights</li>
+<li class="flex items-center gap-3 text-sm"><span class="material-symbols-outlined text-secondary-container text-lg">check</span> Featured Store Tag</li>
+</ul>
+<button class="w-full py-4 rounded-xl bg-secondary-container text-on-secondary-container font-headline-md hover:brightness-110 transition-all">Choose Plan</button>
+</div>
+<!-- Enterprise -->
+<div class="reveal p-card-inner rounded-[24px] border border-outline-variant/30 flex flex-col hover-lift active">
+<h4 class="font-headline-md text-primary mb-2">Enterprise</h4>
+<p class="text-on-surface-variant text-sm mb-6">For major brands &amp; manufacturers</p>
+<div class="mb-8">
+<span class="text-4xl font-display-hero text-primary">Custom</span>
+</div>
+<ul class="space-y-4 mb-10 flex-grow">
+<li class="flex items-center gap-3 text-sm"><span class="material-symbols-outlined text-green-500 text-lg">check</span> Multi-location support</li>
+<li class="flex items-center gap-3 text-sm"><span class="material-symbols-outlined text-green-500 text-lg">check</span> Dedicated Account Manager</li>
+<li class="flex items-center gap-3 text-sm"><span class="material-symbols-outlined text-green-500 text-lg">check</span> Custom API Integration</li>
+</ul>
+<button class="w-full py-4 rounded-xl border-2 border-primary text-primary font-label-bold hover:bg-primary hover:text-white transition-all">Contact Sales</button>
+</div>
+</div>
+</section>
+<!-- Success Stories -->
+<section class="py-section-gap bg-surface-container overflow-hidden">
+<div class="max-w-7xl mx-auto px-6">
+<h2 class="font-headline-lg text-primary mb-12 reveal active">Voices of Success</h2>
+<div class="flex gap-8 overflow-x-auto pb-12 snap-x no-scrollbar">
+<div class="min-w-[350px] md:min-w-[500px] snap-center bg-white p-8 rounded-[32px] shadow-sm reveal active">
+<div class="flex items-center gap-4 mb-6">
+<div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary">SG</div>
+<div>
+<h5 class="font-label-bold text-primary">SG Sports Equipment</h5>
+<p class="text-sm text-on-surface-variant">Meerut, India</p>
+</div>
+</div>
+<p class="font-body-lg text-on-surface italic mb-6">"be11 transformed our digital presence. Within 6 months, our direct-to-consumer sales grew by 400% compared to other marketplaces."</p>
+<div class="flex gap-1 text-secondary-container">
+<span class="material-symbols-outlined" data-weight="fill">star</span>
+<span class="material-symbols-outlined" data-weight="fill">star</span>
+<span class="material-symbols-outlined" data-weight="fill">star</span>
+<span class="material-symbols-outlined" data-weight="fill">star</span>
+<span class="material-symbols-outlined" data-weight="fill">star</span>
+</div>
+</div>
+<div class="min-w-[350px] md:min-w-[500px] snap-center bg-white p-8 rounded-[32px] shadow-sm reveal active" style="transition-delay: 100ms;">
+<div class="flex items-center gap-4 mb-6">
+<div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary">CP</div>
+<div>
+<h5 class="font-label-bold text-primary">CricketPro India</h5>
+<p class="text-sm text-on-surface-variant">Mumbai, India</p>
+</div>
+</div>
+<p class="font-body-lg text-on-surface italic mb-6">"The dashboard analytics helped us understand that our custom jersey demand was peaking in winter. Data-driven selling is real here."</p>
+<div class="flex gap-1 text-secondary-container">
+<span class="material-symbols-outlined" data-weight="fill">star</span>
+<span class="material-symbols-outlined" data-weight="fill">star</span>
+<span class="material-symbols-outlined" data-weight="fill">star</span>
+<span class="material-symbols-outlined" data-weight="fill">star</span>
+<span class="material-symbols-outlined" data-weight="fill">star_half</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Footer -->
+<footer class="bg-primary text-on-primary">
+<div class="grid grid-cols-1 md:grid-cols-4 gap-12 px-8 py-20 max-w-7xl mx-auto">
+<div class="space-y-6">
+<img alt="be11 Logo" class="h-12 brightness-0 invert object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCZnjFq5A4w9JInRtZVxAvp09Pm0yYIOkROmtBtbU9MgYtGMCfIxXs3biCpFHwEi_gkZ9Wh4yiQVk-rBDIPxLT_98kcUZAEsW_HDPn02KL0PxbsxGC0sVaMm1UDGjL7cpY3oJQXFDj0m6XueokPTVmk_yxClmF9gL25L8NNXONgt4YLVCCEJkf10WCzBtiU-NP0bAuiPEVKJXvOitBs213ksoXlsKZRKfsTtCDLoChcZlELQTxgBHGqWlNHsetBLSkZ8A">
+<p class="font-body-md text-surface-variant/80">India's leading platform for booking sports venues, joining tournaments and buying sports gear. Elevating the game through athletic elegance.</p>
+<div class="flex gap-4">
+<a class="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center hover:bg-secondary-fixed hover:text-primary transition-all" href="#"><span class="material-symbols-outlined">qr_code_2</span></a>
+<a class="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center hover:bg-secondary-fixed hover:text-primary transition-all" href="#"><span class="material-symbols-outlined">photo_camera</span></a>
+<a class="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center hover:bg-secondary-fixed hover:text-primary transition-all" href="#"><span class="material-symbols-outlined">play_arrow</span></a>
+</div>
+</div>
+<div>
+<h6 class="font-label-bold text-secondary-fixed mb-6 uppercase tracking-wider">Quick Links</h6>
+<ul class="space-y-4">
+<li class=""><a class="text-surface-variant/80 hover:text-secondary-fixed transition-colors" href="#">About Us</a></li>
+<li class=""><a class="text-surface-variant/80 hover:text-secondary-fixed transition-colors" href="#">How It Works</a></li>
+<li class=""><a class="text-surface-variant/80 hover:text-secondary-fixed transition-colors" href="#">List Your Venue</a></li>
+<li class=""><a class="font-bold text-secondary-container" href="#">Become a Vendor</a></li>
+<li class=""><a class="text-surface-variant/80 hover:text-secondary-fixed transition-colors" href="#">Careers</a></li>
+</ul>
+</div>
+<div>
+<h6 class="font-label-bold text-secondary-fixed mb-6 uppercase tracking-wider">Support</h6>
+<ul class="space-y-4">
+<li class=""><a class="text-surface-variant/80 hover:text-secondary-fixed transition-colors" href="#">Help Center</a></li>
+<li class=""><a class="text-surface-variant/80 hover:text-secondary-fixed transition-colors" href="#">Contact Us</a></li>
+<li class=""><a class="text-surface-variant/80 hover:text-secondary-fixed transition-colors" href="#">Terms of Service</a></li>
+<li class=""><a class="text-surface-variant/80 hover:text-secondary-fixed transition-colors" href="#">Privacy Policy</a></li>
+<li class=""><a class="text-surface-variant/80 hover:text-secondary-fixed transition-colors" href="#">Vendor Guidelines</a></li>
+</ul>
+</div>
+<div>
+<h6 class="font-label-bold text-secondary-fixed mb-6 uppercase tracking-wider">Download App</h6>
+<div class="space-y-4">
+<a class="block bg-black border border-white/10 rounded-lg p-2 flex items-center gap-3" href="#">
+<span class="material-symbols-outlined text-3xl">cloud_download</span>
+<div>
+<p class="text-[10px] uppercase">Get it on</p>
+<p class="font-bold text-sm">Google Play</p>
+</div>
+</a>
+<a class="block bg-black border border-white/10 rounded-lg p-2 flex items-center gap-3" href="#">
+<span class="material-symbols-outlined text-3xl">phone_iphone</span>
+<div>
+<p class="text-[10px] uppercase">Download on the</p>
+<p class="font-bold text-sm">App Store</p>
+</div>
+</a>
+</div>
+</div>
+</div>
+<div class="border-t border-outline-variant/20 px-8 py-10 max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+<p class="font-label-sm text-surface-variant/60">© 2026 be11 Sports. All rights reserved. Elevating the game through athletic elegance.</p>
+<div class="flex items-center gap-2">
+<span class="text-xs text-surface-variant/60">Made with ❤️ in India</span>
+<div class="flex flex-col gap-0.5 h-4 w-6 border border-white/10">
+<div class="bg-[#FF9933] h-1/3"></div>
+<div class="bg-white h-1/3"></div>
+<div class="bg-[#138808] h-1/3"></div>
+</div>
+</div>
+</div>
+</footer>
+<script>
+        // Scroll Reveal Logic
+        const observerOptions = {
+            threshold: 0.1
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('active');
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+        // Micro-interactions for buttons
+        document.querySelectorAll('button').forEach(button => {
+            button.addEventListener('mousedown', () => {
+                button.classList.add('scale-95');
+            });
+            button.addEventListener('mouseup', () => {
+                button.classList.remove('scale-95');
+            });
+        });
+    </script>
+
+
+</body></html>
