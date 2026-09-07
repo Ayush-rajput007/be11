@@ -15,21 +15,62 @@ export interface UserDTO {
   phone?: string | null;
   role: UserRole;
   walletBalance: number;
+  emailVerified: boolean;
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
+}
+
+export type BookingType = 'SINGLE_TEAM_OF_11' | 'TEAM_OF_11' | 'WHOLE_GROUND' | 'ENTIRE_VENUE';
+
+export type MatchPeriod = 'MORNING' | 'AFTERNOON' | 'DAY_NIGHT' | 'NIGHT';
+
+export interface MatchPeriodPricing {
+  wholeGround: number;
+  entireVenue: number;
+  teamOf11: number;
+  individual?: number;
+}
+
+export interface MatchPeriodDTO {
+  id: MatchPeriod;
+  name: string;
+  timeRange: string;
+  price: number;
+  pricing: MatchPeriodPricing;
+  teamCoverage: string;
+  isAvailable: boolean;
+}
+
+export interface MatchPackageDTO {
+  id: string;
+  name: string;
+  price: number;
+  description: string;
+  facilities: string[];
 }
 
 export interface GroundDTO {
   id: string;
   name: string;
+  slug?: string;
   description: string;
   location: string;
+  address?: string;
   city: string;
+  state?: string;
+  country?: string;
   pricePerHour: number;
+  pricingLabel?: string;
+  pricingRules?: any;
   sport: string;
   amenities: string[];
   images: string[];
+  videos?: string[];
   ownerId: string;
+  ownerName?: string;
+  ownerPhone?: string;
+  mapsUrl?: string;
+  plusCode?: string;
   rating: number;
   reviewsCount: number;
   isActive: boolean;
@@ -43,14 +84,36 @@ export interface BookingDTO {
   groundId: string;
   customerId: string;
   date: string;
-  startTime: string;
-  endTime: string;
+  startTime?: string;
+  endTime?: string;
+  matchPeriod?: string | null;
+  bookingType?: BookingType;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  customerEmail?: string | null;
   totalPrice: number;
   status: BookingStatus;
   paymentStatus: PaymentStatus;
+  confirmedAt?: string | null;
+  confirmedById?: string | null;
+  confirmedBy?: UserDTO | null;
+  cancelledAt?: string | null;
+  cancelledById?: string | null;
+  cancelledBy?: UserDTO | null;
+  cancellationReason?: string | null;
   createdAt: string;
+  updatedAt?: string;
   ground?: GroundDTO;
   customer?: UserDTO;
+}
+
+export interface AdminBookingStatsDTO {
+  totalBookings: number;
+  pendingBookings: number;
+  confirmedBookings: number;
+  cancelledBookings: number;
+  todayBookings: number;
+  totalRevenue: number;
 }
 
 export interface SlotDTO {
@@ -58,6 +121,8 @@ export interface SlotDTO {
   endTime: string;   // e.g. "07:00"
   isAvailable: boolean;
   price: number;
+  slotType?: string;
+  slotLabel?: string;
 }
 
 export interface ReviewDTO {

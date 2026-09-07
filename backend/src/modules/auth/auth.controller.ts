@@ -6,6 +6,7 @@ import { env } from '../../config/env.js';
 import { AppError } from '../../utils/appError.js';
 import { RegisterSchema, LoginSchema, HttpStatus } from '@be11/shared';
 import { AuthenticatedRequest, TokenPayload } from '../../middlewares/auth.js';
+import { sendVerificationEmail, sendPasswordResetEmail } from '../../services/mail.service.js';
 
 // Helper: parse custom refresh cookie manually to avoid dependencies
 const getRefreshTokenFromCookie = (req: Request): string | undefined => {
@@ -22,7 +23,7 @@ const getRefreshTokenFromCookie = (req: Request): string | undefined => {
 };
 
 // Helper: generate Access and Refresh tokens
-const generateTokens = async (userId: string, role: 'CUSTOMER' | 'OWNER' | 'ADMIN', email: string, req: Request) => {
+const generateTokens = async (userId: string, role: string, email: string, req: Request) => {
   // Access token: expires in 1 hour
   const accessToken = jwt.sign(
     { userId, role, email },
@@ -64,46 +65,60 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
   try {
     const validated = RegisterSchema.parse(req.body);
 
+    // Prevent direct registration of privileged roles
+    const allowedRoles = ['PLAYER', 'CUSTOMER'];
+    if (!allowedRoles.includes(validated.role)) {
+      throw new AppError('Registration with this role is not permitted', HttpStatus.BAD_REQUEST);
+    }
+
+    const normalizedEmail = validated.email.trim().toLowerCase();
+
     const existingUser = await prisma.user.findUnique({
-      where: { email: validated.email },
+      where: { email: normalizedEmail },
     });
 
     if (existingUser) {
-      throw new AppError('Email already registered', HttpStatus.CONFLICT);
+      throw new AppError('An account with this email already exists. Please sign in instead.', HttpStatus.CONFLICT);
+    }
+
+    // Password validation constraints (min 8 chars)
+    if (validated.password.length < 8) {
+      throw new AppError('Password must contain at least 8 characters.', HttpStatus.BAD_REQUEST);
     }
 
     const passwordHash = await bcrypt.hash(validated.password, 10);
 
     const user = await prisma.user.create({
       data: {
-        email: validated.email,
+        email: normalizedEmail,
         passwordHash,
         firstName: validated.firstName,
         lastName: validated.lastName,
-        phone: validated.phone,
-        role: validated.role as any,
-        walletBalance: 5000.0,
+        phone: validated.phone || null,
+        role: validated.role,
+        walletBalance: 0.0,
+        emailVerified: false,
       },
     });
 
-    const { accessToken, refreshTokenString } = await generateTokens(user.id, user.role as any, user.email, req);
-    setRefreshTokenCookie(res, refreshTokenString);
+    // Generate secure 6 digit pin verification code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 10); // 10 min expiry
+
+    await prisma.otp.create({
+      data: { email: normalizedEmail, code, expiresAt },
+    });
+
+    // Send verification email
+    await sendVerificationEmail(normalizedEmail, code);
 
     res.status(HttpStatus.CREATED).json({
       success: true,
-      message: 'User registered successfully',
+      message: 'Account created successfully. Please verify your email to continue.',
       data: {
-        token: accessToken,
-        user: {
-          id: user.id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          phone: user.phone,
-          role: user.role,
-          walletBalance: user.walletBalance,
-          createdAt: user.createdAt.toISOString(),
-        },
+        email: user.email,
+        emailVerified: false,
       },
     });
   } catch (error) {
@@ -114,21 +129,32 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
 export const login = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const validated = LoginSchema.parse(req.body);
+    const normalizedEmail = validated.email.trim().toLowerCase();
 
     const user = await prisma.user.findUnique({
-      where: { email: validated.email },
+      where: { email: normalizedEmail },
     });
 
     if (!user) {
-      throw new AppError('Invalid email or password', HttpStatus.UNAUTHORIZED);
+      throw new AppError('Invalid email or password.', HttpStatus.UNAUTHORIZED);
     }
 
     const isMatch = await bcrypt.compare(validated.password, user.passwordHash);
     if (!isMatch) {
-      throw new AppError('Invalid email or password', HttpStatus.UNAUTHORIZED);
+      throw new AppError('Invalid email or password.', HttpStatus.UNAUTHORIZED);
     }
 
-    const { accessToken, refreshTokenString } = await generateTokens(user.id, user.role as any, user.email, req);
+    // Block unverified email users
+    if (!user.emailVerified) {
+      return res.status(HttpStatus.FORBIDDEN).json({
+        success: false,
+        message: 'Please verify your email address to continue.',
+        emailVerified: false,
+        email: user.email,
+      });
+    }
+
+    const { accessToken, refreshTokenString } = await generateTokens(user.id, user.role, user.email, req);
     setRefreshTokenCookie(res, refreshTokenString);
 
     res.status(HttpStatus.OK).json({
@@ -144,6 +170,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
           phone: user.phone,
           role: user.role,
           walletBalance: user.walletBalance,
+          emailVerified: user.emailVerified,
           createdAt: user.createdAt.toISOString(),
         },
       },
@@ -198,6 +225,7 @@ export const refresh = async (req: Request, res: Response, next: NextFunction) =
           phone: dbToken.user.phone,
           role: dbToken.user.role,
           walletBalance: dbToken.user.walletBalance,
+          emailVerified: dbToken.user.emailVerified,
           createdAt: dbToken.user.createdAt.toISOString(),
         },
       },
@@ -233,22 +261,23 @@ export const forgotPassword = async (req: Request, res: Response, next: NextFunc
       throw new AppError('Email is required', HttpStatus.BAD_REQUEST);
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      throw new AppError('No account found with this email', HttpStatus.NOT_FOUND);
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+    
+    // Return success to prevent email enumeration, but only seed OTP if user exists
+    if (user) {
+      // Generate 6 digit pin
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date();
+      expiresAt.setMinutes(expiresAt.getMinutes() + 10); // 10 min expiry
+
+      await prisma.otp.create({
+        data: { email: normalizedEmail, code, expiresAt },
+      });
+
+      // Send reset password email
+      await sendPasswordResetEmail(normalizedEmail, code);
     }
-
-    // Generate 6 digit pin
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date();
-    expiresAt.setMinutes(expiresAt.getMinutes() + 10); // 10 min expiry
-
-    await prisma.otp.create({
-      data: { email, code, expiresAt },
-    });
-
-    // Console logging the code so QA testers can find it instantly
-    console.log(`[TEST OTP CODE] Reset password code for ${email} is: ${code}`);
 
     res.status(HttpStatus.OK).json({
       success: true,
@@ -266,8 +295,15 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
       throw new AppError('Email, code and new password are required', HttpStatus.BAD_REQUEST);
     }
 
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // Password validation constraints (min 8 chars)
+    if (password.length < 8) {
+      throw new AppError('Password must contain at least 8 characters.', HttpStatus.BAD_REQUEST);
+    }
+
     const dbOtp = await prisma.otp.findFirst({
-      where: { email, code },
+      where: { email: normalizedEmail, code },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -276,12 +312,12 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
     }
 
     // Clear OTP
-    await prisma.otp.deleteMany({ where: { email } });
+    await prisma.otp.deleteMany({ where: { email: normalizedEmail } });
 
     // Update password hash
     const passwordHash = await bcrypt.hash(password, 10);
     await prisma.user.update({
-      where: { email },
+      where: { email: normalizedEmail },
       data: { passwordHash },
     });
 
@@ -408,6 +444,8 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response, ne
           phone: user.phone,
           role: user.role,
           walletBalance: user.walletBalance,
+          emailVerified: user.emailVerified,
+          createdAt: user.createdAt.toISOString(),
         },
       },
     });
@@ -439,6 +477,7 @@ export const getMe = async (req: AuthenticatedRequest, res: Response, next: Next
           phone: user.phone,
           role: user.role,
           walletBalance: user.walletBalance,
+          emailVerified: user.emailVerified,
           createdAt: user.createdAt.toISOString(),
         },
       },
@@ -450,27 +489,92 @@ export const getMe = async (req: AuthenticatedRequest, res: Response, next: Next
 
 export const googleAuth = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { email, firstName, lastName } = req.body;
-    if (!email) {
-      throw new AppError('Google email is required', HttpStatus.BAD_REQUEST);
+    const { idToken } = req.body;
+    if (!idToken) {
+      throw new AppError('Google token parameter is required', HttpStatus.BAD_REQUEST);
     }
 
-    let user = await prisma.user.findUnique({ where: { email } });
+    let email: string;
+    let firstName: string;
+    let lastName: string;
+    let payload: any = null;
+
+    // Development bypass option for local testing if needed
+    if (env.NODE_ENV === 'development' && idToken.startsWith('dummy_')) {
+      email = idToken.replace('dummy_', '');
+      firstName = 'Dummy';
+      lastName = 'GoogleUser';
+    } else {
+      // Call Google token info API to verify ID token
+      try {
+        const verifyRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`);
+        if (!verifyRes.ok) {
+          throw new AppError('Google verification failed or refused', HttpStatus.UNAUTHORIZED);
+        }
+        payload = await verifyRes.json() as any;
+
+        if (!payload.email) {
+          throw new AppError('Google token is missing email claims', HttpStatus.UNAUTHORIZED);
+        }
+
+        // Validate client audience matches our configured environment variable
+        if (env.GOOGLE_CLIENT_ID && payload.aud !== env.GOOGLE_CLIENT_ID) {
+          throw new AppError('Google client ID audience mismatch', HttpStatus.UNAUTHORIZED);
+        }
+
+        email = payload.email;
+        firstName = payload.given_name || 'Google';
+        lastName = payload.family_name || 'User';
+      } catch (err: any) {
+        console.error('Google Auth Validation Error:', err.message || err);
+        throw new AppError('Unable to complete Google sign-in. Please try again.', HttpStatus.UNAUTHORIZED);
+      }
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    // Safely extract the Google sub claim if present
+    const googleId = (payload as any)?.sub || null;
+    const profileImage = (payload as any)?.picture || null;
+
+    // Search by Google sub claim (stable external identity) first, then fallback to email
+    let user = googleId 
+      ? await prisma.user.findFirst({ where: { googleId } })
+      : null;
+
     if (!user) {
-      const passwordHash = await bcrypt.hash(`g_pass_${Math.random()}`, 10);
+      user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+    }
+
+    if (!user) {
+      const passwordHash = await bcrypt.hash(`google_auth_placeholder_${Math.random()}`, 10);
       user = await prisma.user.create({
         data: {
-          email,
+          email: normalizedEmail,
           passwordHash,
-          firstName: firstName || 'Google',
-          lastName: lastName || 'User',
+          firstName: firstName,
+          lastName: lastName,
           role: 'PLAYER',
-          walletBalance: 5000.0,
+          walletBalance: 0.0,
+          emailVerified: true,
+          googleId: googleId,
+          profileImage: profileImage,
+          provider: 'google',
+        },
+      });
+    } else {
+      // Safely link Google identity to existing local or google account
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          emailVerified: true,
+          googleId: user.googleId || googleId,
+          profileImage: user.profileImage || profileImage,
+          provider: user.provider === 'local' ? 'local' : 'google',
         },
       });
     }
 
-    const { accessToken, refreshTokenString } = await generateTokens(user.id, user.role as any, user.email, req);
+    const { accessToken, refreshTokenString } = await generateTokens(user.id, user.role, user.email, req);
     setRefreshTokenCookie(res, refreshTokenString);
 
     res.status(HttpStatus.OK).json({
@@ -486,9 +590,175 @@ export const googleAuth = async (req: Request, res: Response, next: NextFunction
           phone: user.phone,
           role: user.role,
           walletBalance: user.walletBalance,
+          emailVerified: user.emailVerified,
           createdAt: user.createdAt.toISOString(),
         },
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const googleOAuthCallback = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { code, error } = req.query;
+    if (error) {
+      return res.redirect(`${env.FRONTEND_URL || 'http://localhost:5173'}/login?oauth_error=${encodeURIComponent(String(error))}`);
+    }
+
+    if (!code) {
+      return res.redirect(`${env.FRONTEND_URL || 'http://localhost:5173'}/login?oauth_error=no_code`);
+    }
+
+    // Exchange code for token if client secret is configured
+    if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.GOOGLE_REDIRECT_URI) {
+      try {
+        const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            code: String(code),
+            client_id: env.GOOGLE_CLIENT_ID,
+            client_secret: env.GOOGLE_CLIENT_SECRET,
+            redirect_uri: env.GOOGLE_REDIRECT_URI,
+            grant_type: 'authorization_code',
+          }),
+        });
+
+        const tokenData = await tokenRes.json() as any;
+        if (tokenData.id_token) {
+          // Re-use internal verification
+          const verifyRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${tokenData.id_token}`);
+          const payload = await verifyRes.json() as any;
+          if (payload.email) {
+            const normalizedEmail = payload.email.trim().toLowerCase();
+            const googleId = payload.sub;
+            let user = await prisma.user.findFirst({ where: { OR: [{ googleId }, { email: normalizedEmail }] } });
+            if (!user) {
+              const passwordHash = await bcrypt.hash(`google_${Math.random()}`, 10);
+              user = await prisma.user.create({
+                data: {
+                  email: normalizedEmail,
+                  passwordHash,
+                  firstName: payload.given_name || 'Google',
+                  lastName: payload.family_name || 'User',
+                  role: 'PLAYER',
+                  walletBalance: 0.0,
+                  emailVerified: true,
+                  googleId,
+                  profileImage: payload.picture || null,
+                  provider: 'google',
+                },
+              });
+            } else {
+              user = await prisma.user.update({
+                where: { id: user.id },
+                data: { emailVerified: true, googleId: user.googleId || googleId },
+              });
+            }
+
+            const { accessToken, refreshTokenString } = await generateTokens(user.id, user.role, user.email, req);
+            setRefreshTokenCookie(res, refreshTokenString);
+            return res.redirect(`${env.FRONTEND_URL || 'http://localhost:5173'}/dashboard?token=${accessToken}`);
+          }
+        }
+      } catch (tokenErr) {
+        console.error('Failed to exchange Google OAuth code:', tokenErr);
+      }
+    }
+
+    return res.redirect(`${env.FRONTEND_URL || 'http://localhost:5173'}/login?oauth_error=exchange_failed`);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const verifyEmail = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email, code } = req.body;
+    if (!email || !code) {
+      throw new AppError('Email and verification code are required.', HttpStatus.BAD_REQUEST);
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // Verify OTP matching active code
+    const dbOtp = await prisma.otp.findFirst({
+      where: { email: normalizedEmail, code },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!dbOtp || dbOtp.expiresAt < new Date()) {
+      throw new AppError('Invalid or expired verification code.', HttpStatus.BAD_REQUEST);
+    }
+
+    // Invalidate code
+    await prisma.otp.deleteMany({ where: { email: normalizedEmail } });
+
+    // Mark email as verified
+    const user = await prisma.user.update({
+      where: { email: normalizedEmail },
+      data: { emailVerified: true },
+    });
+
+    // Authenticate user and issue tokens directly
+    const { accessToken, refreshTokenString } = await generateTokens(user.id, user.role, user.email, req);
+    setRefreshTokenCookie(res, refreshTokenString);
+
+    res.status(HttpStatus.OK).json({
+      success: true,
+      message: 'Email verified successfully. Welcome to BE11!',
+      data: {
+        token: accessToken,
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          phone: user.phone,
+          role: user.role,
+          walletBalance: user.walletBalance,
+          emailVerified: user.emailVerified,
+          createdAt: user.createdAt.toISOString(),
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const resendVerification = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      throw new AppError('Email is required.', HttpStatus.BAD_REQUEST);
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+
+    // Protect privacy: return success message regardless, but only perform operations if user is unverified
+    if (user && !user.emailVerified) {
+      // Clear old verification tokens
+      await prisma.otp.deleteMany({ where: { email: normalizedEmail } });
+
+      // Generate new 6-digit PIN code
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date();
+      expiresAt.setMinutes(expiresAt.getMinutes() + 10); // 10 min expiry
+
+      await prisma.otp.create({
+        data: { email: normalizedEmail, code, expiresAt },
+      });
+
+      await sendVerificationEmail(normalizedEmail, code);
+    }
+
+    res.status(HttpStatus.OK).json({
+      success: true,
+      message: 'If an unverified account with that email exists, a new verification code has been sent.',
     });
   } catch (error) {
     next(error);

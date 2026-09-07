@@ -9,7 +9,8 @@
     "start": "node dist/server.js",
     "lint": "eslint src/**/*.ts",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev"
+    "prisma:migrate": "prisma migrate dev",
+    "init:admin": "tsx scripts/init-admin.ts"
   },
   "dependencies": {
     "@be11/shared": "*",

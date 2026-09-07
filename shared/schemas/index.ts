@@ -46,10 +46,20 @@ export const GroundCreateSchema = z.object({
 export type GroundCreateInput = z.infer<typeof GroundCreateSchema>;
 
 export const BookingCreateSchema = z.object({
-  groundId: z.string().uuid('Invalid ground ID'),
+  groundId: z.string().optional(),
+  venueId: z.string().optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
-  startTime: z.string().regex(/^\d{2}:\d{2}$/, 'Start time must be in HH:MM format'),
-  endTime: z.string().regex(/^\d{2}:\d{2}$/, 'End time must be in HH:MM format'),
+  matchPeriod: z.enum(['MORNING', 'AFTERNOON', 'DAY_NIGHT', 'NIGHT', 'morning', 'afternoon', 'day-night', 'dayNight', 'night']).optional(),
+  bookingType: z.enum(['SINGLE_TEAM_OF_11', 'TEAM_OF_11', 'WHOLE_GROUND', 'ENTIRE_VENUE', 'single_team_of_11', 'team_of_11', 'whole_ground', 'entire_venue', 'INDIVIDUAL', 'individual']).optional().default('WHOLE_GROUND'),
+  customerName: z.string().min(1, 'Name is required').optional(),
+  customerPhone: z.string().min(8, 'Phone number is required').optional(),
+  customerEmail: z.string().email('Invalid email address').optional(),
+  priceTier: z.string().optional(),
+  startTime: z.string().regex(/^\d{2}:\d{2}$/, 'Start time must be in HH:MM format').optional(),
+  endTime: z.string().regex(/^\d{2}:\d{2}$/, 'End time must be in HH:MM format').optional(),
+}).refine((data) => data.groundId || data.venueId, {
+  message: 'Either groundId or venueId is required',
+  path: ['venueId'],
 });
 
 export type BookingCreateInput = z.infer<typeof BookingCreateSchema>;
@@ -61,3 +71,10 @@ export const ReviewCreateSchema = z.object({
 });
 
 export type ReviewCreateInput = z.infer<typeof ReviewCreateSchema>;
+
+export const BookingCancelSchema = z.object({
+  cancellationReason: z.string().min(3, 'Cancellation reason must be at least 3 characters').optional(),
+});
+
+export type BookingCancelInput = z.infer<typeof BookingCancelSchema>;
+

@@ -12,3 +12,16 @@ export const rateLimiter = rateLimit({
   },
   statusCode: HttpStatus.TOO_MANY_REQUESTS,
 });
+
+export const authRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 30, // Limit each IP to 30 requests per windowMs for auth routes
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many login or registration attempts. Please try again after 15 minutes.',
+  },
+  statusCode: HttpStatus.TOO_MANY_REQUESTS,
+});
+

@@ -80,7 +80,7 @@ export const Home: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-gutter max-w-4xl mx-auto mb-16 parallax-container">
             <div
-              onClick={() => navigate('/venues?sport=Cricket')}
+              onClick={() => navigate('/live-matches?sport=cricket')}
               className="relative group h-64 rounded-24 overflow-hidden shadow-xl reveal-item premium-card revealed cursor-pointer"
             >
               <img
@@ -98,7 +98,7 @@ export const Home: React.FC = () => {
             </div>
 
             <div
-              onClick={() => navigate('/venues?sport=Football')}
+              onClick={() => navigate('/live-matches?sport=football')}
               className="relative group h-64 rounded-24 overflow-hidden shadow-xl reveal-item premium-card revealed cursor-pointer"
             >
               <img
@@ -272,8 +272,8 @@ export const Home: React.FC = () => {
         <div className="px-container-padding max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-4 text-left reveal-item revealed">
             <div>
-              <h2 className="font-headline-lg text-primary text-3xl font-bold">Popular Near You</h2>
-              <p className="text-on-surface-variant text-body-lg text-sm">Curated elite venues in Mumbai</p>
+              <h2 className="font-headline-lg text-primary text-3xl font-bold">Popular Venues Near You</h2>
+              <p className="text-on-surface-variant text-body-lg text-sm">Curated real cricket grounds & sports venues in Faridabad</p>
             </div>
             <button
               onClick={() => navigate('/venues')}
@@ -290,56 +290,74 @@ export const Home: React.FC = () => {
             <p className="text-left text-on-surface-variant text-sm">Loading popular arenas...</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
-              {popularGrounds.map((g) => (
-                <div
-                  key={g.id}
-                  onClick={() => navigate(`/venues/${g.id}?date=${date}`)}
-                  className="bg-white rounded-24 overflow-hidden shadow-sm premium-card group reveal-item revealed cursor-pointer"
-                >
-                  <div className="relative h-60 overflow-hidden">
-                    <img className="w-full h-full object-cover" alt={g.name} src={g.images[0]} />
-                    <div className="absolute top-4 right-4 glass-panel px-3 py-1.5 rounded-full flex items-center gap-1">
-                      <span
-                        className="material-symbols-outlined text-secondary-container"
-                        style={{ fontVariationSettings: '"FILL" 1' }}
+              {popularGrounds.map((g) => {
+                const venuePath = `/venues/${g.slug || g.id}?date=${date}`;
+                const displayPrice = g.pricingLabel || (g.pricePerHour > 0 ? `₹${g.pricePerHour}/hr` : 'Price on request');
+                const imagesList = Array.isArray(g.images) ? g.images : typeof g.images === 'string' ? JSON.parse(g.images) : [];
+                const heroImg = imagesList[0] || 'https://images.unsplash.com/photo-1540747737956-37872f84a62f?auto=format&fit=crop&w=600&q=80';
+                const amenitiesList = Array.isArray(g.amenities) ? g.amenities : typeof g.amenities === 'string' ? JSON.parse(g.amenities) : [];
+
+                return (
+                  <div
+                    key={g.id}
+                    onClick={() => navigate(venuePath)}
+                    className="bg-white rounded-24 overflow-hidden shadow-sm premium-card group reveal-item revealed cursor-pointer flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="relative h-60 overflow-hidden">
+                        <img className="w-full h-full object-cover" alt={g.name} src={heroImg} />
+                        {g.rating > 0 ? (
+                          <div className="absolute top-4 right-4 glass-panel px-3 py-1.5 rounded-full flex items-center gap-1">
+                            <span
+                              className="material-symbols-outlined text-secondary-container"
+                              style={{ fontVariationSettings: '"FILL" 1' }}
+                            >
+                              star
+                            </span>
+                            <span className="text-label-bold text-primary">{g.rating}</span>
+                          </div>
+                        ) : (
+                          <div className="absolute top-4 right-4 bg-primary/90 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow">
+                            New Venue
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-card-inner p-6">
+                        <div className="flex justify-between items-start mb-2 gap-2">
+                          <h3 className="font-headline-md text-primary text-xl font-bold line-clamp-1">{g.name}</h3>
+                          <span className="text-on-tertiary-container font-label-bold font-bold text-sm shrink-0">
+                            {displayPrice}
+                          </span>
+                        </div>
+                        <p className="text-on-surface-variant text-label-sm flex items-center gap-1 mb-4 text-xs">
+                          <span className="material-symbols-outlined text-sm">location_on</span> {g.location}
+                        </p>
+                        <div className="flex gap-2 flex-wrap mb-6">
+                          {amenitiesList.slice(0, 3).map((am: string) => (
+                            <span
+                              key={am}
+                              className="bg-surface-container px-3 py-1 rounded-full text-label-sm text-outline text-xs"
+                            >
+                              {am}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="px-6 pb-6">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(venuePath);
+                        }}
+                        className="w-full py-3 rounded-xl bg-primary text-on-primary font-label-bold btn-primary-premium cursor-pointer"
                       >
-                        star
-                      </span>
-                      <span className="text-label-bold text-primary">{g.rating}</span>
+                        Book Now
+                      </button>
                     </div>
                   </div>
-                  <div className="p-card-inner p-6">
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-headline-md text-primary text-xl font-bold">{g.name}</h3>
-                      <span className="text-on-tertiary-container font-label-bold font-bold">
-                        ₹{g.pricePerHour}/hr
-                      </span>
-                    </div>
-                    <p className="text-on-surface-variant text-label-sm flex items-center gap-1 mb-4 text-xs">
-                      <span className="material-symbols-outlined text-sm">location_on</span> {g.location}
-                    </p>
-                    <div className="flex gap-2 flex-wrap mb-6">
-                      {g.amenities.map((am: string) => (
-                        <span
-                          key={am}
-                          className="bg-surface-container px-3 py-1 rounded-full text-label-sm text-outline text-xs"
-                        >
-                          {am}
-                        </span>
-                      ))}
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/venues/${g.id}?date=${date}`);
-                      }}
-                      className="w-full py-3 rounded-xl bg-primary text-on-primary font-label-bold btn-primary-premium cursor-pointer"
-                    >
-                      Book Now
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

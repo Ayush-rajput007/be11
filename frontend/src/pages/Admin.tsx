@@ -107,7 +107,7 @@ export const Admin: React.FC = () => {
         </div>
 
         {/* Tab Controls */}
-        <div className="flex bg-[#EDF2F7] p-1.5 rounded-2xl w-full md:w-fit mb-8">
+        <div className="flex flex-wrap bg-[#EDF2F7] p-1.5 rounded-2xl w-full md:w-fit mb-8 gap-1">
           <button
             onClick={() => setActiveTab('analytics')}
             className={`flex-1 md:flex-none px-6 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
@@ -124,6 +124,13 @@ export const Admin: React.FC = () => {
           >
             Vendor Onboarding Requests
           </button>
+          <a
+            href="/admin/bookings"
+            className="flex-1 md:flex-none px-6 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer text-primary hover:bg-[#F8FAFC] flex items-center gap-1.5 justify-center bg-white/60 border border-outline-variant/30"
+          >
+            <span className="material-symbols-outlined text-sm text-[#f97316]">stadium</span>
+            Venue Bookings Management
+          </a>
         </div>
 
         {/* Tab Panel 1: Analytics */}

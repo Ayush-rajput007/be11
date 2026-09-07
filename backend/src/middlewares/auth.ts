@@ -6,7 +6,7 @@ import { HttpStatus } from '@be11/shared';
 
 export interface TokenPayload {
   userId: string;
-  role: 'CUSTOMER' | 'OWNER' | 'ADMIN';
+  role: string;
   email: string;
 }
 

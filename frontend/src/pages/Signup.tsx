@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuthStore } from '../store/authStore.js';
 import { api } from '../lib/api.js';
 
 export const Signup: React.FC = () => {
-  const { login } = useAuthStore();
   const navigate = useNavigate();
 
   const [fullName, setFullName] = useState('');
@@ -12,18 +10,34 @@ export const Signup: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState<'PLAYER' | 'OWNER' | 'COACH' | 'VENDOR' | 'ORGANIZER'>('PLAYER');
   const [agreeTerms, setAgreeTerms] = useState(false);
 
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Compute password strength
+  const getPasswordStrength = (pass: string) => {
+    if (!pass) return { score: 0, label: '', color: '' };
+    let score = 0;
+    if (pass.length >= 8) score += 1;
+    if (/[A-Z]/.test(pass) && /[a-z]/.test(pass)) score += 1;
+    if (/\d/.test(pass)) score += 1;
+    if (/[!@#$%^&*(),.?":{}|<>]/.test(pass)) score += 1;
+
+    if (score <= 1) return { score: 1, label: 'Weak', color: 'bg-red-500' };
+    if (score === 2) return { score: 2, label: 'Fair', color: 'bg-yellow-500' };
+    if (score === 3) return { score: 3, label: 'Good', color: 'bg-blue-500' };
+    return { score: 4, label: 'Strong', color: 'bg-emerald-500' };
+  };
+
+  const strength = getPasswordStrength(password);
+
   const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
 
-    if (password.length < 6) {
-      setErrorMsg('Password must be at least 6 characters long.');
+    if (password.length < 8) {
+      setErrorMsg('Password must contain at least 8 characters.');
       return;
     }
 
@@ -33,147 +47,142 @@ export const Signup: React.FC = () => {
     }
 
     if (!agreeTerms) {
-      setErrorMsg('Please agree to the Terms of Service.');
+      setErrorMsg('Please agree to the Terms of Service and Privacy Policy.');
       return;
     }
 
     setLoading(true);
 
-    // Split fullName into firstName and lastName
     const nameParts = fullName.trim().split(/\s+/);
     const firstName = nameParts[0] || 'User';
     const lastName = nameParts.slice(1).join(' ') || 'Name';
 
     try {
-      const res = await api.post('/auth/register', {
-        email,
+      await api.post('/auth/register', {
+        email: email.trim(),
         password,
         firstName,
         lastName,
-        phone: phone || undefined,
-        role,
+        phone: phone ? phone.trim() : undefined,
+        role: 'PLAYER', // Default public safe role
       });
 
-      login(res.data.data.user, res.data.data.token);
-      
-      // Verification notice before dashboard redirect
-      alert('Verification OTP code sent to your email. Redirecting to workspace...');
-      navigate('/dashboard');
+      // Start email verification flow
+      navigate('/verify-email', { state: { email: email.trim() } });
     } catch (err: any) {
       console.error(err);
-      setErrorMsg(err.response?.data?.message || 'Registration failed. Please check details.');
+      setErrorMsg(err.response?.data?.message || 'Registration failed. Please check your details.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen pt-24 pb-16 bg-[#040408] text-white flex items-center justify-center relative font-poppins overflow-hidden">
-      {/* Background glow filters */}
-      <div className="absolute top-1/4 right-1/4 w-96 h-96 rounded-full bg-indigo-600/10 blur-[120px] pointer-events-none"></div>
-      <div className="absolute bottom-1/4 left-1/4 w-96 h-96 rounded-full bg-orange-500/5 blur-[120px] pointer-events-none"></div>
+    <div className="min-h-screen pt-24 pb-16 bg-[#000c1e] text-white flex items-center justify-center relative font-poppins overflow-hidden">
+      {/* Visual background glows */}
+      <div className="absolute top-1/4 right-1/4 w-[450px] h-[450px] rounded-full bg-[#0a2e6e]/20 blur-[140px] pointer-events-none"></div>
+      <div className="absolute bottom-1/4 left-1/4 w-[450px] h-[450px] rounded-full bg-[#f97316]/10 blur-[140px] pointer-events-none"></div>
 
       <div className="max-w-xl w-full mx-auto px-6 z-10">
-        <div className="bg-[#09090F]/70 border border-white/10 rounded-[28px] p-8 shadow-2xl backdrop-blur-xl relative text-left">
+        <div className="bg-[#001533]/90 border border-slate-700/70 rounded-[28px] p-8 sm:p-10 shadow-2xl backdrop-blur-xl relative text-left">
           
-          <div className="text-center mb-6">
-            <h3 className="font-poppins font-black text-xl text-white uppercase tracking-wider">Create Account</h3>
-            <p className="text-xs text-gray-400 mt-1">Join the be11 premium sports network.</p>
+          <div className="text-center mb-7">
+            <div className="flex justify-center mb-3">
+              <img
+                src="/be11_logo.png"
+                alt="BE11 Logo"
+                className="h-10 w-auto object-contain"
+              />
+            </div>
+            <h2 className="font-poppins font-black text-2xl text-white tracking-tight">Create an Account</h2>
+            <p className="text-xs text-slate-400 mt-1">Join BE11 to book premier grounds and tournaments.</p>
           </div>
 
           {errorMsg && (
-            <div className="bg-red-950/40 border border-red-500/20 text-red-400 p-3.5 rounded-xl text-xs font-semibold mb-4">
-              {errorMsg}
+            <div className="bg-red-950/60 border border-red-500/30 text-red-300 p-3.5 rounded-xl text-xs font-semibold mb-5 flex items-start gap-2">
+              <span className="material-symbols-outlined text-base text-red-400 shrink-0">error</span>
+              <span>{errorMsg}</span>
             </div>
           )}
 
           <form onSubmit={handleSignupSubmit} className="space-y-4">
             
-            {/* Role Selection Tabs */}
-            <div className="space-y-1">
-              <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Select Account Type</label>
-              <div className="grid grid-cols-5 gap-1 bg-black/40 border border-white/10 p-1 rounded-xl">
-                {[
-                  { key: 'PLAYER', label: 'Player' },
-                  { key: 'COACH', label: 'Coach' },
-                  { key: 'OWNER', label: 'Owner' },
-                  { key: 'VENDOR', label: 'Vendor' },
-                  { key: 'ORGANIZER', label: 'Admin' }
-                ].map((r) => (
-                  <button
-                    key={r.key}
-                    type="button"
-                    onClick={() => setRole(r.key as any)}
-                    className={`py-2 px-1 text-[9px] font-black uppercase tracking-wide rounded-lg text-center cursor-pointer transition-all ${
-                      role === r.key ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    {r.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Full Name</label>
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Full Name</label>
               <input
                 required
                 type="text"
-                placeholder="Rahul Sharma"
+                placeholder="e.g. Rohit Verma"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"
+                className="w-full bg-[#000d20] border border-slate-700/80 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#f97316] focus:ring-1 focus:ring-[#f97316] transition-all"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Email Address</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Email Address</label>
                 <input
                   required
                   type="email"
                   placeholder="name@domain.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-[#000d20] border border-slate-700/80 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#f97316] focus:ring-1 focus:ring-[#f97316] transition-all"
                 />
               </div>
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Phone Number (Optional)</label>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Phone (Optional)</label>
                 <input
-                  type="text"
-                  placeholder="+919876543210"
+                  type="tel"
+                  placeholder="+91 98765 43210"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-[#000d20] border border-slate-700/80 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#f97316] focus:ring-1 focus:ring-[#f97316] transition-all"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Password</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Password</label>
                 <input
                   required
                   type="password"
-                  placeholder="••••••••"
+                  placeholder="At least 8 characters"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-[#000d20] border border-slate-700/80 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#f97316] focus:ring-1 focus:ring-[#f97316] transition-all"
                 />
               </div>
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Confirm Password</label>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Confirm Password</label>
                 <input
                   required
                   type="password"
-                  placeholder="••••••••"
+                  placeholder="Re-enter password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-[#000d20] border border-slate-700/80 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#f97316] focus:ring-1 focus:ring-[#f97316] transition-all"
                 />
               </div>
             </div>
+
+            {/* Password Strength Indicator */}
+            {password && (
+              <div className="space-y-1 pt-1">
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-slate-400">Password Strength:</span>
+                  <span className="font-bold text-white">{strength.label}</span>
+                </div>
+                <div className="grid grid-cols-4 gap-1.5 h-1.5">
+                  <div className={`rounded-full ${strength.score >= 1 ? strength.color : 'bg-slate-700'}`}></div>
+                  <div className={`rounded-full ${strength.score >= 2 ? strength.color : 'bg-slate-700'}`}></div>
+                  <div className={`rounded-full ${strength.score >= 3 ? strength.color : 'bg-slate-700'}`}></div>
+                  <div className={`rounded-full ${strength.score >= 4 ? strength.color : 'bg-slate-700'}`}></div>
+                </div>
+              </div>
+            )}
 
             <div className="flex items-start gap-2.5 py-1">
               <input
@@ -182,24 +191,36 @@ export const Signup: React.FC = () => {
                 id="agree"
                 checked={agreeTerms}
                 onChange={(e) => setAgreeTerms(e.target.checked)}
-                className="mt-0.5 rounded bg-black/40 border-white/10 text-indigo-600 focus:ring-0"
+                className="mt-0.5 rounded bg-[#000d20] border-slate-700 text-[#f97316] focus:ring-0 cursor-pointer"
               />
-              <label htmlFor="agree" className="text-[10px] text-gray-400 font-light leading-snug cursor-pointer">
-                I agree to the <span className="text-indigo-400 hover:underline">Terms of Service</span> and <span className="text-indigo-400 hover:underline">Privacy Policy</span>.
+              <label htmlFor="agree" className="text-[11px] text-slate-300 font-normal leading-snug cursor-pointer">
+                I agree to the <span className="text-blue-400 hover:underline">Terms of Service</span> and <span className="text-blue-400 hover:underline">Privacy Policy</span>.
               </label>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-xl font-bold text-xs uppercase tracking-wider text-center cursor-pointer transition-all shadow-md active:scale-95 duration-150"
+              className="w-full py-3.5 bg-[#f97316] hover:bg-[#ea580c] disabled:bg-slate-700 disabled:opacity-60 text-white rounded-xl font-bold text-xs uppercase tracking-wider text-center cursor-pointer transition-all shadow-lg active:scale-98 duration-150 flex items-center justify-center gap-2"
             >
-              {loading ? 'Registering...' : 'Sign Up'}
+              {loading ? (
+                <>
+                  <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                  </svg>
+                  <span>Creating account...</span>
+                </>
+              ) : (
+                'Create Account'
+              )}
             </button>
 
-            <div className="text-center text-xs text-gray-400 pt-2 border-t border-white/5">
+            <div className="text-center text-xs text-slate-400 pt-3 border-t border-slate-700/60">
               Already have an account?{' '}
-              <Link to="/login" className="text-indigo-400 hover:underline font-bold">Sign in</Link>
+              <Link to="/login" className="text-[#f97316] hover:text-[#ea580c] hover:underline font-bold ml-1">
+                Sign in
+              </Link>
             </div>
 
           </form>
@@ -208,3 +229,4 @@ export const Signup: React.FC = () => {
     </div>
   );
 };
+export default Signup;

@@ -1,0 +1,115 @@
+@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,wght@0,200;0,600;1,900&display=swap");
+@import url("https://rsms.me/inter/inter.css");
+@reference "tailwindcss";
+
+.jb-app {
+  position: relative;
+  width: 100%;
+  height: calc(100vh - 80px);
+  margin-top: 80px;
+  overflow: hidden;
+  background-color: #050508;
+}
+
+.jb-home {
+  @apply w-fit flex justify-start items-start flex-col p-6 absolute z-10;
+}
+
+@media (min-width: 640px) {
+  .jb-home {
+    @apply p-8;
+  }
+}
+
+@media (min-width: 1280px) {
+  .jb-home {
+    @apply h-full justify-between py-8 px-36;
+  }
+}
+
+@media (max-width: 1279px) {
+  .jb-home {
+    @apply gap-7;
+  }
+}
+
+.home-content {
+  @apply flex-1 justify-start flex flex-col gap-10;
+}
+
+@media (min-width: 1280px) {
+  .home-content {
+    @apply justify-center;
+  }
+}
+
+.head-text {
+  @apply text-[6rem] leading-[7rem] font-black text-white;
+}
+
+@media (min-width: 1280px) {
+  .head-text {
+    @apply text-[8rem] leading-[11rem];
+  }
+}
+
+.glassmorphism {
+  background: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 2px 30px 0 rgba(31, 38, 135, 0.07);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.download-btn {
+  @apply w-14 h-14 flex justify-center items-center rounded-full cursor-pointer outline-none;
+  background: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 2px 30px 0 rgba(31, 38, 135, 0.07);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.editortabs-container {
+  @apply w-16 border-[2px] rounded-lg flex flex-col justify-center items-center ml-1 py-4 gap-4;
+  background: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 2px 30px 0 rgba(31, 38, 135, 0.07);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.filtertabs-container {
+  @apply absolute z-10 bottom-5 right-0 left-0 w-full flex justify-center items-center flex-wrap gap-4;
+}
+
+.filepicker-container {
+  @apply absolute left-full ml-3 p-3 w-[195px] h-[220px] flex flex-col rounded-md;
+  background: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 2px 30px 0 rgba(31, 38, 135, 0.07);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.filepicker-label {
+  @apply border border-gray-300 py-1.5 px-2 rounded-md shadow-sm text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 cursor-pointer w-fit;
+}
+
+.tab-btn {
+  @apply w-14 h-14 flex justify-center items-center cursor-pointer select-none;
+}
+
+.sketch-picker {
+  width: 170px !important;
+  background: rgba(255, 255, 255, 0.25) !important;
+  box-shadow: 0 2px 30px 0 rgba(31, 38, 135, 0.07) !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  border-radius: 6px !important;
+}
+
+.sketch-picker > div:nth-child(3) {
+  display: none !important;
+}

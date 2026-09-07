@@ -4,6 +4,10 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
+  if (process.env.NODE_ENV === 'production') {
+    console.warn('⚠️ Seeding database aborted: NODE_ENV is set to production. Seed demo users are blocked from production.');
+    return;
+  }
   console.log('🌱 Starting database seeding with detailed Indian style tournaments across all cities...');
 
   // Clear existing data
@@ -32,6 +36,7 @@ async function main() {
   const storePasswordHash = await bcrypt.hash('Store@123', 10);
   const organizerPasswordHash = await bcrypt.hash('Organizer@123', 10);
   const supportPasswordHash = await bcrypt.hash('Support@123', 10);
+  const demoPlayerPasswordHash = await bcrypt.hash('BE11Player@2026!', 10);
 
   // 1. Create Users
   const superadmin = await prisma.user.create({
@@ -43,6 +48,7 @@ async function main() {
       phone: '+919876543209',
       role: 'SUPER_ADMIN',
       walletBalance: 0.0,
+      emailVerified: true,
     },
   });
 
@@ -55,6 +61,7 @@ async function main() {
       phone: '+919876543212',
       role: 'ADMIN',
       walletBalance: 0.0,
+      emailVerified: true,
     },
   });
 
@@ -66,7 +73,8 @@ async function main() {
       lastName: 'Sharma',
       phone: '+919876543210',
       role: 'PLAYER',
-      walletBalance: 30000.0,
+      walletBalance: 0.0,
+      emailVerified: true,
     },
   });
 
@@ -79,6 +87,7 @@ async function main() {
       phone: '+919876543211',
       role: 'OWNER',
       walletBalance: 0.0,
+      emailVerified: true,
     },
   });
 
@@ -91,6 +100,7 @@ async function main() {
       phone: '+919876543213',
       role: 'VENDOR',
       walletBalance: 0.0,
+      emailVerified: true,
     },
   });
 
@@ -103,6 +113,7 @@ async function main() {
       phone: '+919876543214',
       role: 'STORE_MANAGER',
       walletBalance: 0.0,
+      emailVerified: true,
     },
   });
 
@@ -115,6 +126,7 @@ async function main() {
       phone: '+919876543215',
       role: 'ORGANIZER',
       walletBalance: 0.0,
+      emailVerified: true,
     },
   });
 
@@ -127,13 +139,191 @@ async function main() {
       phone: '+919876543216',
       role: 'SUPPORT',
       walletBalance: 0.0,
+      emailVerified: true,
     },
   });
 
-  console.log('✅ Users created successfully!');
+  // Dedicated Official Demo Player for Development & Testing
+  const demoPlayer = await prisma.user.upsert({
+    where: { email: 'player.demo@be11.local' },
+    update: {
+      passwordHash: demoPlayerPasswordHash,
+      firstName: 'Demo',
+      lastName: 'Player',
+      role: 'PLAYER',
+      walletBalance: 0.0,
+      emailVerified: true,
+    },
+    create: {
+      email: 'player.demo@be11.local',
+      passwordHash: demoPlayerPasswordHash,
+      firstName: 'Demo',
+      lastName: 'Player',
+      phone: '+919876543200',
+      role: 'PLAYER',
+      walletBalance: 0.0,
+      emailVerified: true,
+    },
+  });
 
-  // Helper arrays for seeding grounds in multiple cities
+  console.log('✅ Users created successfully including official demo player (player.demo@be11.local)!');
+
+  // Seed 3 REAL PRODUCTION VENUES in Faridabad
+  const rrrGround = await prisma.ground.create({
+    data: {
+      name: 'RRR Cricket Club Kidawali Faridabad',
+      slug: 'rrr-cricket-club-kidawali-faridabad',
+      description: 'Premier cricket facility located at Bhati House, Kidawali Gaon in Faridabad. Featuring professional turf pitches, lush outfields, night floodlighting, dugout pavilion, and dedicated practice nets.',
+      location: 'Kidawali, Pusta Road, Faridabad',
+      address: 'Bhati House, Kidawali Gaon, Faridabad, Kirawali, Pusta Road, Sherpur Khadar, Faridabad - 121002, Haryana, India',
+      city: 'Faridabad',
+      state: 'Haryana',
+      country: 'India',
+      pricePerHour: 0.0,
+      pricingLabel: 'Contact for pricing',
+      pricingRules: JSON.stringify({ type: 'CONTACT_ONLY', label: 'Price on request' }),
+      sport: 'Cricket',
+      amenities: JSON.stringify(['Turf Pitch', 'Flood Lights', 'Pavilion / Dugout', 'Practice Nets', 'Drinking Water', 'Washrooms']),
+      images: JSON.stringify([
+        '/venues/rrr/rrr-cricket-club-kidawali-sherpur-khadar-faridabad-sports-clubs-cover-photo.jpg',
+        '/venues/rrr/rrr-cricket-club-kidawali-sherpur-khadar-faridabad-sports-clubs-7bf921d9yg.jpg',
+        '/venues/rrr/rrr-cricket-club-kidawali-sherpur-khadar-faridabad-sports-clubs-vqt022xlpv.jpg',
+        '/venues/rrr/rrr-cricket-club-kidawali-sherpur-khadar-faridabad-sports-clubs-x327wev07c.jpg'
+      ]),
+      videos: JSON.stringify([]),
+      ownerId: owner.id,
+      ownerName: 'Rishi',
+      ownerPhone: '+91 97116 69718',
+      mapsUrl: 'https://maps.google.com/?q=28.466611,77.397333',
+      rating: 0.0,
+      reviewsCount: 0,
+      latitude: 28.466611,
+      longitude: 77.397333,
+      isActive: true
+    }
+  });
+
+  const playnowGround = await prisma.ground.create({
+    data: {
+      name: 'Playnow Cricket Ground',
+      slug: 'playnow-cricket-ground',
+      description: 'Top-tier cricket arena in Faridabad designed for competitive day and night matches. Fully equipped with tournament-grade pitch, LED floodlights, player dugout, and high quality media streaming equipment.',
+      location: 'Faridabad, Haryana',
+      address: 'Playnow Cricket Ground, Faridabad, Haryana, India',
+      city: 'Faridabad',
+      state: 'Haryana',
+      country: 'India',
+      pricePerHour: 5000.0,
+      pricingLabel: 'From ₹5,000',
+      pricingRules: JSON.stringify({
+        type: 'TIME_SLOT_MATRIX',
+        weekday: {
+          morning: { ENTIRE_VENUE: 5000, TEAM_OF_11: 2500, INDIVIDUAL: 250 },
+          afternoon: { ENTIRE_VENUE: 5000, TEAM_OF_11: 2500, INDIVIDUAL: 250 },
+          night: { ENTIRE_VENUE: 10000, TEAM_OF_11: 5000, INDIVIDUAL: 500 },
+        },
+        weekend: {
+          morning: { ENTIRE_VENUE: 10000, TEAM_OF_11: 5000, INDIVIDUAL: 500 },
+          afternoon: { ENTIRE_VENUE: 5000, TEAM_OF_11: 2500, INDIVIDUAL: 250 },
+          dayNight: { ENTIRE_VENUE: 10000, TEAM_OF_11: 5000, INDIVIDUAL: 500 },
+          night: { ENTIRE_VENUE: 11000, TEAM_OF_11: 5500, INDIVIDUAL: 550 },
+        },
+        teamCoverage: 'both teams'
+      }),
+      sport: 'Cricket',
+      amenities: JSON.stringify(['Turf Pitch', 'Flood Lights', 'Dugout', 'Cafeteria', 'Parking', 'Washrooms']),
+      images: JSON.stringify([
+        '/venues/playnow/Playnow cricket ground.png'
+      ]),
+      videos: JSON.stringify([
+        '/venues/playnow/Playnow cricket ground.mp4',
+        '/venues/playnow/Playnow_cricket_ground.mp4'
+      ]),
+      ownerId: owner.id,
+      ownerName: 'Aanurag Jain',
+      ownerPhone: '+91 95992 80399',
+      mapsUrl: 'https://maps.app.goo.gl/YWxe3yy89q7rKy9c9',
+      rating: 0.0,
+      reviewsCount: 0,
+      latitude: 28.420000,
+      longitude: 77.310000,
+      isActive: true
+    }
+  });
+
+  const abGround = await prisma.ground.create({
+    data: {
+      name: 'AB Cricket Ground',
+      slug: 'ab-cricket-ground',
+      description: 'State of the art cricket hub situated inside the Aravalli Golf Course precinct in Faridabad. Offers full match setup with umpires, scorers, sight screen, net sessions, and on-site cafeteria.',
+      location: 'New Industrial Town, Faridabad',
+      address: 'New Industrial Town, Aravalli Golf Course, New Industrial Township, Faridabad, Haryana - 121001, India',
+      city: 'Faridabad',
+      state: 'Haryana',
+      country: 'India',
+      pricePerHour: 3500.0,
+      pricingLabel: 'From ₹3,500',
+      pricingRules: JSON.stringify({
+        type: 'PACKAGE_TIERS',
+        options: [
+          {
+            id: 'pkg-standard',
+            name: 'Standard Match Package',
+            price: 3500,
+            description: 'Half-day match setup with umpires, scorers, practice nets, and pavilion dugout.',
+            facilities: ['Umpires', 'Scorers', 'Balls', 'Drinking Water', 'Practice Nets', 'Pavilion/Dugout', 'Washrooms']
+          },
+          {
+            id: 'pkg-extended',
+            name: 'Extended Day Match Package',
+            price: 6500,
+            description: 'Full-day tournament match setup with floodlights, cafeteria access, sight screen, and media scoreboards.',
+            facilities: ['Umpires', 'Scorers', 'Flood Lights', 'Balls', 'Sight Screen', 'Cafeteria', 'Pavilion/Dugout', 'Washrooms']
+          }
+        ]
+      }),
+      sport: 'Cricket',
+      amenities: JSON.stringify([
+        'Umpires',
+        'Scorers',
+        'Drinking Water',
+        'Practice Nets',
+        'Flood Lights',
+        'Balls',
+        'Washrooms',
+        'Pavilion/Dugout',
+        'Sight Screen',
+        'Cafeteria'
+      ]),
+      images: JSON.stringify([
+        '/venues/ab/Ab-hub-Cricket-Ground-2.jpg',
+        '/venues/ab/AB_Cricket_hub_logo.jpg',
+        '/venues/ab/1626583807641_k3FF5LqrKL3W.jpg',
+        '/venues/ab/1626583836958_9ggaKwPYBjZl.jpg',
+        '/venues/ab/1712466993141_pYOd9SDtqblb.jpg',
+        '/venues/ab/1712467019752_kHFtLZSKbTgO.jpg',
+        '/venues/ab/1712467048874_BNvZCpX11nXk.jpg',
+        '/venues/ab/1712467096971_TnkeSNVpfXS9.jpg',
+        '/venues/ab/1730546083919_JY9GXVSgW6Gh.jpg'
+      ]),
+      videos: JSON.stringify([]),
+      ownerId: owner.id,
+      ownerName: 'Rajesh Bajaj',
+      ownerPhone: '+91 95402 28222',
+      mapsUrl: 'https://maps.google.com/?q=28.441139,77.377944',
+      plusCode: '97PW+V69',
+      rating: 0.0,
+      reviewsCount: 0,
+      latitude: 28.441139,
+      longitude: 77.377944,
+      isActive: true
+    }
+  });
+
+  const realGrounds = [rrrGround, playnowGround, abGround];
+
   const citiesData = [
+    { name: 'Faridabad', lat: 28.4089, lng: 77.3178 },
     { name: 'Mumbai', lat: 19.0760, lng: 72.8777 },
     { name: 'Delhi', lat: 28.6139, lng: 77.2090 },
     { name: 'Pune', lat: 18.5204, lng: 73.8567 },
@@ -152,74 +342,11 @@ async function main() {
   ];
 
   const groundsMap: Record<string, any[]> = {};
-
-  // Generate 2 grounds for every city (one Cricket, one Football)
-  for (const city of citiesData) {
-    const g1 = await prisma.ground.create({
-      data: {
-        name: `${city.name} Pavilion Arena`,
-        description: `Premium sporting turf in ${city.name} with professional floodlights, spectators lounge, and elite level pitches designed for cricket matches.`,
-        location: `Sector 3, ${city.name} Central`,
-        city: city.name,
-        pricePerHour: 1200.0,
-        sport: 'Cricket',
-        amenities: ['Floodlights', 'AC Lounge', 'Showers'],
-        images: [
-          'https://images.unsplash.com/photo-1540747737956-37872f84a62f?auto=format&fit=crop&w=600&q=80'
-        ],
-        ownerId: owner.id,
-        rating: 4.9,
-        reviewsCount: 1,
-        latitude: city.lat + 0.005,
-        longitude: city.lng + 0.005,
-      },
-    });
-
-    const g2 = await prisma.ground.create({
-      data: {
-        name: `${city.name} Skyline Turf`,
-        description: `FIFA-grade synthetic open-air turf in ${city.name}. Excellent spectators seating, parking space, and cafeteria on site.`,
-        location: `Link Road, ${city.name} West`,
-        city: city.name,
-        pricePerHour: 900.0,
-        sport: 'Football',
-        amenities: ['Open Air', 'Cafe', 'Parking'],
-        images: [
-          'https://images.unsplash.com/photo-1518063319789-7217e6706b04?auto=format&fit=crop&w=600&q=80'
-        ],
-        ownerId: owner.id,
-        rating: 4.7,
-        reviewsCount: 1,
-        latitude: city.lat - 0.005,
-        longitude: city.lng - 0.005,
-      },
-    });
-
-    groundsMap[city.name] = [g1, g2];
+  for (const c of citiesData) {
+    groundsMap[c.name] = realGrounds;
   }
 
-  console.log(`✅ Grounds created successfully across all 15 cities!`);
-
-  // Seed reviews for grounds
-  for (const city of citiesData) {
-    const [g1, g2] = groundsMap[city.name];
-    await prisma.review.create({
-      data: {
-        groundId: g1.id,
-        userId: customer.id,
-        rating: 5,
-        comment: `Excellent pitch and extremely well-maintained facilities here at ${g1.name}.`,
-      },
-    });
-    await prisma.review.create({
-      data: {
-        groundId: g2.id,
-        userId: customer.id,
-        rating: 4,
-        comment: `Amazing turf quality and lighting at ${g2.name}. Perfect for football sessions.`,
-      },
-    });
-  }
+  console.log(`✅ 3 Real Grounds created successfully!`);
 
   // 3. Create Seed Products
   const products = [
@@ -675,127 +802,7 @@ async function main() {
     }
   }
 
-  // Create the specific grounds in Delhi as required for Live Matches
-  const powerPlayArena = await prisma.ground.create({
-    data: {
-      name: 'PowerPlay Arena',
-      description: 'Delhi’s premium sports arena with international-grade pitches and spectator galleries.',
-      location: 'Sector 10, Rohini, Delhi',
-      city: 'Delhi',
-      pricePerHour: 1500.0,
-      sport: 'Cricket',
-      amenities: ['Floodlights', 'Cafe', 'Showers', 'Parking'],
-      images: [
-        'https://images.unsplash.com/photo-1540747737956-37872f84a62f?auto=format&fit=crop&w=600&q=80'
-      ],
-      ownerId: owner.id,
-      rating: 4.8,
-      reviewsCount: 1,
-      latitude: 28.6139 + 0.002,
-      longitude: 77.2090 + 0.002,
-    }
-  });
-
-  const victoryFootballTurf = await prisma.ground.create({
-    data: {
-      name: 'Victory Football Turf',
-      description: 'FIFA approved 5-a-side and 7-a-side artificial turf with professional turf mesh and high quality grass.',
-      location: 'Khel Gaon Marg, Delhi',
-      city: 'Delhi',
-      pricePerHour: 1200.0,
-      sport: 'Football',
-      amenities: ['Open Air', 'Showers', 'Parking'],
-      images: [
-        'https://images.unsplash.com/photo-1518063319789-7217e6706b04?auto=format&fit=crop&w=600&q=80'
-      ],
-      ownerId: owner.id,
-      rating: 4.6,
-      reviewsCount: 1,
-      latitude: 28.6139 - 0.002,
-      longitude: 77.2090 - 0.002,
-    }
-  });
-
-  const eliteCricketTurf = await prisma.ground.create({
-    data: {
-      name: 'Elite Cricket Turf',
-      description: 'Elite net practices and cricket training ground with professional bowling machines and pitches.',
-      location: 'Dwarka Sector 21, Delhi',
-      city: 'Delhi',
-      pricePerHour: 1000.0,
-      sport: 'Cricket',
-      amenities: ['Bowling Machine', 'Nets', 'Showers'],
-      images: [
-        'https://images.unsplash.com/photo-1531415074968-036ba1b575da?auto=format&fit=crop&w=600&q=80'
-      ],
-      ownerId: owner.id,
-      rating: 4.7,
-      reviewsCount: 1,
-      latitude: 28.6139 + 0.004,
-      longitude: 77.2090 + 0.004,
-    }
-  });
-
-  // Seed public matches
-  // 1. Sunday Morning Cricket XI
-  await prisma.match.create({
-    data: {
-      groundId: powerPlayArena.id,
-      sport: 'Cricket',
-      date: 'Sunday',
-      startTime: '07:00 AM',
-      entryFee: 299.0,
-      playersJoined: 18,
-      totalPlayers: 22,
-      skillLevel: 'Intermediate',
-      hostId: customer.id,
-      hostName: 'Ayush Raj',
-      verifiedHost: true,
-      status: 'Filling Fast',
-      teamA: JSON.stringify(Array.from({ length: 9 }).map((_, i) => ({ id: `p-a-${i}`, firstName: `PlayerA-${i}`, lastName: `G` }))),
-      teamB: JSON.stringify(Array.from({ length: 9 }).map((_, i) => ({ id: `p-b-${i}`, firstName: `PlayerB-${i}`, lastName: `G` }))),
-    }
-  });
-
-  // 2. Evening Football Turf
-  await prisma.match.create({
-    data: {
-      groundId: victoryFootballTurf.id,
-      sport: 'Football',
-      date: 'Sunday',
-      startTime: '05:00 PM',
-      entryFee: 199.0,
-      playersJoined: 8,
-      totalPlayers: 10,
-      skillLevel: 'Beginner',
-      hostId: customer.id,
-      hostName: 'Vikram Singh',
-      verifiedHost: true,
-      status: 'Almost Full',
-      teamA: JSON.stringify(Array.from({ length: 4 }).map((_, i) => ({ id: `f-a-${i}`, firstName: `StrikerA-${i}`, lastName: `F` }))),
-      teamB: JSON.stringify(Array.from({ length: 4 }).map((_, i) => ({ id: `f-b-${i}`, firstName: `MidfielderB-${i}`, lastName: `F` }))),
-    }
-  });
-
-  // 3. Turf Practice Session
-  await prisma.match.create({
-    data: {
-      groundId: eliteCricketTurf.id,
-      sport: 'Cricket',
-      date: 'Sunday',
-      startTime: '09:00 AM',
-      entryFee: 99.0,
-      playersJoined: 6,
-      totalPlayers: 10,
-      skillLevel: 'Open',
-      hostId: customer.id,
-      hostName: 'Coach Pro',
-      verifiedHost: true,
-      status: 'Open',
-      teamA: JSON.stringify(Array.from({ length: 3 }).map((_, i) => ({ id: `c-a-${i}`, firstName: `NetsA-${i}`, lastName: `C` }))),
-      teamB: JSON.stringify(Array.from({ length: 3 }).map((_, i) => ({ id: `c-b-${i}`, firstName: `NetsB-${i}`, lastName: `C` }))),
-    }
-  });
+  // No dummy/fake matches seeded — real matches must be created by users or real database records.
 
   console.log(`✅ ${tournamentSeeds.length} Indian tournaments seeded successfully across various cities!`);
 

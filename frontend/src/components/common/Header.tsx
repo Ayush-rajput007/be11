@@ -27,8 +27,7 @@ export const Header: React.FC = () => {
   const locTriggerRef = useRef<HTMLButtonElement>(null);
 
   const cities = [
-    'Mumbai', 'Delhi', 'Bengaluru', 'Hyderabad', 'Chennai', 'Kolkata', 'Pune',
-    'Ahmedabad', 'Jaipur', 'Lucknow', 'Patna', 'Ranchi', 'Deoghar', 'Dhanbad', 'Indore'
+    'Faridabad', 'Gurugram', 'Haryana', 'Delhi', 'Noida', 'Mumbai', 'Bengaluru', 'Hyderabad', 'Pune'
   ];
 
   const filteredCities = cities.filter(c =>
@@ -41,14 +40,16 @@ export const Header: React.FC = () => {
       return;
     }
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        alert(`Detected location: Lat ${position.coords.latitude.toFixed(2)}, Lng ${position.coords.longitude.toFixed(2)}. Setting city to nearest hub: Delhi`);
-        setCity('Delhi');
+      (_position) => {
+        setCity('Faridabad');
         setLocDropdownOpen(false);
+        if (location.pathname === '/venues') {
+          navigate('/venues?city=Faridabad');
+        }
       },
       (error) => {
         console.error(error);
-        alert("Failed to detect location. Please select manually.");
+        alert("Location access is disabled. Please select your location manually from the menu.");
       }
     );
   };
@@ -340,6 +341,29 @@ export const Header: React.FC = () => {
                 </div>
               </div>
             </div>
+            {/* Toss */}
+            <Link
+              className={`nav-link-premium ${
+                location.pathname === '/toss'
+                  ? 'text-primary font-bold border-b-2 border-secondary pb-1'
+                  : 'text-on-surface-variant hover:text-primary transition-colors'
+              }`}
+              to="/toss"
+            >
+              Toss
+            </Link>
+
+            {/* Profile */}
+            <Link
+              className={`nav-link-premium ${
+                ['/profile', '/settings', '/dashboard'].includes(location.pathname)
+                  ? 'text-primary font-bold border-b-2 border-secondary pb-1'
+                  : 'text-on-surface-variant hover:text-primary transition-colors'
+              }`}
+              to={isAuthenticated ? '/profile' : '/login'}
+            >
+              Profile
+            </Link>
           </div>
 
           <div className="flex items-center gap-4">
@@ -395,47 +419,33 @@ export const Header: React.FC = () => {
                     />
                   </div>
 
-                  {/* Recent Locations chips */}
+                  {/* State / Region Category */}
                   <div>
-                    <span className="text-[9px] font-bold text-outline uppercase tracking-wider block mb-2">Recent Locations</span>
+                    <span className="text-[9px] font-bold text-outline uppercase tracking-wider block mb-2">State / Region</span>
                     <div className="flex flex-wrap gap-2">
-                      {['Mumbai', 'Delhi', 'Ranchi'].map((rCity) => (
+                      {['Faridabad', 'Gurugram', 'Haryana'].map((rCity) => (
                         <button
                           key={rCity}
                           onClick={() => {
                             setCity(rCity);
                             setLocDropdownOpen(false);
+                            if (location.pathname === '/venues') {
+                              navigate(`/venues?city=${encodeURIComponent(rCity)}`);
+                            }
                           }}
-                          className="px-3 py-1.5 rounded-full text-[10px] font-bold bg-gray-105 hover:bg-primary/5 hover:text-primary transition-all cursor-pointer border"
+                          className={`px-3 py-1.5 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${
+                            selectedCity === rCity ? 'bg-primary text-white border-primary shadow-sm' : 'bg-gray-105 text-primary hover:bg-primary/5'
+                          }`}
                         >
-                          {rCity}
+                          📍 {rCity}
                         </button>
                       ))}
                     </div>
                   </div>
 
-                  {/* Popular Cities pills */}
-                  <div>
-                    <span className="text-[9px] font-bold text-outline uppercase tracking-wider block mb-2">Popular Cities</span>
-                    <div className="flex flex-wrap gap-2">
-                      {['Mumbai', 'Delhi', 'Bengaluru', 'Hyderabad', 'Pune'].map((pCity) => (
-                        <button
-                          key={pCity}
-                          onClick={() => {
-                            setCity(pCity);
-                            setLocDropdownOpen(false);
-                          }}
-                          className="px-3 py-1.5 rounded-full text-[10px] font-bold bg-gray-105 hover:bg-primary/5 hover:text-primary transition-all cursor-pointer border"
-                        >
-                          {pCity}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* City List rows */}
-                  <div className="border-t pt-3 flex flex-col max-h-[160px] overflow-y-auto pr-1">
-                    <span className="text-[9px] font-bold text-outline uppercase tracking-wider block mb-2 px-1">All Cities</span>
+                  {/* All Cities rows */}
+                  <div className="border-t pt-3 flex flex-col max-h-[180px] overflow-y-auto pr-1">
+                    <span className="text-[9px] font-bold text-outline uppercase tracking-wider block mb-2 px-1">Available Locations</span>
                     {filteredCities.map((cName, idx) => {
                       const isSelected = selectedCity === cName;
                       const isHighlighted = highlightedIndex === idx;
@@ -445,6 +455,9 @@ export const Header: React.FC = () => {
                           onClick={() => {
                             setCity(cName);
                             setLocDropdownOpen(false);
+                            if (location.pathname === '/venues') {
+                              navigate(`/venues?city=${encodeURIComponent(cName)}`);
+                            }
                           }}
                           className={`w-full flex items-center justify-between h-[40px] px-3.5 rounded-xl text-xs transition-all text-left cursor-pointer ${
                             isSelected

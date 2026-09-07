@@ -511,30 +511,6 @@ export const LiveMatches: React.FC = () => {
           )}
         </div>
 
-        {/* Live Weather & Stats Mock Widget */}
-        <div className="bg-[#09090F]/70 border border-white/10 p-5 rounded-[22px] backdrop-blur-xl flex flex-wrap gap-6 items-center justify-between">
-          <div className="flex items-center gap-4">
-            <span className="text-3xl">☀️</span>
-            <div>
-              <p className="text-xs font-black text-indigo-300 uppercase tracking-widest">Live Delhi Weather</p>
-              <p className="text-lg font-black mt-0.5">32°C &bull; Clear Skies</p>
-            </div>
-          </div>
-          <div className="flex gap-8 text-xs text-gray-400 font-light">
-            <div>
-              <span className="block font-black text-white text-sm">84%</span>
-              Humidity
-            </div>
-            <div>
-              <span className="block font-black text-white text-sm">10%</span>
-              Rain Probability
-            </div>
-            <div>
-              <span className="block font-black text-white text-sm">12 km/h</span>
-              Wind speed
-            </div>
-          </div>
-        </div>
 
         {errorMsg && (
           <div className="bg-red-950/40 border border-red-500/20 text-red-400 p-4 rounded-2xl text-xs font-semibold">
@@ -616,30 +592,25 @@ export const LiveMatches: React.FC = () => {
 
         {/* Lobbies grid layout */}
         {loading ? (
-          <div className="py-24 text-center text-indigo-400 font-bold uppercase tracking-wider">Retrieving Active Playrooms...</div>
+          <div className="py-24 text-center text-indigo-400 font-bold uppercase tracking-wider">Retrieving Active Matches...</div>
         ) : matches.length === 0 ? (
-          <div className="py-20 text-center bg-[#09090F]/45 border border-dashed border-white/10 rounded-[28px] p-8 space-y-4">
-            <span className="text-5xl animate-pulse inline-block">
-              {selectedSport === 'Cricket' ? '🏏' : selectedSport === 'Football' ? '⚽' : selectedSport === 'Badminton' ? '🏸' : '🏟️'}
-            </span>
-            <h3 className="font-bold text-lg mt-2 uppercase tracking-wide">
-              {selectedSport === 'All' ? 'No Playrooms Found' : `No ${selectedSport} Matches Available`}
+          <div className="py-20 text-center bg-[#09090F]/45 border border-dashed border-white/10 rounded-[28px] p-8 space-y-4 max-w-xl mx-auto">
+            <span className="text-5xl inline-block">🏟️</span>
+            <h3 className="font-bold text-xl uppercase tracking-wider text-white">
+              NO LIVE MATCHES RIGHT NOW
             </h3>
-            <p className="text-gray-500 text-xs mt-1 max-w-sm mx-auto">
-              There are no active {selectedSport === 'All' ? '' : selectedSport} playrooms matches in {selectedCity}. Settle listings or host your own match lobby now!
+            <p className="text-gray-400 text-sm max-w-md mx-auto leading-relaxed">
+              There are currently no open matches available in your area. Check back later or create/book your own match.
             </p>
-            {isAuthenticated && ['SUPER_ADMIN', 'ADMIN', 'OWNER', 'COACH'].includes(user?.role || '') && (
-              <button
-                type="button"
-                onClick={() => {
-                  setIsHostOpen(true);
-                  setWizardStep(1);
-                }}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px] uppercase tracking-wider px-6 py-2.5 rounded-xl shadow-md transition-all cursor-pointer inline-block"
+            <div className="pt-2 flex justify-center gap-3">
+              <Link
+                to="/venues"
+                className="bg-[#f97316] hover:bg-[#ea580c] text-white font-bold text-xs uppercase tracking-wider px-6 py-3.5 rounded-xl shadow-lg transition-all cursor-pointer inline-flex items-center gap-2"
               >
-                Host {selectedSport === 'All' ? 'Match' : selectedSport} Lobby
-              </button>
-            )}
+                <span className="material-symbols-outlined text-base">stadium</span>
+                EXPLORE VENUES
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

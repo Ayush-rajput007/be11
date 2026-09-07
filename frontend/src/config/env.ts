@@ -5,10 +5,11 @@ const defaultApiUrl = isDev ? 'http://localhost:5000' : '';
 
 const envSchema = z.object({
   VITE_API_URL: z.string().default(defaultApiUrl),
+  VITE_GOOGLE_CLIENT_ID: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse((import.meta as any).env);
 
-export const env = parsed.success ? parsed.data : { VITE_API_URL: defaultApiUrl };
+export const env = parsed.success ? parsed.data : { VITE_API_URL: defaultApiUrl, VITE_GOOGLE_CLIENT_ID: undefined };
 export const API_URL = env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : '');
 export const API_V1_URL = API_URL ? `${API_URL}/api/v1` : '/api/v1';

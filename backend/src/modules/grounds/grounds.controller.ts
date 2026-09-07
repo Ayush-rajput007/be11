@@ -4,6 +4,27 @@ import { AppError } from '../../utils/appError.js';
 import { GroundCreateSchema, HttpStatus } from '@be11/shared';
 import { AuthenticatedRequest } from '../../middlewares/auth.js';
 
+const parseJsonField = (field: any) => {
+  if (typeof field === 'string') {
+    try {
+      return JSON.parse(field);
+    } catch {
+      return field;
+    }
+  }
+  return field;
+};
+
+const formatGroundResponse = (ground: any) => {
+  return {
+    ...ground,
+    amenities: parseJsonField(ground.amenities) || [],
+    images: parseJsonField(ground.images) || [],
+    videos: parseJsonField(ground.videos) || [],
+    pricingRules: parseJsonField(ground.pricingRules) || null,
+  };
+};
+
 export const getGrounds = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { sport, city, search } = req.query;
@@ -14,21 +35,24 @@ export const getGrounds = async (req: Request, res: Response, next: NextFunction
       filter.sport = sport as string;
     }
 
-    if (city) {
-      filter.city = city as string;
+    if (city && city !== 'All') {
+      filter.city = { equals: city as string };
     }
 
     if (search) {
       filter.OR = [
         { name: { contains: search as string } },
         { location: { contains: search as string } },
+        { address: { contains: search as string } },
       ];
     }
 
-    const grounds = await prisma.ground.findMany({
+    const rawGrounds = await prisma.ground.findMany({
       where: filter,
       orderBy: { createdAt: 'desc' },
     });
+
+    const grounds = rawGrounds.map(formatGroundResponse);
 
     res.status(HttpStatus.OK).json({
       success: true,
@@ -44,8 +68,14 @@ export const getGroundById = async (req: Request, res: Response, next: NextFunct
   try {
     const { id } = req.params;
 
-    const ground = await prisma.ground.findUnique({
-      where: { id: id as string },
+    // Find by ID or Slug
+    const rawGround = await prisma.ground.findFirst({
+      where: {
+        OR: [
+          { id: id as string },
+          { slug: id as string },
+        ],
+      },
       include: {
         owner: {
           select: {
@@ -58,9 +88,11 @@ export const getGroundById = async (req: Request, res: Response, next: NextFunct
       },
     });
 
-    if (!ground) {
+    if (!rawGround) {
       throw new AppError('Ground not found', HttpStatus.NOT_FOUND);
     }
+
+    const ground = formatGroundResponse(rawGround);
 
     res.status(HttpStatus.OK).json({
       success: true,
@@ -107,8 +139,13 @@ export const getGroundSlots = async (req: Request, res: Response, next: NextFunc
       throw new AppError('Date query param is required (YYYY-MM-DD)', HttpStatus.BAD_REQUEST);
     }
 
-    const ground = await prisma.ground.findUnique({
-      where: { id: id as string },
+    const ground = await prisma.ground.findFirst({
+      where: {
+        OR: [
+          { id: id as string },
+          { slug: id as string },
+        ],
+      },
     });
 
     if (!ground) {
@@ -118,42 +155,192 @@ export const getGroundSlots = async (req: Request, res: Response, next: NextFunc
     // Find confirmed/pending bookings for this ground on this date
     const bookings = await prisma.booking.findMany({
       where: {
-        groundId: id as string,
+        groundId: ground.id,
         date: date as string,
         status: { in: ['CONFIRMED', 'PENDING'] },
       },
     });
 
-    // Define business hours: 06:00 to 22:00 (1-hour slots)
-    const startHour = 6;
-    const endHour = 22;
-    const slots = [];
+    const [year, month, day] = (date as string).split('-').map(Number);
+    const parsedDate = new Date(year, month - 1, day);
+    const dayOfWeek = parsedDate.getDay(); // 0 = Sunday, 6 = Saturday
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
-    for (let hour = startHour; hour < endHour; hour++) {
-      const startTime = `${hour.toString().padStart(2, '0')}:00`;
-      const endTime = `${(hour + 1).toString().padStart(2, '0')}:00`;
+    const pricingRules = parseJsonField(ground.pricingRules);
 
-      // Check if slot is booked
-      const isBooked = bookings.some((b) => {
-        // Simple slot matching. If booking overlaps this slot.
-        // A slot is hourly.
-        return b.startTime === startTime;
+    // Dynamic Match Periods for Playnow Cricket Ground
+    let matchPeriods: any[] = [];
+    let packages: any[] = [];
+
+    const extractPrices = (rulesMap: any, periodKey: string) => {
+      const val = rulesMap?.[periodKey];
+      if (!val) return { entireVenue: 0, teamOf11: 0, individual: 0 };
+      if (typeof val === 'number') {
+        return {
+          entireVenue: val,
+          teamOf11: Math.round(val / 2),
+          individual: Math.round(val / 22),
+        };
+      }
+      const entireVenue = val.ENTIRE_VENUE ?? val.entireVenue ?? 0;
+      const teamOf11 = val.TEAM_OF_11 ?? val.teamOf11 ?? Math.round(entireVenue / 2);
+      const individual = val.INDIVIDUAL ?? val.individual ?? Math.round(entireVenue / 22);
+      return { entireVenue, teamOf11, individual };
+    };
+
+    if (pricingRules?.type === 'TIME_SLOT_MATRIX') {
+      const weekdayRules = pricingRules.weekday || {};
+      const weekendRules = pricingRules.weekend || {};
+      const activeRules = isWeekend ? weekendRules : weekdayRules;
+
+      // 1. Morning Match
+      const morningPricing = extractPrices(activeRules, 'morning');
+      const isMorningBooked = bookings.some(
+        (b) => b.matchPeriod === 'MORNING' || (b.startTime >= '06:00' && b.startTime < '12:00')
+      );
+      matchPeriods.push({
+        id: 'MORNING',
+        name: 'Morning Match',
+        timeRange: '07:00 AM - 11:30 AM',
+        price: morningPricing.entireVenue,
+        pricing: morningPricing,
+        teamCoverage: 'Both teams included',
+        isAvailable: !isMorningBooked,
       });
 
-      slots.push({
-        startTime,
-        endTime,
-        isAvailable: !isBooked,
-        price: ground.pricePerHour,
+      // 2. Afternoon Match
+      const afternoonPricing = extractPrices(activeRules, 'afternoon');
+      const isAfternoonBooked = bookings.some(
+        (b) => b.matchPeriod === 'AFTERNOON' || (b.startTime >= '12:00' && b.startTime < '16:30')
+      );
+      matchPeriods.push({
+        id: 'AFTERNOON',
+        name: 'Afternoon Match',
+        timeRange: '12:00 PM - 04:30 PM',
+        price: afternoonPricing.entireVenue,
+        pricing: afternoonPricing,
+        teamCoverage: 'Both teams included',
+        isAvailable: !isAfternoonBooked,
       });
+
+      // 3. Day-Night Match (WEEKENDS ONLY as per business rule)
+      if (isWeekend) {
+        const dayNightPricing = extractPrices(activeRules, 'dayNight');
+        const isDayNightBooked = bookings.some(
+          (b) => b.matchPeriod === 'DAY_NIGHT' || (b.startTime >= '16:00' && b.startTime < '20:00')
+        );
+        matchPeriods.push({
+          id: 'DAY_NIGHT',
+          name: 'Day-Night Match',
+          timeRange: '04:30 PM - 08:00 PM',
+          price: dayNightPricing.entireVenue,
+          pricing: dayNightPricing,
+          teamCoverage: 'Both teams included',
+          isAvailable: !isDayNightBooked,
+        });
+      }
+
+      // 4. Night Match
+      const nightPricing = extractPrices(activeRules, 'night');
+      const isNightBooked = bookings.some(
+        (b) => b.matchPeriod === 'NIGHT' || (b.startTime >= '19:30' && b.startTime <= '23:30')
+      );
+      matchPeriods.push({
+        id: 'NIGHT',
+        name: 'Night Match',
+        timeRange: '08:00 PM - 11:30 PM',
+        price: nightPricing.entireVenue,
+        pricing: nightPricing,
+        teamCoverage: 'Both teams included',
+        isAvailable: !isNightBooked,
+      });
+    } else if (ground.slug === 'ab-cricket-ground' || pricingRules?.type === 'PACKAGE_TIERS') {
+      // AB Cricket Ground Whole Ground Match Pricing
+      const morningBooked = bookings.some((b) => b.matchPeriod === 'MORNING');
+      const afternoonBooked = bookings.some((b) => b.matchPeriod === 'AFTERNOON');
+      const nightBooked = bookings.some((b) => b.matchPeriod === 'NIGHT' || b.matchPeriod === 'DAY_NIGHT');
+
+      matchPeriods = [
+        {
+          id: 'MORNING',
+          name: 'Morning Match',
+          timeRange: '07:00 AM - 11:30 AM',
+          price: 3500,
+          pricing: {
+            wholeGround: 3500,
+            entireVenue: 3500,
+            teamOf11: 0, // Price on request / contact owner
+          },
+          teamCoverage: 'Whole Ground included',
+          isAvailable: !morningBooked,
+        },
+        {
+          id: 'AFTERNOON',
+          name: 'Afternoon Match',
+          timeRange: '12:00 PM - 04:30 PM',
+          price: 3500,
+          pricing: {
+            wholeGround: 3500,
+            entireVenue: 3500,
+            teamOf11: 0, // Price on request / contact owner
+          },
+          teamCoverage: 'Whole Ground included',
+          isAvailable: !afternoonBooked,
+        },
+        {
+          id: 'NIGHT',
+          name: 'Night / Floodlit Match',
+          timeRange: '06:00 PM - 10:30 PM',
+          price: 6500,
+          pricing: {
+            wholeGround: 6500,
+            entireVenue: 6500,
+            teamOf11: 0, // Price on request / contact owner
+          },
+          teamCoverage: 'Whole Ground with Floodlights & Pavilion',
+          isAvailable: !nightBooked,
+        },
+      ];
+
+      packages = [
+        {
+          id: 'pkg-standard',
+          name: 'Standard Whole Ground',
+          price: 3500,
+          description: 'Complete whole ground match reservation with pitch prep, umpires, scorers & practice nets (Morning/Afternoon).',
+          facilities: ['Umpires', 'Scorers', 'Balls', 'Drinking Water', 'Practice Nets', 'Pavilion/Dugout', 'Washrooms'],
+          isAvailable: !morningBooked || !afternoonBooked,
+        },
+        {
+          id: 'pkg-extended',
+          name: 'Extended Day / Floodlit Whole Ground',
+          price: 6500,
+          description: 'Exclusive whole ground reservation with floodlights, full pavilion access & cafeteria.',
+          facilities: ['Umpires', 'Scorers', 'Flood Lights', 'Balls', 'Sight Screen', 'Cafeteria', 'Pavilion/Dugout', 'Washrooms'],
+          isAvailable: !nightBooked,
+        },
+      ];
     }
 
     res.status(HttpStatus.OK).json({
       success: true,
-      message: 'Slots retrieved successfully',
-      data: { slots },
+      message: 'Venue availability and pricing retrieved successfully',
+      data: {
+        groundId: ground.id,
+        date: date as string,
+        isWeekend,
+        dayType: isWeekend ? 'WEEKEND' : 'WEEKDAY',
+        pricingType: pricingRules?.type || 'STANDARD',
+        matchPeriods,
+        packages,
+        contact: pricingRules?.type === 'CONTACT_ONLY' ? {
+          ownerName: ground.ownerName || 'Venue Manager',
+          ownerPhone: ground.ownerPhone || '+91 97116 69718',
+        } : null,
+      },
     });
   } catch (error) {
     next(error);
   }
 };
+

@@ -15,12 +15,18 @@ model User {
   lastName          String
   phone             String?
   role              String              @default("CUSTOMER") // CUSTOMER, OWNER, ADMIN, ORGANIZER, COACH
-  walletBalance     Float               @default(5000.0)
+  walletBalance     Float               @default(0.0)
+  emailVerified     Boolean             @default(false)
+  googleId          String?             @unique
+  profileImage      String?
+  provider          String?             @default("local")
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
   
   grounds           Ground[]            @relation("OwnedGrounds")
   bookings          Booking[]           @relation("CustomerBookings")
+  confirmedBookings Booking[]           @relation("ConfirmedBookings")
+  cancelledBookings Booking[]           @relation("CancelledBookings")
   reviews           Review[]
   transactions      WalletTransaction[]
   notifications     Notification[]
@@ -46,15 +52,26 @@ model User {
 model Ground {
   id            String       @id @default(uuid())
   name          String
+  slug          String?      @unique
   description   String
   location      String
+  address       String?
   city          String
-  pricePerHour  Float
-  sport         String
+  state         String?      @default("Haryana")
+  country       String?      @default("India")
+  pricePerHour  Float        @default(0.0)
+  pricingLabel  String?
+  pricingRules  Json?
+  sport         String       @default("Cricket")
   amenities     Json
   images        Json
+  videos        Json?
   ownerId       String
   owner         User         @relation("OwnedGrounds", fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerName     String?
+  ownerPhone    String?
+  mapsUrl       String?
+  plusCode      String?
   rating        Float        @default(0.0)
   reviewsCount  Int          @default(0)
   isActive      Boolean      @default(true)
@@ -79,19 +96,34 @@ model Booking {
   date          String
   startTime     String
   endTime       String
+  matchPeriod   String?       // MORNING, AFTERNOON, DAY_NIGHT, NIGHT
   totalPrice    Float
   status        String        @default("PENDING")
   paymentStatus String        @default("PENDING")
-  bookingType   String        @default("INDIVIDUAL") // INDIVIDUAL, TEAM, FULL_GROUND
+  bookingType   String        @default("WHOLE_GROUND") // TEAM_OF_11, WHOLE_GROUND, ENTIRE_VENUE
+  customerName  String?
+  customerPhone String?
+  customerEmail String?
   playerCount   Int           @default(1)
   captainName   String?
   teamName      String?
   groundReserved Boolean      @default(false)
-  invoice       String?
-  transactionId String?
-  qrCode        String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  invoice            String?
+  transactionId      String?
+  qrCode             String?
+  confirmedAt        DateTime?
+  confirmedById      String?
+  confirmedBy        User?         @relation("ConfirmedBookings", fields: [confirmedById], references: [id])
+  cancelledAt        DateTime?
+  cancelledById      String?
+  cancelledBy        User?         @relation("CancelledBookings", fields: [cancelledById], references: [id])
+  cancellationReason String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@index([groundId, date, matchPeriod])
+  @@index([status])
+  @@index([date])
 }
 
 model Review {

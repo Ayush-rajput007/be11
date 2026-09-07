@@ -1,23 +1,50 @@
-# node modules
+# node modules & workspaces
 node_modules/
+.pnpm-store/
 
-# local env files
+# local env files (never commit secrets)
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
+!backend/.env.example
+!frontend/.env.example
 
-# build/dist
+# build & distribution outputs
 dist/
 build/
+.next/
+.output/
+
+# Prisma SQLite database files (never commit database instances to Git)
+*.db
+*.db-journal
+backend/prisma/dev.db
 
 # logs
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
 
-# system files
+# system & IDE files
 .DS_Store
 Thumbs.db
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Scratch & development prototypes
+scratch/
+jersey_builder_page/
+frontend/src/venues/
+-w
+
+# Test coverage
+coverage/
+.nyc_output/
+
