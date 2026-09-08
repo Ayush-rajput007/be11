@@ -40,14 +40,22 @@ const startServer = async () => {
   });
 };
 
-startServer().catch((error) => {
-  logger.error('💥 Server startup failed:', error);
-  process.exit(1);
-});
+// Standalone execution for local development / long-running server
+if (!process.env.VERCEL) {
+  startServer().catch((error) => {
+    logger.error('💥 Server startup failed:', error);
+    process.exit(1);
+  });
+}
 
 process.on('unhandledRejection', (reason: any) => {
   logger.error('💥 Unhandled Rejection! Shutting down server...', reason);
-  server.close(() => {
-    process.exit(1);
-  });
+  if (!process.env.VERCEL) {
+    server.close(() => {
+      process.exit(1);
+    });
+  }
 });
+
+export { server, io };
+export default app;

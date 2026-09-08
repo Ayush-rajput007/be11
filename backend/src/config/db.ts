@@ -9,6 +9,8 @@ export const connectDatabase = async (): Promise<void> => {
     logger.info('📚 Database successfully connected via Prisma');
   } catch (error) {
     logger.error('❌ Failed to connect to the database:', error);
-    process.exit(1);
+    if (!process.env.VERCEL) {
+      process.exit(1);
+    }
   }
 };

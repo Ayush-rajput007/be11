@@ -6,8 +6,8 @@ dotenv.config();
 const envSchema = z.object({
   PORT: z.string().transform((val) => parseInt(val, 10)).default('5000'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  DATABASE_URL: z.string().default('file:./dev.db'),
-  JWT_SECRET: z.string().min(8, 'JWT_SECRET must be at least 8 characters'),
+  DATABASE_URL: z.string().default('postgresql://postgres:postgres@localhost:5432/be11'),
+  JWT_SECRET: z.string().min(8, 'JWT_SECRET must be at least 8 characters').default('be11-default-jwt-secret-key-change-in-production'),
   REDIS_URL: z.string().default('redis://localhost:6379'),
   FRONTEND_URL: z.string().url('FRONTEND_URL must be a valid connection URL').optional(),
   GOOGLE_CLIENT_ID: z.string().optional(),
