@@ -60,5 +60,5 @@ process.on('unhandledRejection', (reason: any) => {
   }
 });
 
-export { server, io };
+export { app, server, io };
 export default app;
