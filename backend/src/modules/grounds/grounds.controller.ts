@@ -36,15 +36,39 @@ export const getGrounds = async (req: Request, res: Response, next: NextFunction
     }
 
     if (city && city !== 'All') {
-      filter.city = { equals: city as string };
+      const cityStr = (city as string).trim();
+      if (cityStr.toLowerCase() === 'haryana') {
+        filter.OR = [
+          { state: { equals: 'Haryana' } },
+          { city: { equals: 'Haryana' } },
+          { location: { contains: 'Haryana' } },
+          { address: { contains: 'Haryana' } },
+        ];
+      } else {
+        filter.OR = [
+          { city: { equals: cityStr } },
+          { location: { contains: cityStr } },
+          { address: { contains: cityStr } },
+        ];
+      }
     }
 
     if (search) {
-      filter.OR = [
-        { name: { contains: search as string } },
-        { location: { contains: search as string } },
-        { address: { contains: search as string } },
+      const searchStr = (search as string).trim();
+      const searchConditions = [
+        { name: { contains: searchStr } },
+        { location: { contains: searchStr } },
+        { address: { contains: searchStr } },
       ];
+      if (filter.OR) {
+        filter.AND = [
+          { OR: filter.OR },
+          { OR: searchConditions },
+        ];
+        delete filter.OR;
+      } else {
+        filter.OR = searchConditions;
+      }
     }
 
     const rawGrounds = await prisma.ground.findMany({

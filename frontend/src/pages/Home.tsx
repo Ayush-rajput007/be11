@@ -40,8 +40,13 @@ export const Home: React.FC = () => {
     const fetchPopular = async () => {
       setGroundsLoading(true);
       try {
-        const res = await api.get('/grounds', { params: { city: selectedCity } });
-        setPopularGrounds(res.data.data.grounds.slice(0, 3));
+        let res = await api.get('/grounds', { params: { city: selectedCity } });
+        let grounds = res.data.data.grounds || [];
+        if (grounds.length === 0) {
+          const fallbackRes = await api.get('/grounds');
+          grounds = fallbackRes.data.data.grounds || [];
+        }
+        setPopularGrounds(grounds.slice(0, 3));
       } catch (err) {
         console.error(err);
       } finally {

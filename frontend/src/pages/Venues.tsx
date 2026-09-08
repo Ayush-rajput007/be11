@@ -245,8 +245,8 @@ export const Venues: React.FC = () => {
                 }}
                 className="w-full bg-[#EDF2F7] rounded-xl px-4 py-2.5 border border-transparent focus:border-primary focus:ring-0 transition-all font-body-md appearance-none"
               >
-                <option value="All">All Locations</option>
-                <option value="Faridabad">Faridabad</option>
+                <option value="All">All Locations (3 Venues)</option>
+                <option value="Faridabad">Faridabad (3 Venues)</option>
                 <option value="Haryana">Haryana (All State)</option>
                 <option value="Gurugram">Gurugram</option>
                 <option value="Delhi">Delhi</option>
@@ -346,13 +346,13 @@ export const Venues: React.FC = () => {
           /* Production Clean Empty State (No Dummy Fallbacks) */
           <div className="bg-white rounded-24 p-12 text-center shadow-sm border border-outline-variant/30 max-w-2xl mx-auto my-8 space-y-4">
             <span className="material-symbols-outlined text-5xl text-secondary-container">location_off</span>
-            <h3 className="font-poppins font-black text-2xl text-primary uppercase tracking-tight">
-              NO VERIFIED VENUES AVAILABLE
+            <h3 className="font-poppins font-bold text-2xl text-primary">
+              No venues available in this area yet.
             </h3>
             <p className="text-sm text-on-surface-variant leading-relaxed">
-              BE11 is currently live with 3 verified grounds in <strong>Faridabad, Haryana</strong>. We do not display fake listings.
+              BE11 is currently live with 3 verified grounds in <strong>Faridabad, Haryana</strong>. We do not display fake grounds.
             </p>
-            <div className="flex flex-col sm:flex-row justify-center gap-4 pt-4">
+            <div className="flex flex-col sm:flex-row justify-center gap-3 pt-4">
               <button
                 onClick={() => {
                   setCity('Faridabad');
@@ -360,7 +360,7 @@ export const Venues: React.FC = () => {
                 }}
                 className="px-6 py-3 rounded-xl bg-primary text-white font-bold text-xs btn-primary-premium shadow cursor-pointer"
               >
-                Explore Faridabad Venues
+                Explore Faridabad Venues (3)
               </button>
               <button
                 onClick={() => {
@@ -370,6 +370,15 @@ export const Venues: React.FC = () => {
                 className="px-6 py-3 rounded-xl bg-[#EDF2F7] text-primary font-bold text-xs hover:bg-[#E2E8F0] cursor-pointer"
               >
                 View All Haryana Venues
+              </button>
+              <button
+                onClick={() => {
+                  setCity('All');
+                  setSearchParams({ sport: 'All', city: 'All', search: '' });
+                }}
+                className="px-6 py-3 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs hover:bg-slate-200 cursor-pointer"
+              >
+                Show All Venues (3)
               </button>
             </div>
           </div>

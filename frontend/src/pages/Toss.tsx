@@ -20,7 +20,7 @@ export const Toss: React.FC = () => {
   // Initialize and preload the audio file on mount
   useEffect(() => {
     // Main flip audio
-    const audio = new Audio('/audio/Ipl_Toss_Audio.mp3');
+    const audio = new Audio('/audio/lpl_Toss_Audio.mp3');
     audio.preload = 'auto';
     audioRef.current = audio;
 
