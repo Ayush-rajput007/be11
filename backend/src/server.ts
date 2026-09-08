@@ -22,6 +22,9 @@ const io = new Server(server, {
   },
 });
 
+// Attach io to express app so Express can route /socket.io directly
+app.set('io', io);
+
 // Configure Socket.io notifications controller hooks
 setIoInstance(io);
 

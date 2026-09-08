@@ -69,6 +69,16 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Socket.io handshake and polling handler for Express / serverless runtime
+app.all('/socket.io*', (req, res, next) => {
+  const io = app.get('io');
+  if (io && io.engine) {
+    io.engine.handleRequest(req, res);
+  } else {
+    next();
+  }
+});
+
 // Apply rate limiter to general api endpoints
 app.use('/api', rateLimiter);
 
