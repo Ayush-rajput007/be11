@@ -193,7 +193,7 @@ export const Admin: React.FC = () => {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#E5E7EB]">
-                          {data.popularGrounds.map((g) => (
+                          {data.popularGrounds.map((g: { name: string; bookingsCount: number; revenue: number }) => (
                             <tr key={g.name}>
                               <td className="py-4 font-bold text-primary">{g.name}</td>
                               <td className="py-4 font-semibold text-on-surface-variant">
@@ -213,7 +213,7 @@ export const Admin: React.FC = () => {
                   <div className="bg-white rounded-24 p-8 shadow-sm border border-outline-variant/30 text-left">
                     <h3 className="font-poppins font-bold text-xl text-primary mb-6">Revenue Growth</h3>
                     <div className="space-y-4">
-                      {data.monthlyRevenue.map((m) => (
+                      {data.monthlyRevenue.map((m: { month: string; revenue: number }) => (
                         <div key={m.month} className="flex justify-between items-center text-sm">
                           <span className="font-semibold text-on-surface-variant">{m.month}</span>
                           <div className="flex-1 mx-4 h-2 bg-[#EDF2F7] rounded-full overflow-hidden">
@@ -224,7 +224,7 @@ export const Admin: React.FC = () => {
                                   data.totalRevenue > 0
                                     ? Math.min((m.revenue / data.totalRevenue) * 150, 100)
                                     : 0
-                                  }%`,
+                                }%`,
                               }}
                             ></div>
                           </div>
