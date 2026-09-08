@@ -1,32 +1,15 @@
-import http from 'http';
-import { Server } from 'socket.io';
-import app from './app.js';
+import { app, server, io } from './app.js';
 import { env } from './config/env.js';
 import { logger } from './config/logger.js';
 import { connectDatabase } from './config/db.js';
 import { connectRedis } from './config/redis.js';
-import { setIoInstance } from './modules/notifications/notifications.controller.js';
 
 process.on('uncaughtException', (err: Error) => {
   logger.error('💥 Uncaught Exception! Shutting down server...', err);
-  process.exit(1);
+  if (!process.env.VERCEL) {
+    process.exit(1);
+  }
 });
-
-const server = http.createServer(app);
-
-const io = new Server(server, {
-  cors: {
-    origin: env.FRONTEND_URL || (env.NODE_ENV === 'development' ? 'http://localhost:5173' : true),
-    methods: ['GET', 'POST'],
-    credentials: true,
-  },
-});
-
-// Attach io to express app so Express can route /socket.io directly
-app.set('io', io);
-
-// Configure Socket.io notifications controller hooks
-setIoInstance(io);
 
 const startServer = async () => {
   await connectDatabase();

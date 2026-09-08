@@ -25,7 +25,32 @@ import tournamentsRouter from './modules/tournaments/tournaments.routes.js';
 import matchesRouter from './modules/matches/matches.routes.js';
 import coachesRouter from './modules/coaches/coaches.routes.js';
 
+import http from 'http';
+import { createRequire } from 'module';
+import { Server as SocketIOServer } from 'socket.io';
+import { setIoInstance } from './modules/notifications/notifications.controller.js';
+
+// Statically trace package.json with @vercel/nft so the lambda bundle root contains package.json with type: module
+const require = createRequire(import.meta.url);
+try {
+  require('../package.json');
+} catch (_) {}
+
 const app = express();
+
+const server = http.createServer(app);
+
+const io = new SocketIOServer(server, {
+  cors: {
+    origin: env.FRONTEND_URL || (env.NODE_ENV === 'development' ? 'http://localhost:5173' : true),
+    methods: ['GET', 'POST'],
+    credentials: true,
+  },
+});
+
+app.set('io', io);
+app.set('server', server);
+setIoInstance(io);
 
 app.use(helmet({
   crossOriginResourcePolicy: false
@@ -103,5 +128,5 @@ app.all('*', (req, res, next) => {
 
 app.use(errorHandler);
 
-export { app };
+export { app, server, io };
 export default app;
