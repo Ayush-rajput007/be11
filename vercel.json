@@ -8,7 +8,11 @@
       "root": "backend/",
       "entrypoint": "src/server.ts",
       "framework": "express",
-      "includeFiles": ["package.json"]
+      "functions": {
+        "src/**": {
+          "includeFiles": "package.json"
+        }
+      }
     }
   },
   "rewrites": [
