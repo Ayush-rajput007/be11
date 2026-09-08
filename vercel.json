@@ -9,7 +9,7 @@
       "entrypoint": "src/server.ts",
       "framework": "express",
       "functions": {
-        "src/**": {
+        "src/server.ts": {
           "includeFiles": "package.json"
         }
       }
