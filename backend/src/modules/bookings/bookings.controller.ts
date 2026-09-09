@@ -153,8 +153,43 @@ export const createBooking = async (req: AuthenticatedRequest, res: Response, ne
         startTime = startTime || '07:00';
         endTime = endTime || '11:30';
       }
-    } else if (ground.slug === 'rrr-cricket-club-kidawali-faridabad' || pricingRules?.type === 'CONTACT_ONLY' || ground.pricePerHour === 0) {
-      throw new AppError('RRR Cricket Club requires direct contact with owner Rishi (+91 97116 69718) for customized pricing and booking.', HttpStatus.BAD_REQUEST);
+    } else if (ground.slug === 'rrr-cricket-club-kidawali-faridabad') {
+      // RRR Cricket Club: exactly 3 fixed 4-hour periods per day
+      // 1. MORNING: 06:00 -> 10:00
+      // 2. AFTERNOON: 10:00 -> 14:00
+      // 3. EVENING: 14:00 -> 18:00
+      const validPeriods = ['MORNING', 'AFTERNOON', 'EVENING'];
+      if (!matchPeriodNormalized || !validPeriods.includes(matchPeriodNormalized)) {
+        throw new AppError('Invalid booking period for RRR Cricket Club. Must be MORNING (6-10 AM), AFTERNOON (10 AM-2 PM), or EVENING (2-6 PM).', HttpStatus.BAD_REQUEST);
+      }
+
+      if (matchPeriodNormalized === 'MORNING') {
+        startTime = '06:00';
+        endTime = '10:00';
+      } else if (matchPeriodNormalized === 'AFTERNOON') {
+        startTime = '10:00';
+        endTime = '14:00';
+      } else if (matchPeriodNormalized === 'EVENING') {
+        startTime = '14:00';
+        endTime = '18:00';
+      }
+
+      // Authoritative pricing:
+      // A. BOOK AS INDIVIDUAL: Base ₹299 (Display ₹373.75 - ₹74.75 coupon)
+      // B. BOOK HALF TEAM FOR A MATCH: Base ₹2,600 (Display ₹3,250 - ₹650 coupon)
+      // C. BOOK ENTIRE VENUE: Base ₹5,000 (Display ₹6,250 - ₹1,250 coupon)
+      const bType = (bookingType || '').toUpperCase();
+      if (bType === 'INDIVIDUAL') {
+        totalPrice = 299;
+      } else if (bType === 'HALF_TEAM' || bType === 'HALF_TEAM_MATCH' || bType === 'SINGLE_TEAM_OF_11') {
+        totalPrice = 2600;
+      } else if (bType === 'ENTIRE_VENUE' || bType === 'WHOLE_GROUND') {
+        totalPrice = 5000;
+      } else {
+        throw new AppError(`Invalid booking type "${bookingType}" for RRR Cricket Club. Must be INDIVIDUAL, HALF_TEAM, or ENTIRE_VENUE.`, HttpStatus.BAD_REQUEST);
+      }
+    } else if (pricingRules?.type === 'CONTACT_ONLY' || ground.pricePerHour === 0) {
+      throw new AppError('This ground requires direct contact with the venue owner for booking.', HttpStatus.BAD_REQUEST);
     } else {
       totalPrice = ground.pricePerHour;
     }

@@ -536,8 +536,15 @@ export const getAdminVenueAvailability = async (req: AuthenticatedRequest, res: 
     });
 
     const isPlaynow = ground.slug === 'playnow-cricket-ground';
+    const isRRR = ground.slug === 'rrr-cricket-club-kidawali-faridabad';
 
-    const periodsList = isPlaynow
+    const periodsList = isRRR
+      ? [
+          { id: 'MORNING', name: 'Morning Match', timeRange: '06:00 AM – 10:00 AM' },
+          { id: 'AFTERNOON', name: 'Afternoon Match', timeRange: '10:00 AM – 02:00 PM' },
+          { id: 'EVENING', name: 'Evening Match', timeRange: '02:00 PM – 06:00 PM' },
+        ]
+      : isPlaynow
       ? isWeekend
         ? [
             { id: 'MORNING', name: 'Morning Match', timeRange: '07:00 AM - 11:30 AM' },
@@ -558,7 +565,7 @@ export const getAdminVenueAvailability = async (req: AuthenticatedRequest, res: 
 
     const availability = periodsList.map((p) => {
       const matchBooking = bookings.find(
-        (b) => b.matchPeriod === p.id || (p.id === 'MORNING' && b.startTime < '12:00')
+        (b) => b.matchPeriod === p.id || (p.id === 'MORNING' && b.startTime < '10:00' && isRRR) || (p.id === 'MORNING' && b.startTime < '12:00' && !isRRR)
       );
 
       return {

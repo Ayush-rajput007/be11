@@ -5,7 +5,7 @@ import { useAuthStore } from '../store/authStore.js';
 import { GroundDTO, ReviewDTO, formatCurrency } from '@be11/shared';
 
 type WizardStep = 'PERIOD' | 'DETAILS' | 'TYPE' | 'SUMMARY' | 'SUCCESS';
-type BookingTypeChoice = 'SINGLE_TEAM_OF_11' | 'WHOLE_GROUND';
+type BookingTypeChoice = 'SINGLE_TEAM_OF_11' | 'WHOLE_GROUND' | 'INDIVIDUAL' | 'HALF_TEAM' | 'ENTIRE_VENUE';
 
 export const VenueDetail: React.FC = () => {
   const { id } = useParams();
@@ -113,6 +113,15 @@ export const VenueDetail: React.FC = () => {
     }
   }, [date, selectedPeriod]);
 
+  // Set appropriate default bookingType when ground loads
+  useEffect(() => {
+    if (ground?.slug === 'rrr-cricket-club-kidawali-faridabad') {
+      if (bookingType === 'SINGLE_TEAM_OF_11' || bookingType === 'WHOLE_GROUND') {
+        setBookingType('INDIVIDUAL');
+      }
+    }
+  }, [ground?.slug]);
+
   // Date selection handler with URL query sync
   const handleDateSelect = (selectedDateStr: string) => {
     setDate(selectedDateStr);
@@ -170,14 +179,21 @@ export const VenueDetail: React.FC = () => {
 
   const isPlaynow = ground?.slug === 'playnow-cricket-ground' || pricingRules?.type === 'TIME_SLOT_MATRIX';
   const isAB = ground?.slug === 'ab-cricket-ground' || pricingRules?.type === 'PACKAGE_TIERS';
-  const isContactOnly = ground?.pricingLabel === 'Contact for pricing' || ground?.pricePerHour === 0 || pricingRules?.type === 'CONTACT_ONLY';
+  const isRRR = ground?.slug === 'rrr-cricket-club-kidawali-faridabad';
+  const isContactOnly = !isRRR && (ground?.pricingLabel === 'Contact for pricing' || ground?.pricePerHour === 0 || pricingRules?.type === 'CONTACT_ONLY');
 
   // Playnow Dynamic Pricing Rules from database
   const playnowWeekdayRules = pricingRules?.weekday || {};
   const playnowWeekendRules = pricingRules?.weekend || {};
 
   // Periods list based on venue
-  const availablePeriods = isPlaynow
+  const availablePeriods = isRRR
+    ? [
+        { id: 'MORNING', name: 'Morning', icon: 'wb_twilight', timeRange: '6:00 AM – 10:00 AM', coverage: 'Fixed 4-Hour Period' },
+        { id: 'AFTERNOON', name: 'Afternoon', icon: 'wb_sunny', timeRange: '10:00 AM – 2:00 PM', coverage: 'Fixed 4-Hour Period' },
+        { id: 'EVENING', name: 'Evening', icon: 'nights_stay', timeRange: '2:00 PM – 6:00 PM', coverage: 'Fixed 4-Hour Period' },
+      ]
+    : isPlaynow
     ? isSelectedWeekend
       ? [
           { id: 'MORNING', name: 'Morning Match', timeRange: '07:00 AM - 11:30 AM', coverage: 'Both Teams Included' },
@@ -201,7 +217,42 @@ export const VenueDetail: React.FC = () => {
   const currentPeriodObj = availablePeriods.find((p) => p.id === selectedPeriod) || availablePeriods[0];
 
   // Price calculation helper for any period & booking type
-  const calculatePrice = (periodId: string, bType: BookingTypeChoice): { amount: number | null; label: string } => {
+  const calculatePrice = (periodId: string, bType: BookingTypeChoice): {
+    amount: number | null;
+    label: string;
+    originalPrice?: number;
+    discount?: number;
+    couponCode?: string;
+  } => {
+    if (isRRR) {
+      if (bType === 'INDIVIDUAL') {
+        return {
+          amount: 299,
+          label: '₹299',
+          originalPrice: 373.75,
+          discount: 74.75,
+          couponCode: 'BE11 WELCOMES',
+        };
+      }
+      if (bType === 'HALF_TEAM') {
+        return {
+          amount: 2600,
+          label: '₹2,600',
+          originalPrice: 3250,
+          discount: 650,
+          couponCode: 'BE11 WELCOMES',
+        };
+      }
+      // ENTIRE_VENUE or default
+      return {
+        amount: 5000,
+        label: '₹5,000',
+        originalPrice: 6250,
+        discount: 1250,
+        couponCode: 'BE11 WELCOMES',
+      };
+    }
+
     if (isAB) {
       if (bType === 'SINGLE_TEAM_OF_11') {
         return { amount: null, label: 'Price on request' };
@@ -646,7 +697,7 @@ export const VenueDetail: React.FC = () => {
                   <p className="text-[11px] text-slate-500 font-medium">Verified Ground Reservation</p>
                 </div>
                 <span className="text-xs font-bold px-3 py-1 bg-secondary-container/10 text-secondary-container rounded-full">
-                  {isAB ? 'WHOLE GROUND Starting from ₹3,500' : ground.pricingLabel || (ground.pricePerHour > 0 ? `₹${ground.pricePerHour}/hr` : 'Price on request')}
+                  {isRRR ? 'Fixed 4-Hr Slots from ₹299 (25% OFF)' : isAB ? 'WHOLE GROUND Starting from ₹3,500' : ground.pricingLabel || (ground.pricePerHour > 0 ? `₹${ground.pricePerHour}/hr` : 'Price on request')}
                 </span>
               </div>
 
@@ -767,19 +818,27 @@ export const VenueDetail: React.FC = () => {
                       <div>
                         <div className="flex justify-between items-center mb-3">
                           <label className="text-[11px] font-black text-primary uppercase tracking-wider block">
-                            Select Match Period
+                            {isRRR ? 'Choose Your Match Time' : 'Select Match Period'}
                           </label>
                           <span className="text-[10px] text-slate-500">
-                            {isAB ? 'Morning / Afternoon / Night' : isSelectedWeekend ? '4 Periods Available' : '3 Periods Available (Day-Night Weekend Only)'}
+                            {isRRR ? '3 Fixed 4-Hour Periods' : isAB ? 'Morning / Afternoon / Night' : isSelectedWeekend ? '4 Periods Available' : '3 Periods Available (Day-Night Weekend Only)'}
                           </span>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className={`grid gap-3 ${isRRR ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'}`}>
                           {availablePeriods.map((period) => {
                             const isChosen = selectedPeriod === period.id;
                             const serverPeriodInfo = matchPeriods.find((p) => p.id === period.id);
                             const isAvailable = serverPeriodInfo ? serverPeriodInfo.isAvailable : true;
-                            const periodPriceInfo = calculatePrice(period.id, 'WHOLE_GROUND');
+                            const periodPriceInfo = calculatePrice(period.id, isRRR ? 'INDIVIDUAL' : 'WHOLE_GROUND');
+
+                            // Icons for RRR periods
+                            const getPeriodEmoji = (pid: string) => {
+                              if (pid === 'MORNING') return '🌅';
+                              if (pid === 'AFTERNOON') return '☀️';
+                              if (pid === 'EVENING') return '🌇';
+                              return '🏏';
+                            };
 
                             return (
                               <button
@@ -797,14 +856,21 @@ export const VenueDetail: React.FC = () => {
                               >
                                 <div>
                                   <div className="flex justify-between items-start mb-1">
-                                    <span className={`font-black text-xs block ${isChosen ? 'text-white' : 'text-primary'}`}>
-                                      {period.name}
-                                    </span>
+                                    <div className="flex items-center gap-1.5">
+                                      {isRRR && (
+                                        <span className="text-base" role="img" aria-label={period.name}>
+                                          {getPeriodEmoji(period.id)}
+                                        </span>
+                                      )}
+                                      <span className={`font-black text-xs block ${isChosen ? 'text-white' : 'text-primary'}`}>
+                                        {period.name}
+                                      </span>
+                                    </div>
                                     {isChosen && (
                                       <span className="material-symbols-outlined text-sm text-[#f97316]">check_circle</span>
                                     )}
                                   </div>
-                                  <span className={`text-[10px] block ${isChosen ? 'text-blue-200' : 'text-slate-500'}`}>
+                                  <span className={`text-[11px] font-semibold block ${isChosen ? 'text-blue-100' : 'text-slate-600'}`}>
                                     {period.timeRange}
                                   </span>
                                   <span className={`text-[9px] font-bold block mt-0.5 ${isChosen ? 'text-orange-300' : 'text-slate-400'}`}>
@@ -813,11 +879,17 @@ export const VenueDetail: React.FC = () => {
                                 </div>
 
                                 <div className="mt-3 pt-2 border-t border-slate-200/30 flex justify-between items-center">
-                                  <span className={`text-[10px] uppercase font-bold ${isChosen ? 'text-blue-200' : 'text-slate-400'}`}>
-                                    {isAB ? 'Whole Ground' : 'Whole Ground'}
+                                  <span className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded-md ${
+                                    !isAvailable
+                                      ? 'bg-red-50 text-red-600'
+                                      : isChosen
+                                      ? 'bg-emerald-500/20 text-emerald-300'
+                                      : 'bg-emerald-50 text-emerald-700'
+                                  }`}>
+                                    {isAvailable ? 'Available' : 'Booked'}
                                   </span>
-                                  <span className={`text-sm font-black ${isChosen ? 'text-[#f97316]' : 'text-[#ea580c]'}`}>
-                                    {periodPriceInfo.label}
+                                  <span className={`text-xs font-black ${isChosen ? 'text-[#f97316]' : 'text-[#ea580c]'}`}>
+                                    {isRRR ? 'From ₹299' : periodPriceInfo.label}
                                   </span>
                                 </div>
 
@@ -1008,125 +1080,328 @@ export const VenueDetail: React.FC = () => {
                       </p>
 
                       <div className="grid grid-cols-1 gap-3">
-                        {/* Option A: SINGLE TEAM OF 11 */}
-                        {(() => {
-                          const isSelected = bookingType === 'SINGLE_TEAM_OF_11';
-                          const teamPriceInfo = calculatePrice(selectedPeriod || 'MORNING', 'SINGLE_TEAM_OF_11');
-
-                          return (
-                            <div
-                              onClick={() => setBookingType('SINGLE_TEAM_OF_11')}
-                              className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between gap-3 ${
-                                isSelected
-                                  ? 'bg-blue-50/70 border-[#0a2e6e] shadow-md ring-2 ring-[#0a2e6e]/20'
-                                  : 'bg-white border-slate-200 hover:border-slate-300'
-                              }`}
-                            >
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="flex items-start gap-3">
-                                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 shrink-0 ${
-                                    isSelected ? 'border-[#0a2e6e] bg-[#0a2e6e]' : 'border-slate-300 bg-white'
-                                  }`}>
-                                    {isSelected && <div className="w-2 h-2 rounded-full bg-white"></div>}
-                                  </div>
-                                  <div>
-                                    <div className="flex items-center gap-2">
-                                      <h4 className="font-black text-xs text-primary">SINGLE TEAM OF 11</h4>
-                                      <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                                        11 Players
-                                      </span>
+                        {isRRR ? (
+                          /* RRR CRICKET CLUB: EXACTLY THREE BOOKING TYPES */
+                          <>
+                            {/* A. BOOK AS INDIVIDUAL */}
+                            {(() => {
+                              const isSelected = bookingType === 'INDIVIDUAL';
+                              return (
+                                <div
+                                  onClick={() => setBookingType('INDIVIDUAL')}
+                                  className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between gap-3 ${
+                                    isSelected
+                                      ? 'bg-blue-50/70 border-[#0a2e6e] shadow-md ring-2 ring-[#0a2e6e]/20'
+                                      : 'bg-white border-slate-200 hover:border-slate-300'
+                                  }`}
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="flex items-start gap-3">
+                                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 shrink-0 ${
+                                        isSelected ? 'border-[#0a2e6e] bg-[#0a2e6e]' : 'border-slate-300 bg-white'
+                                      }`}>
+                                        {isSelected && <div className="w-2 h-2 rounded-full bg-white"></div>}
+                                      </div>
+                                      <div>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <h4 className="font-black text-xs text-primary tracking-wide">BOOK AS INDIVIDUAL</h4>
+                                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                                            Single Player Slot
+                                          </span>
+                                        </div>
+                                        <p className="text-xs text-slate-600 font-medium mt-1">
+                                          For players who want to join individually
+                                        </p>
+                                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 flex items-center gap-1">
+                                            ✓ BE11 WELCOMES
+                                          </span>
+                                          <span className="text-[10px] font-bold text-orange-700 bg-orange-50 px-2 py-0.5 rounded-md border border-orange-200">
+                                            ✓ 25% OFF
+                                          </span>
+                                        </div>
+                                      </div>
                                     </div>
-                                    <p className="text-xs text-slate-700 font-medium mt-1">
-                                      Reserve the selected match period for one complete 11-player team.
-                                    </p>
-                                    {isAB && (
-                                      <p className="text-[11px] text-amber-800 bg-amber-50 px-2.5 py-1 rounded-lg mt-2 inline-block border border-amber-200">
-                                        📞 Price on request: Call Rajesh Bajaj (+91 95402 28222)
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="text-right shrink-0">
-                                  <span className="text-sm font-black text-[#ea580c] block">
-                                    {teamPriceInfo.label}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setBookingType('SINGLE_TEAM_OF_11');
-                                    }}
-                                    className={`mt-1 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider cursor-pointer transition-all ${
-                                      isSelected ? 'bg-[#0a2e6e] text-white' : 'bg-slate-100 text-slate-600'
-                                    }`}
-                                  >
-                                    {isSelected ? 'SELECTED' : 'SELECT'}
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })()}
 
-                        {/* Option B: WHOLE GROUND */}
-                        {(() => {
-                          const isSelected = bookingType === 'WHOLE_GROUND';
-                          const wholePriceInfo = calculatePrice(selectedPeriod || 'MORNING', 'WHOLE_GROUND');
-
-                          return (
-                            <div
-                              onClick={() => setBookingType('WHOLE_GROUND')}
-                              className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between gap-3 ${
-                                isSelected
-                                  ? 'bg-blue-50/70 border-[#0a2e6e] shadow-md ring-2 ring-[#0a2e6e]/20'
-                                  : 'bg-white border-slate-200 hover:border-slate-300'
-                              }`}
-                            >
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="flex items-start gap-3">
-                                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 shrink-0 ${
-                                    isSelected ? 'border-[#0a2e6e] bg-[#0a2e6e]' : 'border-slate-300 bg-white'
-                                  }`}>
-                                    {isSelected && <div className="w-2 h-2 rounded-full bg-white"></div>}
-                                  </div>
-                                  <div>
-                                    <div className="flex items-center gap-2">
-                                      <h4 className="font-black text-xs text-primary">WHOLE GROUND</h4>
-                                      <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-[#0a2e6e]">
-                                        Entire Venue
+                                    <div className="text-right shrink-0">
+                                      <span className="text-xs text-slate-400 line-through font-semibold block">
+                                        ₹373.75
                                       </span>
+                                      <span className="text-base font-black text-[#ea580c] block">
+                                        ₹299
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setBookingType('INDIVIDUAL');
+                                        }}
+                                        className={`mt-1.5 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider cursor-pointer transition-all ${
+                                          isSelected ? 'bg-[#0a2e6e] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                        }`}
+                                      >
+                                        {isSelected ? 'SELECTED' : 'SELECT'}
+                                      </button>
                                     </div>
-                                    <p className="text-xs text-slate-700 font-medium mt-1">
-                                      Reserve the entire venue for the selected period.
-                                    </p>
-                                    {isAB && (
-                                      <p className="text-[11px] text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg mt-2 inline-block border border-emerald-200">
-                                        ✓ Full facility access: Umpires, scorers, pitch, pavilion & nets included
-                                      </p>
-                                    )}
                                   </div>
                                 </div>
-                                <div className="text-right shrink-0">
-                                  <span className="text-sm font-black text-[#ea580c] block">
-                                    {wholePriceInfo.label}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setBookingType('WHOLE_GROUND');
-                                    }}
-                                    className={`mt-1 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider cursor-pointer transition-all ${
-                                      isSelected ? 'bg-[#0a2e6e] text-white' : 'bg-slate-100 text-slate-600'
-                                    }`}
-                                  >
-                                    {isSelected ? 'SELECTED' : 'SELECT'}
-                                  </button>
+                              );
+                            })()}
+
+                            {/* B. BOOK HALF TEAM FOR A MATCH */}
+                            {(() => {
+                              const isSelected = bookingType === 'HALF_TEAM';
+                              return (
+                                <div
+                                  onClick={() => setBookingType('HALF_TEAM')}
+                                  className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between gap-3 ${
+                                    isSelected
+                                      ? 'bg-blue-50/70 border-[#0a2e6e] shadow-md ring-2 ring-[#0a2e6e]/20'
+                                      : 'bg-white border-slate-200 hover:border-slate-300'
+                                  }`}
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="flex items-start gap-3">
+                                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 shrink-0 ${
+                                        isSelected ? 'border-[#0a2e6e] bg-[#0a2e6e]' : 'border-slate-300 bg-white'
+                                      }`}>
+                                        {isSelected && <div className="w-2 h-2 rounded-full bg-white"></div>}
+                                      </div>
+                                      <div>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <h4 className="font-black text-xs text-primary tracking-wide">BOOK HALF TEAM FOR A MATCH</h4>
+                                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                                            Half Team Match
+                                          </span>
+                                        </div>
+                                        <p className="text-xs text-slate-600 font-medium mt-1">
+                                          For organizing a match with half a team
+                                        </p>
+                                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 flex items-center gap-1">
+                                            ✓ BE11 WELCOMES
+                                          </span>
+                                          <span className="text-[10px] font-bold text-orange-700 bg-orange-50 px-2 py-0.5 rounded-md border border-orange-200">
+                                            ✓ 25% OFF
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    <div className="text-right shrink-0">
+                                      <span className="text-xs text-slate-400 line-through font-semibold block">
+                                        ₹3,250
+                                      </span>
+                                      <span className="text-base font-black text-[#ea580c] block">
+                                        ₹2,600
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setBookingType('HALF_TEAM');
+                                        }}
+                                        className={`mt-1.5 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider cursor-pointer transition-all ${
+                                          isSelected ? 'bg-[#0a2e6e] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                        }`}
+                                      >
+                                        {isSelected ? 'SELECTED' : 'SELECT'}
+                                      </button>
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
-                            </div>
-                          );
-                        })()}
+                              );
+                            })()}
+
+                            {/* C. BOOK ENTIRE VENUE (Visually Emphasized Premium Option) */}
+                            {(() => {
+                              const isSelected = bookingType === 'ENTIRE_VENUE' || bookingType === 'WHOLE_GROUND';
+                              return (
+                                <div
+                                  onClick={() => setBookingType('ENTIRE_VENUE')}
+                                  className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between gap-3 relative overflow-hidden ${
+                                    isSelected
+                                      ? 'bg-gradient-to-r from-blue-50/90 to-amber-50/50 border-[#f97316] shadow-lg ring-2 ring-[#f97316]/30'
+                                      : 'bg-white border-slate-200 hover:border-slate-300'
+                                  }`}
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="flex items-start gap-3">
+                                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 shrink-0 ${
+                                        isSelected ? 'border-[#f97316] bg-[#f97316]' : 'border-slate-300 bg-white'
+                                      }`}>
+                                        {isSelected && <div className="w-2 h-2 rounded-full bg-white"></div>}
+                                      </div>
+                                      <div>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <h4 className="font-black text-xs text-primary tracking-wide">BOOK ENTIRE VENUE</h4>
+                                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-gradient-to-r from-[#f97316] to-[#ea580c] text-white shadow-xs">
+                                            ⭐ Premium Full Ground
+                                          </span>
+                                        </div>
+                                        <p className="text-xs text-slate-600 font-medium mt-1">
+                                          Reserve the complete ground
+                                        </p>
+                                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 flex items-center gap-1">
+                                            ✓ BE11 WELCOMES
+                                          </span>
+                                          <span className="text-[10px] font-bold text-orange-700 bg-orange-50 px-2 py-0.5 rounded-md border border-orange-200">
+                                            ✓ 25% OFF
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    <div className="text-right shrink-0">
+                                      <span className="text-xs text-slate-400 line-through font-semibold block">
+                                        ₹6,250
+                                      </span>
+                                      <span className="text-base font-black text-[#ea580c] block">
+                                        ₹5,000
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setBookingType('ENTIRE_VENUE');
+                                        }}
+                                        className={`mt-1.5 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider cursor-pointer transition-all ${
+                                          isSelected ? 'bg-[#f97316] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                        }`}
+                                      >
+                                        {isSelected ? 'SELECTED' : 'SELECT'}
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </>
+                        ) : (
+                          /* EXISTING VENUES (PLAYNOW & AB CRICKET GROUND - UNTOUCHED) */
+                          <>
+                            {/* Option A: SINGLE TEAM OF 11 */}
+                            {(() => {
+                              const isSelected = bookingType === 'SINGLE_TEAM_OF_11';
+                              const teamPriceInfo = calculatePrice(selectedPeriod || 'MORNING', 'SINGLE_TEAM_OF_11');
+
+                              return (
+                                <div
+                                  onClick={() => setBookingType('SINGLE_TEAM_OF_11')}
+                                  className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between gap-3 ${
+                                    isSelected
+                                      ? 'bg-blue-50/70 border-[#0a2e6e] shadow-md ring-2 ring-[#0a2e6e]/20'
+                                      : 'bg-white border-slate-200 hover:border-slate-300'
+                                  }`}
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="flex items-start gap-3">
+                                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 shrink-0 ${
+                                        isSelected ? 'border-[#0a2e6e] bg-[#0a2e6e]' : 'border-slate-300 bg-white'
+                                      }`}>
+                                        {isSelected && <div className="w-2 h-2 rounded-full bg-white"></div>}
+                                      </div>
+                                      <div>
+                                        <div className="flex items-center gap-2">
+                                          <h4 className="font-black text-xs text-primary">SINGLE TEAM OF 11</h4>
+                                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                                            11 Players
+                                          </span>
+                                        </div>
+                                        <p className="text-xs text-slate-700 font-medium mt-1">
+                                          Reserve the selected match period for one complete 11-player team.
+                                        </p>
+                                        {isAB && (
+                                          <p className="text-[11px] text-amber-800 bg-amber-50 px-2.5 py-1 rounded-lg mt-2 inline-block border border-amber-200">
+                                            📞 Price on request: Call Rajesh Bajaj (+91 95402 28222)
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                      <span className="text-sm font-black text-[#ea580c] block">
+                                        {teamPriceInfo.label}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setBookingType('SINGLE_TEAM_OF_11');
+                                        }}
+                                        className={`mt-1 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider cursor-pointer transition-all ${
+                                          isSelected ? 'bg-[#0a2e6e] text-white' : 'bg-slate-100 text-slate-600'
+                                        }`}
+                                      >
+                                        {isSelected ? 'SELECTED' : 'SELECT'}
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+
+                            {/* Option B: WHOLE GROUND */}
+                            {(() => {
+                              const isSelected = bookingType === 'WHOLE_GROUND';
+                              const wholePriceInfo = calculatePrice(selectedPeriod || 'MORNING', 'WHOLE_GROUND');
+
+                              return (
+                                <div
+                                  onClick={() => setBookingType('WHOLE_GROUND')}
+                                  className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between gap-3 ${
+                                    isSelected
+                                      ? 'bg-blue-50/70 border-[#0a2e6e] shadow-md ring-2 ring-[#0a2e6e]/20'
+                                      : 'bg-white border-slate-200 hover:border-slate-300'
+                                  }`}
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="flex items-start gap-3">
+                                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 shrink-0 ${
+                                        isSelected ? 'border-[#0a2e6e] bg-[#0a2e6e]' : 'border-slate-300 bg-white'
+                                      }`}>
+                                        {isSelected && <div className="w-2 h-2 rounded-full bg-white"></div>}
+                                      </div>
+                                      <div>
+                                        <div className="flex items-center gap-2">
+                                          <h4 className="font-black text-xs text-primary">WHOLE GROUND</h4>
+                                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-[#0a2e6e]">
+                                            Entire Venue
+                                          </span>
+                                        </div>
+                                        <p className="text-xs text-slate-700 font-medium mt-1">
+                                          Reserve the entire venue for the selected period.
+                                        </p>
+                                        {isAB && (
+                                          <p className="text-[11px] text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg mt-2 inline-block border border-emerald-200">
+                                            ✓ Full facility access: Umpires, scorers, pitch, pavilion & nets included
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                      <span className="text-sm font-black text-[#ea580c] block">
+                                        {wholePriceInfo.label}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setBookingType('WHOLE_GROUND');
+                                        }}
+                                        className={`mt-1 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider cursor-pointer transition-all ${
+                                          isSelected ? 'bg-[#0a2e6e] text-white' : 'bg-slate-100 text-slate-600'
+                                        }`}
+                                      >
+                                        {isSelected ? 'SELECTED' : 'SELECT'}
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </>
+                        )}
                       </div>
 
                       {/* Action buttons */}
@@ -1201,16 +1476,50 @@ export const VenueDetail: React.FC = () => {
                         <div className="flex justify-between text-xs">
                           <span className="text-slate-500">Booking:</span>
                           <span className="font-bold text-emerald-700">
-                            {bookingType === 'SINGLE_TEAM_OF_11' ? 'Single Team of 11' : 'Whole Ground'}
+                            {isRRR
+                              ? bookingType === 'INDIVIDUAL'
+                                ? 'Individual'
+                                : bookingType === 'HALF_TEAM'
+                                ? 'Half Team'
+                                : 'Entire Venue'
+                              : bookingType === 'SINGLE_TEAM_OF_11'
+                              ? 'Single Team of 11'
+                              : 'Whole Ground'}
                           </span>
                         </div>
 
-                        <div className="flex justify-between text-xs">
-                          <span className="text-slate-500">Price:</span>
-                          <span className="font-bold text-primary">
-                            {currentSummaryPrice.label}
-                          </span>
-                        </div>
+                        {isRRR && currentSummaryPrice.originalPrice && currentSummaryPrice.discount ? (
+                          <>
+                            <div className="flex justify-between text-xs">
+                              <span className="text-slate-500">Price:</span>
+                              <span className="font-semibold text-slate-700">
+                                {currentSummaryPrice.originalPrice === 373.75 ? '₹373.75' : formatCurrency(currentSummaryPrice.originalPrice)}
+                              </span>
+                            </div>
+
+                            <div className="flex justify-between text-xs text-emerald-700">
+                              <span className="flex items-center gap-1 font-semibold">
+                                <span className="material-symbols-outlined text-xs">loyalty</span>
+                                BE11 WELCOMES (25% OFF):
+                              </span>
+                              <span className="font-bold">
+                                -{currentSummaryPrice.discount === 74.75 ? '₹74.75' : formatCurrency(currentSummaryPrice.discount)}
+                              </span>
+                            </div>
+
+                            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2 text-[11px] text-emerald-800 flex items-center gap-1.5 font-medium">
+                              <span className="material-symbols-outlined text-sm text-emerald-600">check_circle</span>
+                              <span>✓ 25% welcome discount applied automatically</span>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex justify-between text-xs">
+                            <span className="text-slate-500">Price:</span>
+                            <span className="font-bold text-primary">
+                              {currentSummaryPrice.label}
+                            </span>
+                          </div>
+                        )}
 
                         <div className="h-[1px] bg-slate-200 w-full my-2"></div>
 
@@ -1234,9 +1543,16 @@ export const VenueDetail: React.FC = () => {
 
                         <div className="flex justify-between items-center text-sm pt-0.5">
                           <span className="font-bold text-primary">TOTAL:</span>
-                          <span className="font-black text-xl text-[#ea580c]">
-                            {currentSummaryPrice.label}
-                          </span>
+                          <div className="text-right">
+                            {isRRR && currentSummaryPrice.originalPrice && (
+                              <span className="text-xs text-slate-400 line-through mr-2 font-medium">
+                                {currentSummaryPrice.originalPrice === 373.75 ? '₹373.75' : formatCurrency(currentSummaryPrice.originalPrice)}
+                              </span>
+                            )}
+                            <span className="font-black text-xl text-[#ea580c]">
+                              {currentSummaryPrice.label}
+                            </span>
+                          </div>
                         </div>
                       </div>
 
@@ -1354,6 +1670,28 @@ export const VenueDetail: React.FC = () => {
                     </div>
                   )}
 
+                </div>
+              )}
+
+              {/* RRR Cricket Club: Secondary Owner Contact for Custom Arrangements */}
+              {isRRR && (
+                <div className="mt-6 pt-5 border-t border-slate-200/60 bg-slate-50/80 rounded-2xl p-4 border border-slate-200/80 text-left">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="material-symbols-outlined text-base text-[#f97316]">support_agent</span>
+                    <span className="text-[11px] font-bold text-primary uppercase tracking-wide">
+                      Need a custom arrangement?
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed mb-3">
+                    Contact RRR Cricket Club owner Rishi for custom over formats, special ball requirements, or tournament setups.
+                  </p>
+                  <a
+                    href={`tel:${ground.ownerPhone || '+919711669718'}`}
+                    className="w-full py-2.5 px-3 rounded-xl bg-white hover:bg-slate-100 text-[#0a2e6e] border border-slate-200 font-bold text-xs flex justify-center items-center gap-2 shadow-xs transition-colors cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-sm text-[#f97316]">call</span>
+                    Contact RRR Cricket Club ({ground.ownerPhone || '+91 97116 69718'})
+                  </a>
                 </div>
               )}
 

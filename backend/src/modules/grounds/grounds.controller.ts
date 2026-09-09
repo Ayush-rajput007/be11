@@ -344,6 +344,78 @@ export const getGroundSlots = async (req: Request, res: Response, next: NextFunc
           isAvailable: !nightBooked,
         },
       ];
+    } else if (ground.slug === 'rrr-cricket-club-kidawali-faridabad') {
+      // RRR Cricket Club: Exactly 3 fixed 4-hour booking periods per day
+      const isMorningBooked = bookings.some(
+        (b) => b.matchPeriod === 'MORNING' || (b.startTime >= '06:00' && b.startTime < '10:00')
+      );
+      const isAfternoonBooked = bookings.some(
+        (b) => b.matchPeriod === 'AFTERNOON' || (b.startTime >= '10:00' && b.startTime < '14:00')
+      );
+      const isEveningBooked = bookings.some(
+        (b) => b.matchPeriod === 'EVENING' || (b.startTime >= '14:00' && b.startTime < '18:00')
+      );
+
+      // Base prices: Individual = 299, Half Team = 2600, Entire Venue = 5000
+      // 25% marked original display price: Individual = 373.75, Half Team = 3250, Entire Venue = 6250
+      const rrrPricing = {
+        individual: {
+          base: 299,
+          originalPrice: 373.75,
+          discount: 74.75,
+          finalPrice: 299,
+        },
+        halfTeam: {
+          base: 2600,
+          originalPrice: 3250,
+          discount: 650,
+          finalPrice: 2600,
+        },
+        entireVenue: {
+          base: 5000,
+          originalPrice: 6250,
+          discount: 1250,
+          finalPrice: 5000,
+        },
+        couponCode: 'BE11 WELCOMES',
+        discountPercent: 25,
+      };
+
+      matchPeriods = [
+        {
+          id: 'MORNING',
+          name: 'Morning Match',
+          timeRange: '06:00 AM – 10:00 AM',
+          startTime: '06:00',
+          endTime: '10:00',
+          price: 5000,
+          pricing: rrrPricing,
+          teamCoverage: 'Natural Turf Pitch & Match Setup',
+          isAvailable: !isMorningBooked,
+        },
+        {
+          id: 'AFTERNOON',
+          name: 'Afternoon Match',
+          timeRange: '10:00 AM – 02:00 PM',
+          startTime: '10:00',
+          endTime: '14:00',
+          price: 5000,
+          pricing: rrrPricing,
+          teamCoverage: 'Natural Turf Pitch & Match Setup',
+          isAvailable: !isAfternoonBooked,
+        },
+        {
+          id: 'EVENING',
+          name: 'Evening Match',
+          timeRange: '02:00 PM – 06:00 PM',
+          startTime: '14:00',
+          endTime: '18:00',
+          price: 5000,
+          pricing: rrrPricing,
+          teamCoverage: 'Natural Turf Pitch & Match Setup',
+          isAvailable: !isEveningBooked,
+        },
+      ];
     }
 
     res.status(HttpStatus.OK).json({
