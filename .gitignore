@@ -43,6 +43,7 @@ scratch/
 jersey_builder_page/
 frontend/src/venues/
 -w
+backend/scripts/reset-admin-password.ts
 
 # Test coverage
 coverage/
