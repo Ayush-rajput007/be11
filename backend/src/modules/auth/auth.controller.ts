@@ -74,7 +74,12 @@ const setRefreshTokenCookie = (res: Response, token: string) => {
 export const register = async (req: Request, res: Response, next: NextFunction) => {
   try {
     await ensureDatabaseSchema();
-    const validated = RegisterSchema.parse(req.body);
+    const parseResult = RegisterSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      const firstIssue = parseResult.error.issues[0];
+      throw new AppError(firstIssue.message || 'Invalid registration details.', HttpStatus.BAD_REQUEST);
+    }
+    const validated = parseResult.data;
 
     // Prevent direct registration of privileged roles
     const allowedRoles = ['PLAYER', 'CUSTOMER'];

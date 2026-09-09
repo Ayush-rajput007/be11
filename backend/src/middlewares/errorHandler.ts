@@ -10,9 +10,16 @@ export const errorHandler: ErrorRequestHandler = (
   res: Response,
   _next: NextFunction
 ): void => {
-  const statusCode = err.statusCode || HttpStatus.INTERNAL_SERVER_ERROR;
-  const message = err.message || 'Internal Server Error';
-  const errors = err.errors || undefined;
+  let statusCode = err.statusCode || HttpStatus.INTERNAL_SERVER_ERROR;
+  let message = err.message || 'Internal Server Error';
+  let errors = err.errors || undefined;
+
+  if (err.name === 'ZodError' || Array.isArray(err.issues)) {
+    statusCode = HttpStatus.BAD_REQUEST;
+    const firstIssue = err.issues?.[0];
+    message = firstIssue?.message || 'Validation error';
+    errors = err.issues?.map((i: any) => i.message);
+  }
 
   if (statusCode === HttpStatus.INTERNAL_SERVER_ERROR) {
     logger.error(`💥 Internal Error: ${err.message}`, { stack: err.stack });
