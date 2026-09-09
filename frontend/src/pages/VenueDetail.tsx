@@ -3,9 +3,11 @@ import { useParams, useSearchParams, useNavigate, useLocation } from 'react-rout
 import { api } from '../lib/api.js';
 import { useAuthStore } from '../store/authStore.js';
 import { GroundDTO, ReviewDTO, formatCurrency } from '@be11/shared';
+import { loadRazorpaySdk } from '../lib/razorpay.js';
 
 type WizardStep = 'PERIOD' | 'DETAILS' | 'TYPE' | 'SUMMARY' | 'SUCCESS';
 type BookingTypeChoice = 'SINGLE_TEAM_OF_11' | 'WHOLE_GROUND' | 'INDIVIDUAL' | 'HALF_TEAM' | 'ENTIRE_VENUE';
+type PaymentState = 'idle' | 'pending' | 'processing' | 'successful' | 'failed' | 'cancelled';
 
 export const VenueDetail: React.FC = () => {
   const { id } = useParams();
@@ -30,6 +32,8 @@ export const VenueDetail: React.FC = () => {
   // Wizard state
   const [bookingStep, setBookingStep] = useState<WizardStep>('PERIOD');
   const [confirmedBooking, setConfirmedBooking] = useState<any | null>(null);
+  const [paymentState, setPaymentState] = useState<PaymentState>('idle');
+  const [paymentError, setPaymentError] = useState<string>('');
 
   // Customer Details Form State
   const [customerName, setCustomerName] = useState('');
@@ -343,7 +347,7 @@ export const VenueDetail: React.FC = () => {
     setBookingStep('SUMMARY');
   };
 
-  // Step 4: Final Booking Submission
+  // Step 4: Final Booking Submission with Razorpay Standard Checkout
   const handleFinalBookingSubmit = async () => {
     if (isAB && bookingType === 'SINGLE_TEAM_OF_11') {
       setError('Single Team of 11 pricing for AB Cricket Ground is on request. Please call venue owner Rajesh Bajaj at +91 95402 28222.');
@@ -352,36 +356,126 @@ export const VenueDetail: React.FC = () => {
 
     setBookingLoading(true);
     setError('');
+    setPaymentError('');
     setSuccess('');
 
     try {
-      const res = await api.post('/bookings', {
-        venueId: ground?.id || id,
-        date,
-        matchPeriod: selectedPeriod,
-        bookingType,
-        customerName: customerName.trim(),
-        customerPhone: customerPhone.trim(),
-        customerEmail: customerEmail.trim(),
-      });
+      let b = confirmedBooking;
 
-      const b = res.data.data.booking;
-      const serverPrice = res.data.data.serverCalculatedPrice || b.totalPrice;
+      // 1. Create booking atomically if not already created (prevents duplicate bookings when retrying payment)
+      if (!b || !b.id) {
+        const res = await api.post('/bookings', {
+          venueId: ground?.id || id,
+          date,
+          matchPeriod: selectedPeriod,
+          bookingType,
+          customerName: customerName.trim(),
+          customerPhone: customerPhone.trim(),
+          customerEmail: customerEmail.trim(),
+        });
 
-      setConfirmedBooking({
-        ...b,
-        serverPrice,
-      });
-
-      if (b.paymentStatus === 'PAID' && user) {
-        updateWalletBalance(user.walletBalance - serverPrice);
+        b = res.data.data.booking;
+        const serverPrice = res.data.data.serverCalculatedPrice || b.totalPrice;
+        setConfirmedBooking({
+          ...b,
+          serverPrice,
+        });
       }
 
-      setBookingStep('SUCCESS');
-      fetchDetails();
+      // 2. If already paid (e.g. from user wallet balance during creation), complete instantly
+      if (b.paymentStatus === 'PAID') {
+        if (user) {
+          updateWalletBalance(user.walletBalance - (b.totalPrice || b.serverPrice));
+        }
+        setPaymentState('successful');
+        setBookingStep('SUCCESS');
+        fetchDetails();
+        return;
+      }
+
+      // 3. Request authoritative Razorpay order from backend
+      setPaymentState('pending');
+      const orderRes = await api.post('/payments/booking/create-order', {
+        bookingId: b.id,
+      });
+
+      const { orderId, amount, currency, keyId } = orderRes.data.data;
+
+      // 4. Ensure Razorpay Standard Checkout SDK is loaded
+      const isSdkLoaded = await loadRazorpaySdk();
+      if (!isSdkLoaded || !window.Razorpay) {
+        throw new Error('Razorpay Checkout SDK could not be loaded. Please check your internet connection.');
+      }
+
+      // 5. Trigger Razorpay Standard Checkout Modal
+      const options = {
+        key: keyId,
+        amount: amount, // authoritative amount in paise
+        currency: currency || 'INR',
+        name: 'BE11 Sports',
+        description: `${ground?.name || 'Cricket Ground'} (${b.matchPeriod || selectedPeriod || 'Match Slot'})`,
+        image: '/favicon.ico',
+        order_id: orderId,
+        handler: async function (response: any) {
+          setPaymentState('processing');
+          setBookingLoading(true);
+          try {
+            const verifyRes = await api.post('/payments/booking/verify', {
+              bookingId: b.id,
+              razorpayOrderId: response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature,
+            });
+
+            const verifiedBooking = verifyRes.data.data.booking;
+            setConfirmedBooking({
+              ...verifiedBooking,
+              serverPrice: verifiedBooking.totalPrice,
+            });
+            setPaymentState('successful');
+            setBookingStep('SUCCESS');
+            fetchDetails();
+          } catch (verifyErr: any) {
+            console.error('Payment verification error:', verifyErr);
+            setPaymentState('failed');
+            setPaymentError(
+              verifyErr.response?.data?.message ||
+                'Payment signature verification failed. Please contact support with payment ID ' +
+                  response.razorpay_payment_id
+            );
+          } finally {
+            setBookingLoading(false);
+          }
+        },
+        modal: {
+          ondismiss: function () {
+            setPaymentState('cancelled');
+            setBookingLoading(false);
+          },
+        },
+        prefill: {
+          name: customerName.trim() || `${user?.firstName || ''} ${user?.lastName || ''}`.trim(),
+          email: customerEmail.trim() || user?.email || '',
+          contact: customerPhone.trim() || user?.phone || '',
+        },
+        theme: {
+          color: '#ea580c',
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', function (resp: any) {
+        console.error('Razorpay payment failed:', resp.error);
+        setPaymentState('failed');
+        setPaymentError(resp.error?.description || 'Payment was declined by your bank or gateway.');
+        setBookingLoading(false);
+      });
+
+      rzp.open();
     } catch (err: any) {
       console.error(err);
-      setError(err.response?.data?.message || 'Booking creation failed. Please check availability or contact venue.');
+      setPaymentState('failed');
+      setError(err.response?.data?.message || err.message || 'Booking creation or payment initiation failed.');
     } finally {
       setBookingLoading(false);
     }
@@ -1556,17 +1650,58 @@ export const VenueDetail: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Payment Pending Notice */}
-                      <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl text-[11px] text-amber-900 leading-relaxed">
-                        <strong>Payment Status:</strong> Payment gateway integration pending. Your match reservation will be created with status <strong>PENDING</strong> and immediate double-booking lock.
-                      </div>
+                      {/* Dynamic Payment State Alerts */}
+                      {paymentState === 'cancelled' && (
+                        <div className="bg-amber-50 border border-amber-300 p-3 rounded-xl text-xs text-amber-900 space-y-1 animate-fade-in">
+                          <div className="flex items-center gap-1.5 font-bold">
+                            <span className="material-symbols-outlined text-base text-amber-600">warning</span>
+                            <span>Payment Cancelled / Dismissed</span>
+                          </div>
+                          <p className="text-[11px] leading-relaxed">
+                            Your reservation request is safely saved with ID{' '}
+                            <strong className="font-mono text-primary">BK-{confirmedBooking?.id?.slice(0, 8)}</strong>{' '}
+                            (Status: PENDING). Your slot is temporarily reserved. Click <strong>RETRY PAYMENT</strong> below to complete checkout.
+                          </p>
+                        </div>
+                      )}
 
-                      {/* Confirm Button */}
+                      {paymentState === 'failed' && (
+                        <div className="bg-red-50 border border-red-300 p-3 rounded-xl text-xs text-red-900 space-y-1 animate-fade-in">
+                          <div className="flex items-center gap-1.5 font-bold">
+                            <span className="material-symbols-outlined text-base text-red-600">error</span>
+                            <span>Payment Unsuccessful</span>
+                          </div>
+                          <p className="text-[11px] leading-relaxed">
+                            {paymentError || 'The transaction could not be processed. Please check your card or UPI app and retry.'}
+                          </p>
+                        </div>
+                      )}
+
+                      {paymentState === 'processing' && (
+                        <div className="bg-blue-50 border border-blue-300 p-3 rounded-xl text-xs text-[#0a2e6e] flex items-center gap-2 animate-pulse">
+                          <svg className="animate-spin h-4 w-4 text-[#0a2e6e]" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                          </svg>
+                          <span className="font-semibold text-[11px]">Verifying payment signature with Razorpay...</span>
+                        </div>
+                      )}
+
+                      {paymentState === 'idle' && (
+                        <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl text-[11px] text-slate-700 leading-relaxed flex items-start gap-2">
+                          <span className="material-symbols-outlined text-base text-emerald-600 shrink-0 mt-0.5">verified_user</span>
+                          <div>
+                            <strong>Razorpay Standard Checkout:</strong> UPI, Debit/Credit Cards & NetBanking. Charges authoritative final amount <strong>{currentSummaryPrice.label}</strong> with slot reservation.
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Confirm & Pay Button */}
                       <div className="pt-2 flex gap-3">
                         <button
                           type="button"
                           onClick={() => setBookingStep('TYPE')}
-                          disabled={bookingLoading}
+                          disabled={bookingLoading || paymentState === 'processing'}
                           className="w-1/3 py-3.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs uppercase hover:bg-slate-50 cursor-pointer disabled:opacity-50"
                         >
                           Back
@@ -1574,25 +1709,27 @@ export const VenueDetail: React.FC = () => {
                         <button
                           type="button"
                           onClick={handleFinalBookingSubmit}
-                          disabled={bookingLoading}
+                          disabled={bookingLoading || paymentState === 'processing'}
                           className="w-2/3 py-3.5 rounded-xl bg-[#f97316] hover:bg-[#ea580c] disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-xs uppercase tracking-wider text-center cursor-pointer transition-all shadow-lg active:scale-98 duration-150 flex items-center justify-center gap-2"
                         >
-                          {bookingLoading ? (
+                          {bookingLoading || paymentState === 'processing' ? (
                             <>
                               <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
                               </svg>
-                              <span>Confirming...</span>
+                              <span>{paymentState === 'processing' ? 'Verifying Payment...' : 'Connecting to Razorpay...'}</span>
                             </>
+                          ) : paymentState === 'cancelled' || paymentState === 'failed' ? (
+                            `RETRY PAYMENT (${currentSummaryPrice.label})`
                           ) : (
-                            'CONFIRM & CONTINUE'
+                            `PAY & CONFIRM (${currentSummaryPrice.label})`
                           )}
                         </button>
                       </div>
 
                       <p className="text-[10px] text-slate-400 text-center leading-relaxed">
-                        Atomic database transaction • Double booking protection guarantee
+                        Atomic database transaction • Server-side HMAC SHA256 verification • Double-booking protected
                       </p>
                     </div>
                   )}
@@ -1606,26 +1743,47 @@ export const VenueDetail: React.FC = () => {
 
                       <div>
                         <h4 className="font-poppins font-black text-xl text-primary">
-                          {confirmedBooking.status === 'CONFIRMED' ? 'Match Booking Confirmed!' : 'Reservation Request Submitted'}
+                          {confirmedBooking.paymentStatus === 'PAID' ? 'Payment Verified & Request Submitted!' : 'Reservation Request Submitted'}
                         </h4>
                         <p className="text-xs text-slate-500 mt-1">
-                          Booking Ref: <strong className="text-primary font-mono">{confirmedBooking.id}</strong>
+                          Booking Ref: <strong className="text-primary font-mono">BK-{confirmedBooking.id.slice(0, 8)}</strong>
+                        </p>
+                      </div>
+
+                      {/* Prominent Admin Approval Notice */}
+                      <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl text-left text-xs text-amber-900 space-y-1">
+                        <div className="flex items-center gap-1.5 font-bold">
+                          <span className="material-symbols-outlined text-base text-amber-600">pending_actions</span>
+                          <span>Booking Status: PENDING Admin Approval</span>
+                        </div>
+                        <p className="text-[11px] text-amber-800 leading-relaxed">
+                          Your payment of <strong>{formatCurrency(confirmedBooking.totalPrice || confirmedBooking.serverPrice)}</strong> has been successfully received and verified. Per club policy, this match slot is now locked and awaits venue manager approval.
                         </p>
                       </div>
 
                       <div className="bg-[#F8FAFC] p-4 rounded-2xl border border-slate-200 text-left space-y-2 text-xs">
                         <div className="flex justify-between">
-                          <span className="text-slate-500">Status:</span>
-                          <span className={`font-bold px-2 py-0.5 rounded text-[10px] ${
-                            confirmedBooking.status === 'CONFIRMED' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                          }`}>
-                            {confirmedBooking.status}
+                          <span className="text-slate-500">Booking Status:</span>
+                          <span className="font-bold px-2.5 py-0.5 rounded text-[10px] uppercase tracking-wider bg-amber-100 text-amber-800">
+                            {confirmedBooking.status} (PENDING APPROVAL)
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-slate-500">Payment:</span>
-                          <span className="font-bold text-slate-700">{confirmedBooking.paymentStatus}</span>
+                          <span className="text-slate-500">Payment Status:</span>
+                          <span className={`font-bold px-2 py-0.5 rounded text-[10px] uppercase tracking-wider ${
+                            confirmedBooking.paymentStatus === 'PAID'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-slate-100 text-slate-700'
+                          }`}>
+                            {confirmedBooking.paymentStatus}
+                          </span>
                         </div>
+                        {confirmedBooking.transactionId && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">Transaction ID:</span>
+                            <span className="font-mono text-[11px] text-slate-700">{confirmedBooking.transactionId}</span>
+                          </div>
+                        )}
                         <div className="flex justify-between">
                           <span className="text-slate-500">Venue:</span>
                           <span className="font-bold text-primary">{ground.name}</span>
@@ -1643,7 +1801,7 @@ export const VenueDetail: React.FC = () => {
                           <span className="font-semibold text-primary">{confirmedBooking.customerName || customerName}</span>
                         </div>
                         <div className="flex justify-between border-t border-slate-200 pt-2 font-bold text-sm">
-                          <span>Total Amount:</span>
+                          <span>Amount Paid:</span>
                           <span className="text-[#ea580c]">{formatCurrency(confirmedBooking.totalPrice || confirmedBooking.serverPrice)}</span>
                         </div>
                       </div>

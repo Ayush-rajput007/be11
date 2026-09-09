@@ -27,6 +27,9 @@ const envSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASSWORD: z.string().optional(),
   EMAIL_FROM: z.string().optional(),
+  RAZORPAY_KEY_ID: z.string().optional(),
+  RAZORPAY_KEY_SECRET: z.string().optional(),
+  RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -54,4 +57,8 @@ export const env: Env = parsed.success
       SMTP_USER: process.env.SMTP_USER || undefined,
       SMTP_PASSWORD: process.env.SMTP_PASSWORD || undefined,
       EMAIL_FROM: process.env.EMAIL_FROM || undefined,
+      RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID || undefined,
+      RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET || undefined,
+      RAZORPAY_WEBHOOK_SECRET: process.env.RAZORPAY_WEBHOOK_SECRET || undefined,
     };
+

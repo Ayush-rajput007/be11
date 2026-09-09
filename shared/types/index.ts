@@ -94,6 +94,7 @@ export interface BookingDTO {
   totalPrice: number;
   status: BookingStatus;
   paymentStatus: PaymentStatus;
+  transactionId?: string | null;
   confirmedAt?: string | null;
   confirmedById?: string | null;
   confirmedBy?: UserDTO | null;

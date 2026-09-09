@@ -147,6 +147,13 @@ export const MyBookings: React.FC = () => {
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-50 text-[#0a2e6e]">
                       {b.bookingType === 'SINGLE_TEAM_OF_11' || b.bookingType === 'TEAM_OF_11' ? 'Single Team of 11' : 'Whole Ground'}
                     </span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                      (b as any).paymentStatus === 'PAID'
+                        ? 'bg-emerald-50 text-emerald-700'
+                        : 'bg-amber-50 text-amber-700'
+                    }`}>
+                      Payment: {(b as any).paymentStatus || 'PENDING'}
+                    </span>
                   </div>
 
                   <h3 className="font-poppins font-black text-lg text-primary">{b.ground?.name}</h3>
@@ -176,6 +183,14 @@ export const MyBookings: React.FC = () => {
                   </div>
 
                   <div className="flex gap-2 w-full sm:w-auto">
+                    {(b as any).paymentStatus === 'PAYMENT_PENDING' && b.status !== 'CANCELLED' && (
+                      <button
+                        onClick={() => navigate(`/venues/${b.ground?.slug || b.groundId}?date=${b.date}`)}
+                        className="px-4 py-2 rounded-xl bg-[#f97316] hover:bg-[#ea580c] text-white font-bold text-xs cursor-pointer transition-all shadow-xs"
+                      >
+                        Pay Now
+                      </button>
+                    )}
                     <button
                       onClick={() => navigate(`/venues/${b.ground?.slug || b.groundId}?date=${b.date}`)}
                       className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-primary font-bold text-xs cursor-pointer transition-all"

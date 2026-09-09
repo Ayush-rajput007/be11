@@ -655,17 +655,28 @@ export const AdminBookings: React.FC = () => {
 
                               {/* Status */}
                               <td className="py-3 px-4">
-                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                                  b.status === 'CONFIRMED'
-                                    ? 'bg-emerald-100 text-emerald-800'
-                                    : b.status === 'PENDING'
-                                    ? 'bg-amber-100 text-amber-800 animate-pulse'
-                                    : b.status === 'CANCELLED'
-                                    ? 'bg-red-100 text-red-800'
-                                    : 'bg-slate-100 text-slate-600'
-                                }`}>
-                                  {b.status}
-                                </span>
+                                <div className="flex flex-col gap-1 items-start">
+                                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                    b.status === 'CONFIRMED'
+                                      ? 'bg-emerald-100 text-emerald-800'
+                                      : b.status === 'PENDING'
+                                      ? 'bg-amber-100 text-amber-800 animate-pulse'
+                                      : b.status === 'CANCELLED'
+                                      ? 'bg-red-100 text-red-800'
+                                      : 'bg-slate-100 text-slate-600'
+                                  }`}>
+                                    {b.status}
+                                  </span>
+                                  <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+                                    (b as any).paymentStatus === 'PAID'
+                                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                      : (b as any).paymentStatus === 'REFUNDED'
+                                      ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                                      : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                  }`}>
+                                    {(b as any).paymentStatus || 'PENDING'}
+                                  </span>
+                                </div>
                               </td>
 
                               {/* Actions */}
@@ -1063,6 +1074,37 @@ export const AdminBookings: React.FC = () => {
                   <div className="flex justify-between border-t border-slate-200 pt-1.5">
                     <span className="text-slate-500 font-bold">Total Price:</span>
                     <strong className="text-[#ea580c] font-black text-sm">{formatCurrency(selectedBooking.totalPrice)}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment Information */}
+              <div className="space-y-2">
+                <span className="text-[10px] font-black uppercase text-outline tracking-wider block">Payment Information</span>
+                <div className="bg-[#F8FAFC] p-3.5 rounded-xl border border-slate-200 space-y-1.5 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Payment Status:</span>
+                    <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                      (selectedBooking as any).paymentStatus === 'PAID'
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : (selectedBooking as any).paymentStatus === 'REFUNDED'
+                        ? 'bg-purple-100 text-purple-800'
+                        : 'bg-amber-100 text-amber-800'
+                    }`}>
+                      {(selectedBooking as any).paymentStatus || 'PENDING'}
+                    </span>
+                  </div>
+                  {selectedBooking.transactionId && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">Razorpay / Tx Ref:</span>
+                      <span className="font-mono text-[11px] text-slate-700 select-all font-semibold">
+                        {selectedBooking.transactionId}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Authoritative Amount:</span>
+                    <span className="font-bold text-[#ea580c]">{formatCurrency(selectedBooking.totalPrice)}</span>
                   </div>
                 </div>
               </div>
