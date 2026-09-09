@@ -155,22 +155,20 @@ export const Footer: React.FC = () => {
               </button>
             </li>
             <li>
-              <button
-                type="button"
-                onClick={() => openModal('Privacy Policy', <div className="space-y-2">Your credentials remain encrypted. We gather data solely to confirm ground slots booking.</div>)}
+              <Link
+                to="/privacy"
                 className="hover:text-[#FF8C1A] transition-all text-left cursor-pointer"
               >
                 Privacy
-              </button>
+              </Link>
             </li>
             <li>
-              <button
-                type="button"
-                onClick={() => openModal('Terms & Conditions', <div className="space-y-2">By registering, you comply with local arena guidelines and safety rules.</div>)}
+              <Link
+                to="/terms"
                 className="hover:text-[#FF8C1A] transition-all text-left cursor-pointer"
               >
                 Terms
-              </button>
+              </Link>
             </li>
             <li>
               <button
@@ -251,8 +249,8 @@ export const Footer: React.FC = () => {
         <div>© 2026 be11 Sports. All rights reserved.</div>
         <div className="flex items-center gap-1">Made with ❤️ in India</div>
         <div className="flex gap-4">
-          <button type="button" onClick={() => openModal('Privacy Policy', <div>Privacy constraints are strictly enforced.</div>)} className="hover:text-[#FF8C1A]">Privacy</button>
-          <button type="button" onClick={() => openModal('Terms & Conditions', <div>Complies with standard sports reservation terms.</div>)} className="hover:text-[#FF8C1A]">Terms</button>
+          <Link to="/privacy" className="hover:text-[#FF8C1A]">Privacy</Link>
+          <Link to="/terms" className="hover:text-[#FF8C1A]">Terms</Link>
           <button type="button" onClick={() => openModal('Cookies Policy', <div>Standard authentication and preferences cookies active.</div>)} className="hover:text-[#FF8C1A]">Cookies</button>
           <span>v1.2.0</span>
         </div>
@@ -273,6 +271,20 @@ export const Footer: React.FC = () => {
             </h3>
             <div className="text-[#6B7280] font-light text-xs leading-relaxed mb-6">
               {modalContent}
+              {modalTitle.toLowerCase().includes('privacy') && (
+                <div className="mt-3 pt-3 border-t border-gray-100">
+                  <Link to="/privacy" onClick={closeModal} className="text-[#FF8C1A] hover:underline font-semibold text-xs inline-flex items-center gap-1">
+                    Read Full Privacy Policy &rarr;
+                  </Link>
+                </div>
+              )}
+              {modalTitle.toLowerCase().includes('terms') && (
+                <div className="mt-3 pt-3 border-t border-gray-100">
+                  <Link to="/terms" onClick={closeModal} className="text-[#FF8C1A] hover:underline font-semibold text-xs inline-flex items-center gap-1">
+                    Read Full Terms of Service &rarr;
+                  </Link>
+                </div>
+              )}
             </div>
             <button
               onClick={closeModal}

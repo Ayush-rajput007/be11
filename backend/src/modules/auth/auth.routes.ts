@@ -3,7 +3,7 @@ import {
   register, login, getMe, logout, refresh, 
   forgotPassword, resetPassword, sendOtp, verifyOtp, 
   getSessions, logoutAllDevices, googleAuth, googleOAuthCallback, updateProfile,
-  verifyEmail, resendVerification
+  verifyEmail, resendVerification, changePassword
 } from './auth.controller.js';
 import { authenticate } from '../../middlewares/auth.js';
 import { authRateLimiter } from '../../middlewares/rateLimiter.js';
@@ -26,6 +26,7 @@ router.get('/me', authenticate as any, getMe as any);
 router.get('/sessions', authenticate as any, getSessions as any);
 router.post('/logout-all', authenticate as any, logoutAllDevices as any);
 router.patch('/profile', authenticate as any, updateProfile as any);
+router.post('/change-password', authenticate as any, changePassword as any);
 
 // Google Auth endpoints
 router.post('/google', authRateLimiter, googleAuth);

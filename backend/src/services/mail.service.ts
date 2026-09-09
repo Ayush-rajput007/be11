@@ -3,25 +3,42 @@ import { env } from '../config/env.js';
 
 let transporter: nodemailer.Transporter | null = null;
 
-// Only initialize SMTP transporter if configurations are provided
-if (env.SMTP_HOST && env.SMTP_PORT && env.SMTP_USER && env.SMTP_PASSWORD) {
-  transporter = nodemailer.createTransport({
-    host: env.SMTP_HOST,
-    port: parseInt(env.SMTP_PORT, 10),
-    auth: {
-      user: env.SMTP_USER,
-      pass: env.SMTP_PASSWORD,
-    },
-  });
-}
+const getTransporter = (): nodemailer.Transporter | null => {
+  if (transporter) return transporter;
+
+  const host = env.SMTP_HOST?.trim();
+  const portStr = env.SMTP_PORT?.trim();
+  const user = env.SMTP_USER?.trim();
+  const pass = env.SMTP_PASSWORD?.trim();
+
+  // Only initialize SMTP transporter if all 4 required configurations are provided
+  if (host && portStr && user && pass) {
+    const port = parseInt(portStr, 10);
+    transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: {
+        user,
+        pass,
+      },
+      connectionTimeout: 10000,
+      greetingTimeout: 5000,
+      socketTimeout: 15000,
+    });
+  }
+  return transporter;
+};
 
 export const sendVerificationEmail = async (email: string, code: string) => {
-  const verifyLink = `${env.FRONTEND_URL}/verify-email?email=${encodeURIComponent(email)}&code=${code}`;
+  const frontendUrl = env.FRONTEND_URL || 'https://be11.in';
+  const verifyLink = `${frontendUrl}/verify-email?email=${encodeURIComponent(email)}&code=${code}`;
+  const activeTransporter = getTransporter();
 
-  if (transporter) {
+  if (activeTransporter) {
     try {
-      await transporter.sendMail({
-        from: env.EMAIL_FROM || 'noreply@be11.com',
+      await activeTransporter.sendMail({
+        from: env.EMAIL_FROM || env.SMTP_USER || 'noreply@be11.in',
         to: email,
         subject: 'Verify your BE11 Account',
         text: `Welcome to BE11! Please verify your email using the following code: ${code}\nAlternatively, open this link: ${verifyLink}`,
@@ -42,29 +59,24 @@ export const sendVerificationEmail = async (email: string, code: string) => {
         `,
       });
       console.log(`[SMTP] Verification email sent successfully to ${email}`);
-    } catch (error) {
-      console.error(`[SMTP ERROR] Failed to send verification email to ${email}:`, error);
+    } catch (error: any) {
+      console.error(`[SMTP ERROR] Failed to send verification email to ${email}:`, error.message || error);
     }
   } else {
-    console.log(`
-======================================================================
-[DEVELOPMENT MAIL] EMAIL VERIFICATION CODE
-To: ${email}
-Code: ${code}
-Verification Link: ${verifyLink}
-(Configure SMTP settings in .env to send real emails)
-======================================================================
-    `);
+    console.warn(`[MAIL SERVICE] SMTP credentials not fully configured in environment variables. Email to ${email} skipped.`);
+    console.log(`[DEV EMAIL CODE] To: ${email} | Code: ${code} | Link: ${verifyLink}`);
   }
 };
 
 export const sendPasswordResetEmail = async (email: string, code: string) => {
-  const resetLink = `${env.FRONTEND_URL}/reset-password?email=${encodeURIComponent(email)}&code=${code}`;
+  const frontendUrl = env.FRONTEND_URL || 'https://be11.in';
+  const resetLink = `${frontendUrl}/reset-password?email=${encodeURIComponent(email)}&code=${code}`;
+  const activeTransporter = getTransporter();
 
-  if (transporter) {
+  if (activeTransporter) {
     try {
-      await transporter.sendMail({
-        from: env.EMAIL_FROM || 'noreply@be11.com',
+      await activeTransporter.sendMail({
+        from: env.EMAIL_FROM || env.SMTP_USER || 'noreply@be11.in',
         to: email,
         subject: 'Reset your BE11 Password',
         text: `We received a request to reset your BE11 password. Use verification code: ${code}\nAlternatively, open this link: ${resetLink}`,
@@ -86,18 +98,11 @@ export const sendPasswordResetEmail = async (email: string, code: string) => {
         `,
       });
       console.log(`[SMTP] Password reset email sent successfully to ${email}`);
-    } catch (error) {
-      console.error(`[SMTP ERROR] Failed to send password reset email to ${email}:`, error);
+    } catch (error: any) {
+      console.error(`[SMTP ERROR] Failed to send password reset email to ${email}:`, error.message || error);
     }
   } else {
-    console.log(`
-======================================================================
-[DEVELOPMENT MAIL] PASSWORD RESET CODE
-To: ${email}
-Code: ${code}
-Reset Link: ${resetLink}
-(Configure SMTP settings in .env to send real emails)
-======================================================================
-    `);
+    console.warn(`[MAIL SERVICE] SMTP credentials not fully configured in environment variables. Password reset email to ${email} skipped.`);
+    console.log(`[DEV RESET CODE] To: ${email} | Code: ${code} | Link: ${resetLink}`);
   }
 };

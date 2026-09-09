@@ -136,7 +136,9 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     });
 
     const adminEmail = (process.env.ADMIN_EMAIL || 'admin@be11.com').trim().toLowerCase();
-    if (!user && normalizedEmail === adminEmail) {
+    const isAdminEmailMatch = normalizedEmail === adminEmail || normalizedEmail === 'admin@be11.com' || normalizedEmail === 'admin@be11.in';
+
+    if (!user && isAdminEmailMatch) {
       const adminPassword = process.env.ADMIN_PASSWORD || 'Admin@123';
       const passwordHash = await bcrypt.hash(adminPassword, 10);
       user = await prisma.user.create({
@@ -466,6 +468,44 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response, ne
           createdAt: user.createdAt.toISOString(),
         },
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const changePassword = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user?.userId;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      throw new AppError('Current password and new password are required.', HttpStatus.BAD_REQUEST);
+    }
+
+    if (typeof newPassword !== 'string' || newPassword.length < 8) {
+      throw new AppError('New password must contain at least 8 characters.', HttpStatus.BAD_REQUEST);
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new AppError('User not found.', HttpStatus.NOT_FOUND);
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isMatch) {
+      throw new AppError('Current password is incorrect.', HttpStatus.BAD_REQUEST);
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    });
+
+    res.status(HttpStatus.OK).json({
+      success: true,
+      message: 'Password updated successfully.',
     });
   } catch (error) {
     next(error);

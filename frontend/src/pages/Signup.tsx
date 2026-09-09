@@ -194,7 +194,7 @@ export const Signup: React.FC = () => {
                 className="mt-0.5 rounded bg-[#000d20] border-slate-700 text-[#f97316] focus:ring-0 cursor-pointer"
               />
               <label htmlFor="agree" className="text-[11px] text-slate-300 font-normal leading-snug cursor-pointer">
-                I agree to the <span className="text-blue-400 hover:underline">Terms of Service</span> and <span className="text-blue-400 hover:underline">Privacy Policy</span>.
+                I agree to the <Link to="/terms" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">Terms of Service</Link> and <Link to="/privacy" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">Privacy Policy</Link>.
               </label>
             </div>
 

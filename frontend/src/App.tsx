@@ -34,6 +34,8 @@ import { Capture } from './pages/Capture.jsx';
 import { VerifyEmail } from './pages/VerifyEmail.jsx';
 import { AdminBookings } from './pages/AdminBookings.jsx';
 import { MyBookings } from './pages/MyBookings.jsx';
+import { PrivacyPolicy } from './pages/PrivacyPolicy.jsx';
+import { TermsOfService } from './pages/TermsOfService.jsx';
 
 const queryClient = new QueryClient();
 
@@ -118,6 +120,10 @@ export const App: React.FC = () => {
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ForgotPassword />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/privacy-policy" element={<Navigate to="/privacy" replace />} />
+            <Route path="/terms" element={<TermsOfService />} />
+            <Route path="/terms-of-service" element={<Navigate to="/terms" replace />} />
             <Route
               path="/settings"
               element={

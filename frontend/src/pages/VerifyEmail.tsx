@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation, Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useAuthStore } from '../store/authStore.js';
 
 export const VerifyEmail: React.FC = () => {
   const { login } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
 
-  const [email, setEmail] = useState('');
+  const initialEmail = (location.state as any)?.email || searchParams.get('email') || '';
+  const [email, setEmail] = useState(initialEmail);
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
@@ -17,9 +19,9 @@ export const VerifyEmail: React.FC = () => {
   const [successMsg, setSuccessMsg] = useState('');
   const [verified, setVerified] = useState(false);
 
-  // Load params from url query (e.g. click from email link)
+  // Load params from url query or location state
   useEffect(() => {
-    const urlEmail = searchParams.get('email') || '';
+    const urlEmail = searchParams.get('email') || (location.state as any)?.email || '';
     const urlCode = searchParams.get('code') || '';
     
     if (urlEmail) {
@@ -29,11 +31,11 @@ export const VerifyEmail: React.FC = () => {
       setCode(urlCode);
     }
 
-    // Auto verify if both are provided
+    // Auto verify if both are provided (e.g. click from email link)
     if (urlEmail && urlCode) {
       triggerVerification(urlEmail, urlCode);
     }
-  }, [searchParams]);
+  }, [searchParams, location.state]);
 
   // Cooldown countdown timer
   useEffect(() => {
@@ -172,12 +174,15 @@ export const VerifyEmail: React.FC = () => {
               <input
                 required
                 type="text"
-                placeholder="123456"
+                placeholder="Enter 6-digit OTP"
                 maxLength={6}
                 value={code}
-                onChange={(e) => setCode(e.target.value)}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
                 className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-center font-bold tracking-widest text-white focus:outline-none focus:border-indigo-500"
               />
+              <p className="text-[10px] text-gray-400 mt-1 text-center">
+                Please enter the 6-digit verification code received by email.
+              </p>
             </div>
 
             <button
