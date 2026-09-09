@@ -1,7 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { prisma } from '../../config/db.js';
 import { AppError } from '../../utils/appError.js';
-import { BookingCreateSchema, HttpStatus } from '@be11/shared';
+import { BookingCreateSchema, HttpStatus, normalizePhone } from '@be11/shared';
 import { AuthenticatedRequest } from '../../middlewares/auth.js';
 import { sendNotification } from '../notifications/notifications.controller.js';
 
@@ -65,13 +65,16 @@ export const createBooking = async (req: AuthenticatedRequest, res: Response, ne
 
     // 4. Server-side price calculation and match period validation
     let totalPrice = 0;
-    let matchPeriodNormalized: string | null = null;
+    let matchPeriodNormalized: string | null = validated.matchPeriod
+      ? validated.matchPeriod.toUpperCase().trim().replace('-', '_')
+      : null;
     let startTime = validated.startTime || '07:00';
     let endTime = validated.endTime || '11:30';
 
-    const rawBookingType = (validated.bookingType || 'WHOLE_GROUND').toUpperCase().replace('-', '_');
+    const rawBookingType = (validated.bookingType || 'WHOLE_GROUND').toUpperCase().trim().replace('-', '_');
     const isSingleTeam = rawBookingType === 'TEAM_OF_11' || rawBookingType === 'SINGLE_TEAM_OF_11';
     const bookingType: 'SINGLE_TEAM_OF_11' | 'WHOLE_GROUND' = isSingleTeam ? 'SINGLE_TEAM_OF_11' : 'WHOLE_GROUND';
+    let storedBookingType: string = bookingType;
 
     const extractPrices = (rulesMap: any, periodKey: string) => {
       const val = rulesMap?.[periodKey];
@@ -89,40 +92,37 @@ export const createBooking = async (req: AuthenticatedRequest, res: Response, ne
 
     if (ground.slug === 'playnow-cricket-ground' || pricingRules?.type === 'TIME_SLOT_MATRIX') {
       // Playnow Cricket Ground Date-Based Match Period System
-      if (!validated.matchPeriod) {
+      if (!matchPeriodNormalized) {
         throw new AppError('Match period (MORNING, AFTERNOON, DAY_NIGHT, or NIGHT) is required for Playnow bookings.', HttpStatus.BAD_REQUEST);
       }
 
-      const rawPeriod = validated.matchPeriod.toUpperCase().replace('-', '_');
-      if (!['MORNING', 'AFTERNOON', 'DAY_NIGHT', 'NIGHT'].includes(rawPeriod)) {
+      if (!['MORNING', 'AFTERNOON', 'DAY_NIGHT', 'NIGHT'].includes(matchPeriodNormalized)) {
         throw new AppError('Invalid match period. Must be MORNING, AFTERNOON, DAY_NIGHT, or NIGHT.', HttpStatus.BAD_REQUEST);
       }
 
       // Business Rule: Day-Night is NOT available on weekdays
-      if (rawPeriod === 'DAY_NIGHT' && !isWeekend) {
+      if (matchPeriodNormalized === 'DAY_NIGHT' && !isWeekend) {
         throw new AppError('Day-Night match period is not available on weekdays (available only on Saturday and Sunday).', HttpStatus.BAD_REQUEST);
       }
-
-      matchPeriodNormalized = rawPeriod;
 
       const weekdayRules = pricingRules?.weekday || {};
       const weekendRules = pricingRules?.weekend || {};
       const activeRules = isWeekend ? weekendRules : weekdayRules;
 
       let periodKey = 'morning';
-      if (rawPeriod === 'MORNING') {
+      if (matchPeriodNormalized === 'MORNING') {
         periodKey = 'morning';
         startTime = '07:00';
         endTime = '11:30';
-      } else if (rawPeriod === 'AFTERNOON') {
+      } else if (matchPeriodNormalized === 'AFTERNOON') {
         periodKey = 'afternoon';
         startTime = '12:00';
         endTime = '16:30';
-      } else if (rawPeriod === 'DAY_NIGHT') {
+      } else if (matchPeriodNormalized === 'DAY_NIGHT') {
         periodKey = 'dayNight';
         startTime = '16:30';
         endTime = '20:00';
-      } else if (rawPeriod === 'NIGHT') {
+      } else if (matchPeriodNormalized === 'NIGHT') {
         periodKey = 'night';
         startTime = '20:00';
         endTime = '23:30';
@@ -138,10 +138,6 @@ export const createBooking = async (req: AuthenticatedRequest, res: Response, ne
       // AB Cricket Ground Whole Ground Match Pricing
       if (isSingleTeam) {
         throw new AppError('Single Team of 11 pricing for AB Cricket Ground is on request. Please contact venue owner Rajesh Bajaj at +91 95402 28222.', HttpStatus.BAD_REQUEST);
-      }
-
-      if (validated.matchPeriod) {
-        matchPeriodNormalized = validated.matchPeriod.toUpperCase().replace('-', '_');
       }
 
       if (validated.priceTier === 'extended' || matchPeriodNormalized === 'NIGHT' || matchPeriodNormalized === 'DAY_NIGHT' || (startTime && startTime >= '16:00')) {
@@ -178,15 +174,18 @@ export const createBooking = async (req: AuthenticatedRequest, res: Response, ne
       // A. BOOK AS INDIVIDUAL: Base ₹299 (Display ₹373.75 - ₹74.75 coupon)
       // B. BOOK HALF TEAM FOR A MATCH: Base ₹2,600 (Display ₹3,250 - ₹650 coupon)
       // C. BOOK ENTIRE VENUE: Base ₹5,000 (Display ₹6,250 - ₹1,250 coupon)
-      const bType = (bookingType || '').toUpperCase();
+      const bType = (validated.bookingType || '').toUpperCase().trim().replace('-', '_');
       if (bType === 'INDIVIDUAL') {
         totalPrice = 299;
-      } else if (bType === 'HALF_TEAM' || bType === 'HALF_TEAM_MATCH' || bType === 'SINGLE_TEAM_OF_11') {
+        storedBookingType = 'INDIVIDUAL';
+      } else if (bType === 'HALF_TEAM' || bType === 'HALF_TEAM_MATCH' || bType === 'SINGLE_TEAM_OF_11' || bType === 'TEAM_OF_11') {
         totalPrice = 2600;
-      } else if (bType === 'ENTIRE_VENUE' || bType === 'WHOLE_GROUND') {
+        storedBookingType = 'HALF_TEAM';
+      } else if (bType === 'ENTIRE_VENUE' || bType === 'WHOLE_GROUND' || !bType) {
         totalPrice = 5000;
+        storedBookingType = 'ENTIRE_VENUE';
       } else {
-        throw new AppError(`Invalid booking type "${bookingType}" for RRR Cricket Club. Must be INDIVIDUAL, HALF_TEAM, or ENTIRE_VENUE.`, HttpStatus.BAD_REQUEST);
+        throw new AppError(`Invalid booking type "${validated.bookingType}" for RRR Cricket Club. Must be INDIVIDUAL, HALF_TEAM, or ENTIRE_VENUE.`, HttpStatus.BAD_REQUEST);
       }
     } else if (pricingRules?.type === 'CONTACT_ONLY' || ground.pricePerHour === 0) {
       throw new AppError('This ground requires direct contact with the venue owner for booking.', HttpStatus.BAD_REQUEST);
@@ -196,7 +195,7 @@ export const createBooking = async (req: AuthenticatedRequest, res: Response, ne
 
     // Customer details
     const customerName = validated.customerName || `${customer.firstName} ${customer.lastName}`;
-    const customerPhone = validated.customerPhone || customer.phone || '';
+    const customerPhone = normalizePhone(validated.customerPhone || customer.phone || '');
     const customerEmail = validated.customerEmail || customer.email;
 
     // 5. Double booking prevention (Transactions lock)
@@ -252,7 +251,7 @@ export const createBooking = async (req: AuthenticatedRequest, res: Response, ne
             userId: customerId,
             amount: totalPrice,
             type: 'DEBIT',
-            description: `Booking for ${ground.name} (${validated.date} ${matchPeriodNormalized || startTime} - ${bookingType})`,
+            description: `Booking for ${ground.name} (${validated.date} ${matchPeriodNormalized || startTime} - ${storedBookingType})`,
           },
         });
       } else {
@@ -273,7 +272,7 @@ export const createBooking = async (req: AuthenticatedRequest, res: Response, ne
           startTime,
           endTime,
           matchPeriod: matchPeriodNormalized,
-          bookingType,
+          bookingType: storedBookingType,
           totalPrice,
           status: bookingStatus,
           paymentStatus,

@@ -2,29 +2,53 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useAuthStore } from '../store/authStore.js';
-import { GroundDTO, ReviewDTO, formatCurrency } from '@be11/shared';
+import { GroundDTO, ReviewDTO, formatCurrency, normalizePhone } from '@be11/shared';
 import { loadRazorpaySdk } from '../lib/razorpay.js';
 
 type WizardStep = 'PERIOD' | 'DETAILS' | 'TYPE' | 'SUMMARY' | 'SUCCESS';
 type BookingTypeChoice = 'SINGLE_TEAM_OF_11' | 'WHOLE_GROUND' | 'INDIVIDUAL' | 'HALF_TEAM' | 'ENTIRE_VENUE';
 type PaymentState = 'idle' | 'pending' | 'processing' | 'successful' | 'failed' | 'cancelled';
 
+const canonicalPeriod = (p?: string | null): string => {
+  if (!p) return 'MORNING';
+  const u = p.toUpperCase().trim().replace('-', '_');
+  if (['MORNING', 'AFTERNOON', 'EVENING', 'DAY_NIGHT', 'NIGHT'].includes(u)) {
+    return u;
+  }
+  return 'MORNING';
+};
+
+const extractSubscriberPhone = (phone?: string | null): string => {
+  if (!phone) return '';
+  let str = phone.trim();
+  if (/^\+?91[\s\-\+]/.test(str) || str.startsWith('+91') || str.startsWith('91 ')) {
+    let rest = str.replace(/^(\+?91[\s\-\+]*)+/, '').replace(/[^\d]/g, '');
+    if (rest) return rest;
+  }
+  let digits = str.replace(/[^\d]/g, '');
+  while (digits.startsWith('91') && digits.length > 10) {
+    digits = digits.slice(2);
+  }
+  return digits;
+};
+
 export const VenueDetail: React.FC = () => {
   const { id } = useParams();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
 
   const { isAuthenticated, user, updateWalletBalance } = useAuthStore();
 
   const initialDate = searchParams.get('date') || new Date().toISOString().split('T')[0];
+  const initialPeriod = canonicalPeriod(searchParams.get('period'));
 
   const [date, setDate] = useState(initialDate);
   const [calendarYear, setCalendarYear] = useState(() => Number(initialDate.split('-')[0]) || new Date().getFullYear());
   const [calendarMonth, setCalendarMonth] = useState(() => Number(initialDate.split('-')[1]) - 1 || new Date().getMonth());
   const [ground, setGround] = useState<GroundDTO | null>(null);
   const [matchPeriods, setMatchPeriods] = useState<any[]>([]);
-  const [selectedPeriod, setSelectedPeriod] = useState<string | null>('MORNING');
+  const [selectedPeriod, setSelectedPeriod] = useState<string>(initialPeriod);
   const [bookingType, setBookingType] = useState<BookingTypeChoice>('WHOLE_GROUND');
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
   const [showPhone, setShowPhone] = useState(false);
@@ -58,7 +82,7 @@ export const VenueDetail: React.FC = () => {
         if (fullName) setCustomerName(fullName);
       }
       if (!customerPhone && user.phone) {
-        setCustomerPhone(user.phone);
+        setCustomerPhone(extractSubscriberPhone(user.phone));
       }
       if (!customerEmail && user.email) {
         setCustomerEmail(user.email);
@@ -66,12 +90,42 @@ export const VenueDetail: React.FC = () => {
     }
   }, [user]);
 
+  // Synchronize URL and state for date and period
+  const updateUrlParams = (newDate: string, newPeriod: string) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('date', newDate);
+      next.set('period', newPeriod);
+      return next;
+    }, { replace: true });
+  };
+
+  // Sync state when URL searchParams changes (e.g. Back/Forward navigation, direct links)
+  useEffect(() => {
+    const urlDate = searchParams.get('date');
+    if (urlDate && urlDate !== date) {
+      setDate(urlDate);
+      const [y, m] = urlDate.split('-').map(Number);
+      if (y && m) {
+        setCalendarYear(y);
+        setCalendarMonth(m - 1);
+      }
+    }
+    const urlPeriod = searchParams.get('period');
+    if (urlPeriod) {
+      const canonical = canonicalPeriod(urlPeriod);
+      if (canonical !== selectedPeriod) {
+        setSelectedPeriod(canonical);
+      }
+    }
+  }, [searchParams]);
+
   // Restore booking selections if redirected back from login
   useEffect(() => {
     if (location.state?.bookingState) {
       const bs = location.state.bookingState;
       if (bs.date) setDate(bs.date);
-      if (bs.selectedPeriod) setSelectedPeriod(bs.selectedPeriod);
+      if (bs.selectedPeriod) setSelectedPeriod(canonicalPeriod(bs.selectedPeriod));
       if (bs.bookingType) setBookingType(bs.bookingType);
       // Auto-advance to details step if user was redirected back from login
       if (isAuthenticated) {
@@ -114,6 +168,7 @@ export const VenueDetail: React.FC = () => {
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
     if (!isWeekend && selectedPeriod === 'DAY_NIGHT') {
       setSelectedPeriod('MORNING');
+      updateUrlParams(date, 'MORNING');
     }
   }, [date, selectedPeriod]);
 
@@ -129,7 +184,16 @@ export const VenueDetail: React.FC = () => {
   // Date selection handler with URL query sync
   const handleDateSelect = (selectedDateStr: string) => {
     setDate(selectedDateStr);
-    navigate(`/venues/${id}?date=${selectedDateStr}`, { replace: true });
+    updateUrlParams(selectedDateStr, selectedPeriod || 'MORNING');
+    setError('');
+  };
+
+  // Period selection handler with URL query sync
+  const handlePeriodSelect = (periodId: string) => {
+    const canonical = canonicalPeriod(periodId);
+    setSelectedPeriod(canonical);
+    updateUrlParams(date, canonical);
+    setError('');
   };
 
   // Calendar month navigation
@@ -314,7 +378,10 @@ export const VenueDetail: React.FC = () => {
       errors.name = 'Full name is required.';
     }
 
-    const cleanPhone = customerPhone.replace(/[\s\-\+\(\)]/g, '');
+    let cleanPhone = customerPhone.replace(/[\s\-\+\(\)]/g, '');
+    while (cleanPhone.startsWith('91') && cleanPhone.length > 10) {
+      cleanPhone = cleanPhone.slice(2);
+    }
     const phonePattern = /^(?:91)?[6789]\d{9}$/;
     if (!customerPhone.trim()) {
       errors.phone = 'Mobile number is required.';
@@ -370,7 +437,7 @@ export const VenueDetail: React.FC = () => {
           matchPeriod: selectedPeriod,
           bookingType,
           customerName: customerName.trim(),
-          customerPhone: customerPhone.trim(),
+          customerPhone: normalizePhone(customerPhone),
           customerEmail: customerEmail.trim(),
         });
 
@@ -456,7 +523,7 @@ export const VenueDetail: React.FC = () => {
         prefill: {
           name: customerName.trim() || `${user?.firstName || ''} ${user?.lastName || ''}`.trim(),
           email: customerEmail.trim() || user?.email || '',
-          contact: customerPhone.trim() || user?.phone || '',
+          contact: normalizePhone(customerPhone) || normalizePhone(user?.phone) || '',
         },
         theme: {
           color: '#ea580c',
@@ -939,7 +1006,7 @@ export const VenueDetail: React.FC = () => {
                                 key={period.id}
                                 type="button"
                                 disabled={!isAvailable}
-                                onClick={() => setSelectedPeriod(period.id)}
+                                onClick={() => handlePeriodSelect(period.id)}
                                 className={`p-3.5 rounded-2xl text-left border-2 transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between ${
                                   !isAvailable
                                     ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-60'
@@ -1088,11 +1155,12 @@ export const VenueDetail: React.FC = () => {
                             required
                             value={customerPhone}
                             onChange={(e) => {
-                              setCustomerPhone(e.target.value);
+                              const raw = e.target.value.replace(/[^\d]/g, '');
+                              setCustomerPhone(raw);
                               if (formErrors.phone) setFormErrors((prev) => ({ ...prev, phone: undefined }));
                             }}
                             placeholder="98765 43210"
-                            maxLength={13}
+                            maxLength={10}
                             className={`w-full pl-12 pr-3.5 py-2.5 rounded-xl border text-sm focus:outline-none transition-all ${
                               formErrors.phone ? 'border-red-400 bg-red-50/50' : 'border-slate-300 focus:border-[#0a2e6e]'
                             }`}
@@ -1625,7 +1693,7 @@ export const VenueDetail: React.FC = () => {
 
                         <div className="flex justify-between text-xs">
                           <span className="text-slate-500">Mobile:</span>
-                          <span className="font-semibold text-primary">+91 {customerPhone}</span>
+                          <span className="font-semibold text-primary">{normalizePhone(customerPhone)}</span>
                         </div>
 
                         <div className="flex justify-between text-xs">
