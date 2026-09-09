@@ -9,6 +9,7 @@ import { rateLimiter } from './middlewares/rateLimiter.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 import { AppError } from './utils/appError.js';
 import { HttpStatus } from '@be11/shared';
+import { ensureDatabaseSchema } from './config/db.js';
 
 // Import routers
 import authRouter from './modules/auth/auth.routes.js';
@@ -107,6 +108,14 @@ app.all('/socket.io*', (req, res, next) => {
   } else {
     next();
   }
+});
+
+// Ensure database schema migrations are applied on first request
+app.use('/api', async (_req, _res, next) => {
+  try {
+    await ensureDatabaseSchema();
+  } catch (_) {}
+  next();
 });
 
 // Apply rate limiter to general api endpoints
