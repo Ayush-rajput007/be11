@@ -30,6 +30,13 @@ const envSchema = z.object({
   RAZORPAY_KEY_ID: z.string().optional(),
   RAZORPAY_KEY_SECRET: z.string().optional(),
   RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
+  SMS_PROVIDER: z.string().optional(),
+  SMS_API_KEY: z.string().optional(),
+  SMS_AUTH_TOKEN: z.string().optional(),
+  SMS_SENDER_ID: z.string().optional(),
+  TWILIO_ACCOUNT_SID: z.string().optional(),
+  TWILIO_AUTH_TOKEN: z.string().optional(),
+  TWILIO_PHONE_NUMBER: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -60,5 +67,12 @@ export const env: Env = parsed.success
       RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID || undefined,
       RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET || undefined,
       RAZORPAY_WEBHOOK_SECRET: process.env.RAZORPAY_WEBHOOK_SECRET || undefined,
+      SMS_PROVIDER: process.env.SMS_PROVIDER || undefined,
+      SMS_API_KEY: process.env.SMS_API_KEY || undefined,
+      SMS_AUTH_TOKEN: process.env.SMS_AUTH_TOKEN || undefined,
+      SMS_SENDER_ID: process.env.SMS_SENDER_ID || undefined,
+      TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID || undefined,
+      TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN || undefined,
+      TWILIO_PHONE_NUMBER: process.env.TWILIO_PHONE_NUMBER || undefined,
     };
 

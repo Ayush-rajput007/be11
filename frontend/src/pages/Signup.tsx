@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 
+import { isValidIndianMobile, canonicalPhone } from '@be11/shared';
+
 export const Signup: React.FC = () => {
   const navigate = useNavigate();
 
@@ -36,6 +38,16 @@ export const Signup: React.FC = () => {
     e.preventDefault();
     setErrorMsg('');
 
+    if (!phone || !phone.trim()) {
+      setErrorMsg('Phone number is required.');
+      return;
+    }
+
+    if (!isValidIndianMobile(phone)) {
+      setErrorMsg('Please enter a valid 10-digit Indian mobile number.');
+      return;
+    }
+
     if (password.length < 8) {
       setErrorMsg('Password must contain at least 8 characters.');
       return;
@@ -56,6 +68,7 @@ export const Signup: React.FC = () => {
     const nameParts = fullName.trim().split(/\s+/);
     const firstName = nameParts[0] || 'User';
     const lastName = nameParts.slice(1).join(' ') || 'Name';
+    const normalizedPhone = canonicalPhone(phone);
 
     try {
       await api.post('/auth/register', {
@@ -63,12 +76,17 @@ export const Signup: React.FC = () => {
         password,
         firstName,
         lastName,
-        phone: phone ? phone.trim() : undefined,
+        phone: normalizedPhone,
         role: 'PLAYER', // Default public safe role
       });
 
-      // Start email verification flow
-      navigate('/verify-email', { state: { email: email.trim() } });
+      // Step 2: Start phone verification flow
+      navigate('/verify-phone', {
+        state: {
+          email: email.trim(),
+          phone: normalizedPhone,
+        },
+      });
     } catch (err: any) {
       console.error(err);
       setErrorMsg(err.response?.data?.message || 'Registration failed. Please check your details.');
@@ -132,14 +150,18 @@ export const Signup: React.FC = () => {
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Phone (Optional)</label>
+                <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
+                  <span>PHONE NUMBER <span className="text-[#f97316]">*</span></span>
+                </label>
                 <input
+                  required
                   type="tel"
                   placeholder="+91 98765 43210"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   className="w-full bg-[#000d20] border border-slate-700/80 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#f97316] focus:ring-1 focus:ring-[#f97316] transition-all"
                 />
+                <p className="text-[10px] text-slate-400">Required for account verification and booking security.</p>
               </div>
             </div>
 

@@ -1,12 +1,22 @@
+import crypto from 'crypto';
 import { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { prisma } from '../../config/db.js';
+import { prisma, ensureDatabaseSchema } from '../../config/db.js';
 import { env } from '../../config/env.js';
 import { AppError } from '../../utils/appError.js';
-import { RegisterSchema, LoginSchema, HttpStatus } from '@be11/shared';
+import { 
+  RegisterSchema, 
+  LoginSchema, 
+  HttpStatus,
+  canonicalPhone,
+  isValidIndianMobile,
+  SendPhoneOtpSchema,
+  VerifyPhoneOtpSchema
+} from '@be11/shared';
 import { AuthenticatedRequest, TokenPayload } from '../../middlewares/auth.js';
 import { sendVerificationEmail, sendPasswordResetEmail } from '../../services/mail.service.js';
+import { sendPhoneOtpSms } from '../../services/sms.service.js';
 
 // Helper: parse custom refresh cookie manually to avoid dependencies
 const getRefreshTokenFromCookie = (req: Request): string | undefined => {
@@ -63,6 +73,7 @@ const setRefreshTokenCookie = (res: Response, token: string) => {
 
 export const register = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    await ensureDatabaseSchema();
     const validated = RegisterSchema.parse(req.body);
 
     // Prevent direct registration of privileged roles
@@ -73,12 +84,29 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
 
     const normalizedEmail = validated.email.trim().toLowerCase();
 
+    // Validate phone presence and Indian mobile validity
+    if (!validated.phone || !validated.phone.trim()) {
+      throw new AppError('Phone number is required.', HttpStatus.BAD_REQUEST);
+    }
+    if (!isValidIndianMobile(validated.phone)) {
+      throw new AppError('Please enter a valid 10-digit Indian mobile number.', HttpStatus.BAD_REQUEST);
+    }
+    const normalizedPhone = canonicalPhone(validated.phone);
+
     const existingUser = await prisma.user.findUnique({
       where: { email: normalizedEmail },
     });
 
     if (existingUser) {
       throw new AppError('An account with this email already exists. Please sign in instead.', HttpStatus.CONFLICT);
+    }
+
+    const existingPhoneUser = await prisma.user.findFirst({
+      where: { phone: normalizedPhone },
+    });
+
+    if (existingPhoneUser) {
+      throw new AppError('This phone number is already registered.', HttpStatus.CONFLICT);
     }
 
     // Password validation constraints (min 8 chars)
@@ -88,43 +116,63 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
 
     const passwordHash = await bcrypt.hash(validated.password, 10);
 
+    // Generate secure 6-digit phone OTP
+    const phoneOtpCode = crypto.randomInt(100000, 1000000).toString();
+    const phoneOtpHash = crypto.createHash('sha256').update(phoneOtpCode).digest('hex');
+    const phoneOtpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+
     const user = await prisma.user.create({
       data: {
         email: normalizedEmail,
         passwordHash,
         firstName: validated.firstName,
         lastName: validated.lastName,
-        phone: validated.phone || null,
+        phone: normalizedPhone,
         role: validated.role,
         walletBalance: 0.0,
         emailVerified: false,
+        phoneVerified: false,
+        phoneOtpHash,
+        phoneOtpExpiresAt,
+        phoneOtpAttempts: 0,
+        phoneOtpLastSentAt: new Date(),
       },
     });
 
-    // Generate secure 6 digit pin verification code
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date();
-    expiresAt.setMinutes(expiresAt.getMinutes() + 10); // 10 min expiry
+    // Send transactional SMS to customer's mobile
+    await sendPhoneOtpSms(normalizedPhone, phoneOtpCode);
+
+    // Generate secure 6 digit pin verification code for email step
+    const emailCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const emailExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min expiry
 
     await prisma.otp.create({
-      data: { email: normalizedEmail, code, expiresAt },
+      data: { email: normalizedEmail, code: emailCode, expiresAt: emailExpiresAt },
     });
 
     // Send verification email
-    await sendVerificationEmail(normalizedEmail, code);
+    try {
+      await sendVerificationEmail(normalizedEmail, emailCode);
+    } catch (mailErr) {
+      console.warn('Initial signup email dispatch delayed:', mailErr);
+    }
 
     res.status(HttpStatus.CREATED).json({
       success: true,
-      message: 'Account created successfully. Please verify your email to continue.',
+      message: 'Account created successfully. Please verify your phone number to continue.',
       data: {
         email: user.email,
+        phone: user.phone,
+        phoneVerified: false,
         emailVerified: false,
+        step: 'VERIFY_PHONE',
       },
     });
   } catch (error) {
     next(error);
   }
 };
+
 
 export const login = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -191,6 +239,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
           role: user.role,
           walletBalance: user.walletBalance,
           emailVerified: user.emailVerified,
+          phoneVerified: user.phoneVerified,
           createdAt: user.createdAt.toISOString(),
         },
       },
@@ -246,6 +295,7 @@ export const refresh = async (req: Request, res: Response, next: NextFunction) =
           role: dbToken.user.role,
           walletBalance: dbToken.user.walletBalance,
           emailVerified: dbToken.user.emailVerified,
+          phoneVerified: dbToken.user.phoneVerified,
           createdAt: dbToken.user.createdAt.toISOString(),
         },
       },
@@ -383,8 +433,9 @@ export const verifyOtp = async (req: Request, res: Response, next: NextFunction)
       throw new AppError('Email and code are required', HttpStatus.BAD_REQUEST);
     }
 
+    const normalizedEmail = email.trim().toLowerCase();
     const dbOtp = await prisma.otp.findFirst({
-      where: { email, code },
+      where: { email: normalizedEmail, code: String(code).trim() },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -392,7 +443,7 @@ export const verifyOtp = async (req: Request, res: Response, next: NextFunction)
       throw new AppError('Invalid or expired OTP verification code', HttpStatus.BAD_REQUEST);
     }
 
-    await prisma.otp.deleteMany({ where: { email } });
+    await prisma.otp.deleteMany({ where: { email: normalizedEmail } });
 
     res.status(HttpStatus.OK).json({
       success: true,
@@ -402,6 +453,215 @@ export const verifyOtp = async (req: Request, res: Response, next: NextFunction)
     next(error);
   }
 };
+
+export const sendPhoneOtp = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await ensureDatabaseSchema();
+    let targetPhone = req.body.phone ? canonicalPhone(req.body.phone) : undefined;
+    let targetEmail = req.body.email ? req.body.email.trim().toLowerCase() : undefined;
+    let userId: string | undefined = undefined;
+
+    // Check optional authenticated session token
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const decoded = jwt.verify(authHeader.split(' ')[1], env.JWT_SECRET) as any;
+        if (decoded?.userId) userId = decoded.userId;
+      } catch (_) {}
+    }
+
+    if (!targetPhone && !targetEmail && !userId) {
+      throw new AppError('Phone number or email is required.', HttpStatus.BAD_REQUEST);
+    }
+
+    if (targetPhone && !isValidIndianMobile(targetPhone)) {
+      throw new AppError('Please enter a valid 10-digit Indian mobile number.', HttpStatus.BAD_REQUEST);
+    }
+
+    let user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          ...(userId ? [{ id: userId }] : []),
+          ...(targetPhone ? [{ phone: targetPhone }] : []),
+          ...(targetEmail ? [{ email: targetEmail }] : []),
+        ],
+      },
+    });
+
+    // If authenticated user is updating/adding a new phone number
+    if (userId && user && targetPhone && user.phone !== targetPhone) {
+      const conflict = await prisma.user.findFirst({
+        where: { phone: targetPhone, NOT: { id: userId } },
+      });
+      if (conflict) {
+        throw new AppError('This phone number is already registered.', HttpStatus.CONFLICT);
+      }
+      user = await prisma.user.update({
+        where: { id: userId },
+        data: { phone: targetPhone, phoneVerified: false },
+      });
+    }
+
+    if (!user || !user.phone) {
+      return res.status(HttpStatus.OK).json({
+        success: true,
+        message: 'If an account exists, a verification code has been sent.',
+      });
+    }
+
+    if (user.phoneVerified) {
+      return res.status(HttpStatus.OK).json({
+        success: true,
+        message: 'Phone number is already verified.',
+        data: { phoneVerified: true },
+      });
+    }
+
+    // Enforce 60-second cooldown rate limit
+    if (user.phoneOtpLastSentAt) {
+      const elapsedSec = (Date.now() - user.phoneOtpLastSentAt.getTime()) / 1000;
+      if (elapsedSec < 60) {
+        throw new AppError(
+          `Please wait ${Math.ceil(60 - elapsedSec)} seconds before requesting a new code.`,
+          HttpStatus.TOO_MANY_REQUESTS
+        );
+      }
+    }
+
+    // Generate new 6-digit cryptographic OTP (invalidates previous OTP)
+    const phoneOtpCode = crypto.randomInt(100000, 1000000).toString();
+    const phoneOtpHash = crypto.createHash('sha256').update(phoneOtpCode).digest('hex');
+    const phoneOtpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        phoneOtpHash,
+        phoneOtpExpiresAt,
+        phoneOtpAttempts: 0,
+        phoneOtpLastSentAt: new Date(),
+      },
+    });
+
+    await sendPhoneOtpSms(user.phone, phoneOtpCode);
+
+    res.status(HttpStatus.OK).json({
+      success: true,
+      message: 'Verification code sent to your phone number.',
+      data: {
+        phone: user.phone,
+        cooldown: 60,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const verifyPhoneOtp = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    await ensureDatabaseSchema();
+    const { code } = req.body;
+    if (!code || !/^\d{6}$/.test(String(code).trim())) {
+      throw new AppError('OTP must be a 6-digit number.', HttpStatus.BAD_REQUEST);
+    }
+
+    let targetPhone = req.body.phone ? canonicalPhone(req.body.phone) : undefined;
+    let targetEmail = req.body.email ? req.body.email.trim().toLowerCase() : undefined;
+    let userId: string | undefined = undefined;
+
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const decoded = jwt.verify(authHeader.split(' ')[1], env.JWT_SECRET) as any;
+        if (decoded?.userId) userId = decoded.userId;
+      } catch (_) {}
+    }
+
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          ...(userId ? [{ id: userId }] : []),
+          ...(targetPhone ? [{ phone: targetPhone }] : []),
+          ...(targetEmail ? [{ email: targetEmail }] : []),
+        ],
+      },
+    });
+
+    if (!user) {
+      throw new AppError('User not found. Please check details or sign up again.', HttpStatus.NOT_FOUND);
+    }
+
+    if (user.phoneVerified) {
+      return res.status(HttpStatus.OK).json({
+        success: true,
+        message: 'Phone number is already verified.',
+        data: {
+          phoneVerified: true,
+          emailVerified: user.emailVerified,
+          step: user.emailVerified ? 'COMPLETE' : 'VERIFY_EMAIL',
+        },
+      });
+    }
+
+    // Rate limiting: Maximum 5 attempts
+    if (user.phoneOtpAttempts >= 5) {
+      throw new AppError(
+        'Too many failed attempts. Please request a new verification code.',
+        HttpStatus.TOO_MANY_REQUESTS
+      );
+    }
+
+    // Expiry check (10 minutes)
+    if (!user.phoneOtpExpiresAt || user.phoneOtpExpiresAt < new Date()) {
+      throw new AppError('Verification code has expired. Please request a new code.', HttpStatus.BAD_REQUEST);
+    }
+
+    // Verify SHA-256 hash
+    const inputHash = crypto.createHash('sha256').update(String(code).trim()).digest('hex');
+    if (inputHash !== user.phoneOtpHash) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { phoneOtpAttempts: { increment: 1 } },
+      });
+      throw new AppError('Invalid verification code. Please check and try again.', HttpStatus.BAD_REQUEST);
+    }
+
+    // Success: Mark phoneVerified true, clear OTP fields
+    const updatedUser = await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        phoneVerified: true,
+        phoneOtpHash: null,
+        phoneOtpExpiresAt: null,
+        phoneOtpAttempts: 0,
+      },
+    });
+
+    let token: string | undefined = undefined;
+    if (updatedUser.emailVerified) {
+      const tokens = await generateTokens(updatedUser.id, updatedUser.role, updatedUser.email, req);
+      setRefreshTokenCookie(res, tokens.refreshTokenString);
+      token = tokens.accessToken;
+    }
+
+    res.status(HttpStatus.OK).json({
+      success: true,
+      message: 'Phone number verified successfully.',
+      data: {
+        phoneVerified: true,
+        emailVerified: updatedUser.emailVerified,
+        step: updatedUser.emailVerified ? 'COMPLETE' : 'VERIFY_EMAIL',
+        email: updatedUser.email,
+        phone: updatedUser.phone,
+        ...(token ? { token } : {}),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 
 export const getSessions = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
@@ -536,6 +796,7 @@ export const getMe = async (req: AuthenticatedRequest, res: Response, next: Next
           role: user.role,
           walletBalance: user.walletBalance,
           emailVerified: user.emailVerified,
+          phoneVerified: user.phoneVerified,
           createdAt: user.createdAt.toISOString(),
         },
       },
@@ -649,6 +910,7 @@ export const googleAuth = async (req: Request, res: Response, next: NextFunction
           role: user.role,
           walletBalance: user.walletBalance,
           emailVerified: user.emailVerified,
+          phoneVerified: user.phoneVerified,
           createdAt: user.createdAt.toISOString(),
         },
       },
@@ -778,6 +1040,7 @@ export const verifyEmail = async (req: Request, res: Response, next: NextFunctio
           role: user.role,
           walletBalance: user.walletBalance,
           emailVerified: user.emailVerified,
+          phoneVerified: user.phoneVerified,
           createdAt: user.createdAt.toISOString(),
         },
       },

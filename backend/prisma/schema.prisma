@@ -14,10 +14,15 @@ model User {
   passwordHash      String
   firstName         String
   lastName          String
-  phone             String?
+  phone             String?             @unique
   role              String              @default("CUSTOMER") // CUSTOMER, OWNER, ADMIN, ORGANIZER, COACH
   walletBalance     Float               @default(0.0)
   emailVerified     Boolean             @default(false)
+  phoneVerified     Boolean             @default(false)
+  phoneOtpHash      String?
+  phoneOtpExpiresAt DateTime?
+  phoneOtpAttempts  Int                 @default(0)
+  phoneOtpLastSentAt DateTime?
   googleId          String?             @unique
   profileImage      String?
   provider          String?             @default("local")

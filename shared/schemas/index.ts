@@ -1,12 +1,22 @@
 import { z } from 'zod';
 import { USER_ROLES } from '../constants/index.js';
+import { isValidIndianMobile, canonicalPhone } from '../utils/index.js';
 
 export const RegisterSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters long'),
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
-  phone: z.string().optional(),
+  phone: z
+    .string({
+      required_error: 'Phone number is required.',
+    })
+    .min(1, 'Phone number is required.')
+    .refine(
+      (val) => isValidIndianMobile(val),
+      'Please enter a valid 10-digit Indian mobile number.'
+    )
+    .transform((val) => canonicalPhone(val)),
   role: z.enum([
     USER_ROLES.CUSTOMER,
     USER_ROLES.OWNER,
@@ -22,6 +32,33 @@ export const RegisterSchema = z.object({
 });
 
 export type RegisterInput = z.infer<typeof RegisterSchema>;
+
+export const SendPhoneOtpSchema = z.object({
+  phone: z
+    .string()
+    .min(1, 'Phone number is required')
+    .refine(
+      (val) => isValidIndianMobile(val),
+      'Please enter a valid 10-digit Indian mobile number.'
+    )
+    .transform((val) => canonicalPhone(val)),
+  email: z.string().email().optional(),
+});
+
+export type SendPhoneOtpInput = z.infer<typeof SendPhoneOtpSchema>;
+
+export const VerifyPhoneOtpSchema = z.object({
+  phone: z.string().optional(),
+  email: z.string().email().optional(),
+  code: z.string().regex(/^\d{6}$/, 'OTP must be a 6-digit number').optional(),
+  otp: z.string().regex(/^\d{6}$/, 'OTP must be a 6-digit number').optional(),
+}).refine((data) => data.code || data.otp, {
+  message: 'OTP must be a 6-digit number',
+  path: ['otp'],
+});
+
+export type VerifyPhoneOtpInput = z.infer<typeof VerifyPhoneOtpSchema>;
+
 
 export const LoginSchema = z.object({
   email: z.string().email('Invalid email address'),

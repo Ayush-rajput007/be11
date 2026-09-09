@@ -19,12 +19,20 @@ export const createBooking = async (req: AuthenticatedRequest, res: Response, ne
       throw new AppError('Venue or ground ID is required', HttpStatus.BAD_REQUEST);
     }
 
-    // 1. Fetch user and verify exists
+    // 1. Fetch user and verify exists & verified
     const customer = await prisma.user.findUnique({
       where: { id: customerId },
     });
     if (!customer) {
       throw new AppError('Customer not found', HttpStatus.NOT_FOUND);
+    }
+
+    if (!customer.phoneVerified) {
+      throw new AppError('Please verify your phone number before booking.', HttpStatus.FORBIDDEN);
+    }
+
+    if (!customer.emailVerified) {
+      throw new AppError('Please verify your email address before booking.', HttpStatus.FORBIDDEN);
     }
 
     // 2. Fetch ground and pricing rules

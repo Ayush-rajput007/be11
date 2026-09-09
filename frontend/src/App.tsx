@@ -31,6 +31,7 @@ import { Signup } from './pages/Signup.jsx';
 import { ForgotPassword } from './pages/ForgotPassword.jsx';
 import { ProfileSettings } from './pages/ProfileSettings.jsx';
 import { Capture } from './pages/Capture.jsx';
+import { VerifyPhone } from './pages/VerifyPhone.js';
 import { VerifyEmail } from './pages/VerifyEmail.jsx';
 import { AdminBookings } from './pages/AdminBookings.jsx';
 import { MyBookings } from './pages/MyBookings.jsx';
@@ -119,6 +120,7 @@ export const App: React.FC = () => {
             <Route path="/signup" element={<Signup />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ForgotPassword />} />
+            <Route path="/verify-phone" element={<VerifyPhone />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/privacy-policy" element={<Navigate to="/privacy" replace />} />

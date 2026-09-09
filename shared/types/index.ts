@@ -16,6 +16,7 @@ export interface UserDTO {
   role: UserRole;
   walletBalance: number;
   emailVerified: boolean;
+  phoneVerified: boolean;
   createdAt: string;
   updatedAt?: string;
 }

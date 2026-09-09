@@ -3,7 +3,8 @@ import {
   register, login, getMe, logout, refresh, 
   forgotPassword, resetPassword, sendOtp, verifyOtp, 
   getSessions, logoutAllDevices, googleAuth, googleOAuthCallback, updateProfile,
-  verifyEmail, resendVerification, changePassword
+  verifyEmail, resendVerification, changePassword,
+  sendPhoneOtp, verifyPhoneOtp
 } from './auth.controller.js';
 import { authenticate } from '../../middlewares/auth.js';
 import { authRateLimiter } from '../../middlewares/rateLimiter.js';
@@ -18,6 +19,8 @@ router.post('/forgot-password', authRateLimiter, forgotPassword);
 router.post('/reset-password', authRateLimiter, resetPassword);
 router.post('/send-otp', authRateLimiter, sendOtp);
 router.post('/verify-otp', authRateLimiter, verifyOtp);
+router.post('/send-phone-otp', authRateLimiter, sendPhoneOtp);
+router.post('/verify-phone-otp', authRateLimiter, verifyPhoneOtp);
 router.post('/verify-email', authRateLimiter, verifyEmail);
 router.post('/resend-verification', authRateLimiter, resendVerification);
 

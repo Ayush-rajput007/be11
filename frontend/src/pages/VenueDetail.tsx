@@ -542,7 +542,9 @@ export const VenueDetail: React.FC = () => {
     } catch (err: any) {
       console.error(err);
       setPaymentState('failed');
-      setError(err.response?.data?.message || err.message || 'Booking creation or payment initiation failed.');
+      const errorMsg = err.response?.data?.message || err.message || 'Booking creation or payment initiation failed.';
+      setError(errorMsg);
+      setPaymentError(errorMsg);
     } finally {
       setBookingLoading(false);
     }
@@ -861,6 +863,24 @@ export const VenueDetail: React.FC = () => {
                   {isRRR ? 'Fixed 4-Hr Slots from ₹299 (25% OFF)' : isAB ? 'WHOLE GROUND Starting from ₹3,500' : ground.pricingLabel || (ground.pricePerHour > 0 ? `₹${ground.pricePerHour}/hr` : 'Price on request')}
                 </span>
               </div>
+
+              {error && (
+                <div className="mb-4 p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 animate-fadeIn">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-base text-red-600 shrink-0">error</span>
+                    <span className="font-medium leading-tight">{error}</span>
+                  </div>
+                  {error.includes('verify your phone') && (
+                    <button
+                      type="button"
+                      onClick={() => navigate('/verify-phone')}
+                      className="px-3 py-1.5 bg-[#0a2e6e] text-white rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-[#071f4a] shrink-0 text-center transition-all cursor-pointer"
+                    >
+                      Verify Phone
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* ROUTE 1: RRR Cricket Club (Contact Only) */}
               {isContactOnly ? (
@@ -1734,14 +1754,24 @@ export const VenueDetail: React.FC = () => {
                       )}
 
                       {paymentState === 'failed' && (
-                        <div className="bg-red-50 border border-red-300 p-3 rounded-xl text-xs text-red-900 space-y-1 animate-fade-in">
+                        <div className="bg-red-50 border border-red-300 p-4 rounded-xl text-xs text-red-900 space-y-2 animate-fade-in">
                           <div className="flex items-center gap-1.5 font-bold">
                             <span className="material-symbols-outlined text-base text-red-600">error</span>
-                            <span>Payment Unsuccessful</span>
+                            <span>Booking Request Notice</span>
                           </div>
                           <p className="text-[11px] leading-relaxed">
-                            {paymentError || 'The transaction could not be processed. Please check your card or UPI app and retry.'}
+                            {paymentError || error || 'The transaction could not be processed. Please check your card or UPI app and retry.'}
                           </p>
+                          {(paymentError?.includes('verify your phone') || error?.includes('verify your phone')) && (
+                            <button
+                              type="button"
+                              onClick={() => navigate('/verify-phone')}
+                              className="mt-2 px-3 py-1.5 rounded-lg bg-[#0a2e6e] text-white font-bold text-xs uppercase tracking-wider cursor-pointer hover:bg-[#071f4a] transition-all inline-flex items-center gap-1"
+                            >
+                              <span>Verify Phone Number</span>
+                              <span className="material-symbols-outlined text-xs">arrow_forward</span>
+                            </button>
+                          )}
                         </div>
                       )}
 
