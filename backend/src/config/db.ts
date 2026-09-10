@@ -16,12 +16,30 @@ export const ensureDatabaseSchema = async (): Promise<void> => {
         'ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "phoneOtpAttempts" INTEGER NOT NULL DEFAULT 0',
         'ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "phoneOtpLastSentAt" TIMESTAMP(3)',
         'CREATE UNIQUE INDEX IF NOT EXISTS "User_phone_key" ON "User"("phone")',
+        `CREATE TABLE IF NOT EXISTS "WalletTopUp" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "userId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+          "amount" DOUBLE PRECISION NOT NULL,
+          "currency" TEXT NOT NULL DEFAULT 'INR',
+          "status" TEXT NOT NULL DEFAULT 'CREATED',
+          "razorpayOrderId" TEXT NOT NULL,
+          "razorpayPaymentId" TEXT,
+          "razorpaySignature" TEXT,
+          "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )`,
+        'CREATE UNIQUE INDEX IF NOT EXISTS "WalletTopUp_razorpayOrderId_key" ON "WalletTopUp"("razorpayOrderId")',
+        'CREATE UNIQUE INDEX IF NOT EXISTS "WalletTopUp_razorpayPaymentId_key" ON "WalletTopUp"("razorpayPaymentId")',
+        'CREATE INDEX IF NOT EXISTS "WalletTopUp_userId_idx" ON "WalletTopUp"("userId")',
+        'CREATE INDEX IF NOT EXISTS "WalletTopUp_status_idx" ON "WalletTopUp"("status")',
+        'ALTER TABLE "WalletTransaction" ADD COLUMN IF NOT EXISTS "razorpayOrderId" TEXT',
+        'ALTER TABLE "WalletTransaction" ADD COLUMN IF NOT EXISTS "razorpayPaymentId" TEXT',
       ];
       for (const q of queries) {
         await prisma.$executeRawUnsafe(q);
       }
       schemaEnsured = true;
-      logger.info('✅ Phone verification schema columns and indexes verified in PostgreSQL');
+      logger.info('✅ Database schema verified in PostgreSQL (Phone auth, WalletTopUp & transactions)');
     } else {
       schemaEnsured = true;
     }

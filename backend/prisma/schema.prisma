@@ -35,6 +35,7 @@ model User {
   cancelledBookings Booking[]           @relation("CancelledBookings")
   reviews           Review[]
   transactions      WalletTransaction[]
+  walletTopUps      WalletTopUp[]
   notifications     Notification[]
   favorites         Favorite[]
   vendors           Vendor[]
@@ -149,13 +150,32 @@ model Review {
 }
 
 model WalletTransaction {
-  id          String          @id @default(uuid())
-  userId      String
-  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  amount      Float
-  type        String
-  description String
-  createdAt   DateTime        @default(now())
+  id                String          @id @default(uuid())
+  userId            String
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount            Float
+  type              String
+  description       String
+  razorpayOrderId   String?
+  razorpayPaymentId String?
+  createdAt         DateTime        @default(now())
+}
+
+model WalletTopUp {
+  id                String          @id @default(uuid())
+  userId            String
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount            Float
+  currency          String          @default("INR")
+  status            String          @default("CREATED") // CREATED, PENDING, PAID, FAILED, CANCELLED, REFUNDED
+  razorpayOrderId   String          @unique
+  razorpayPaymentId String?         @unique
+  razorpaySignature String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([userId])
+  @@index([status])
 }
 
 model Notification {

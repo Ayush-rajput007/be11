@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getAdminAnalytics } from './admin.controller.js';
+import { getAdminAnalytics, getAdminWalletTopups } from './admin.controller.js';
 import {
   getAdminBookings,
   getAdminBookingStats,
@@ -17,8 +17,9 @@ const router = Router();
 router.use(authenticate as any);
 router.use(authorize(USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN, 'ADMIN', 'SUPER_ADMIN') as any);
 
-// Analytics
+// Analytics & Wallet Monitoring
 router.get('/analytics', getAdminAnalytics as any);
+router.get('/wallet-topups', getAdminWalletTopups as any);
 
 // Venue Bookings Management
 router.get('/bookings', getAdminBookings as any);

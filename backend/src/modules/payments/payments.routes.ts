@@ -5,6 +5,9 @@ import {
   getTransactions,
   createRazorpayOrder,
   verifyRazorpayPayment,
+  createWalletTopupOrder,
+  verifyWalletTopup,
+  cancelWalletTopup,
   createBookingPaymentOrder,
   verifyBookingPayment,
   paymentRefund,
@@ -27,6 +30,9 @@ router.post('/booking/verify', verifyBookingPayment as any);
 
 // Wallet & Top-up Payments
 router.post('/topup', topupWallet as any);
+router.post('/topup/create-order', createWalletTopupOrder as any);
+router.post('/topup/verify', verifyWalletTopup as any);
+router.post('/topup/cancel', cancelWalletTopup as any);
 router.get('/transactions', getTransactions as any);
 router.post('/create-order', createRazorpayOrder as any);
 router.post('/verify', verifyRazorpayPayment as any);

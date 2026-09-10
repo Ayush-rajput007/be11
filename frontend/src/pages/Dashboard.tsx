@@ -4,6 +4,7 @@ import { api } from '../lib/api.js';
 import { BookingDTO, WalletTransactionDTO, NotificationDTO, formatCurrency } from '@be11/shared';
 import { io } from 'socket.io-client';
 import { API_URL } from '../config/env.js';
+import { loadRazorpaySdk } from '../lib/razorpay.js';
 
 export const Dashboard: React.FC = () => {
   const { user, login, token, updateWalletBalance } = useAuthStore();
@@ -24,6 +25,8 @@ export const Dashboard: React.FC = () => {
   const [bookingLoading, setBookingLoading] = useState(false);
   const [transactions, setTransactions] = useState<WalletTransactionDTO[]>([]);
   const [topupAmount, setTopupAmount] = useState('');
+  const [topupLoading, setTopupLoading] = useState(false);
+  const [topupInputError, setTopupInputError] = useState('');
   const [walletLoading, setWalletLoading] = useState(false);
   const [notifications, setNotifications] = useState<NotificationDTO[]>([]);
 
@@ -67,8 +70,14 @@ export const Dashboard: React.FC = () => {
   const fetchWallet = async () => {
     setWalletLoading(true);
     try {
-      const res = await api.get('/payments/transactions');
-      setTransactions(res.data.data.transactions);
+      const [transRes, profRes] = await Promise.all([
+        api.get('/wallet/transactions').catch(() => api.get('/payments/transactions')),
+        api.get('/auth/me').catch(() => null),
+      ]);
+      setTransactions(transRes.data?.data?.transactions || []);
+      if (profRes?.data?.data?.user?.walletBalance !== undefined) {
+        updateWalletBalance(profRes.data.data.user.walletBalance);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -176,22 +185,123 @@ export const Dashboard: React.FC = () => {
     e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
-    const amt = parseFloat(topupAmount);
+    setTopupInputError('');
 
-    if (isNaN(amt) || amt <= 0) {
-      setErrorMsg('Please enter a valid amount greater than zero.');
+    const trimmed = topupAmount.trim();
+    if (!trimmed) {
+      setTopupInputError('Please enter a top-up amount.');
       return;
     }
 
+    // Reject non-numeric and decimal amounts
+    if (!/^\d+$/.test(trimmed)) {
+      if (trimmed.includes('.')) {
+        setTopupInputError('Top-up amount must be a whole rupee amount (no decimals).');
+      } else {
+        setTopupInputError('Please enter a valid numeric amount.');
+      }
+      return;
+    }
+
+    const amt = parseInt(trimmed, 10);
+    if (isNaN(amt) || amt <= 0) {
+      setTopupInputError('Top-up amount must be greater than zero.');
+      return;
+    }
+
+    if (amt < 100) {
+      setTopupInputError('Minimum top-up amount is ₹100.');
+      return;
+    }
+
+    if (amt > 10000) {
+      setTopupInputError('Maximum top-up amount is ₹10,000.');
+      return;
+    }
+
+    setTopupLoading(true);
+
     try {
-      const res = await api.post('/payments/topup', { amount: amt });
-      updateWalletBalance(res.data.data.walletBalance);
-      setSuccessMsg(`Topped up wallet successfully by ₹${amt}`);
-      setTopupAmount('');
-      fetchWallet();
+      // 1. Create server-side Razorpay order
+      const orderRes = await api.post('/wallet/topup/create-order', { amount: amt });
+      const { orderId, amount, currency, keyId } = orderRes.data.data;
+
+      // 2. Ensure Razorpay Standard Checkout SDK is loaded
+      const isSdkLoaded = await loadRazorpaySdk();
+      if (!isSdkLoaded || !window.Razorpay) {
+        throw new Error('Razorpay Checkout SDK could not be loaded. Please check your internet connection.');
+      }
+
+      // 3. Configure Razorpay Standard Checkout Modal
+      const options = {
+        key: keyId,
+        amount, // in paise
+        currency: currency || 'INR',
+        name: 'BE11 Sports',
+        description: 'Wallet Credits Top-up',
+        image: '/favicon.ico',
+        order_id: orderId,
+        prefill: {
+          name: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || undefined,
+          email: user?.email || undefined,
+          contact: user?.phone || undefined,
+        },
+        theme: {
+          color: '#4F46E5',
+        },
+        handler: async function (response: any) {
+          try {
+            setTopupLoading(true);
+            const verifyRes = await api.post('/wallet/topup/verify', {
+              razorpayOrderId: response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature,
+            });
+
+            const newBalance = verifyRes.data?.data?.walletBalance;
+            if (typeof newBalance === 'number') {
+              updateWalletBalance(newBalance);
+            }
+            setSuccessMsg(`Payment successful! ₹${amt} added to your BE11 wallet.`);
+            setTopupAmount('');
+            setTopupInputError('');
+            fetchWallet();
+          } catch (verifyErr: any) {
+            console.error('Wallet payment verification error:', verifyErr);
+            setErrorMsg(
+              verifyErr.response?.data?.message ||
+              'Payment verification failed. If money was debited, it will be credited automatically within 24 hours.'
+            );
+          } finally {
+            setTopupLoading(false);
+          }
+        },
+        modal: {
+          ondismiss: async function () {
+            setTopupLoading(false);
+            setErrorMsg('Payment was not completed. Your wallet has not been charged/credited.');
+            try {
+              await api.post('/wallet/topup/cancel', {
+                razorpayOrderId: orderId,
+                reason: 'Checkout dismissed by user',
+              });
+            } catch (_) {}
+          },
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', function (response: any) {
+        setTopupLoading(false);
+        console.error('Razorpay top-up failed:', response.error);
+        setErrorMsg(`Payment failed: ${response.error?.description || 'Payment was not completed.'}`);
+      });
+
+      rzp.open();
     } catch (err: any) {
-      console.error(err);
-      setErrorMsg('Failed to process top-up.');
+      console.error('Razorpay checkout initiation error:', err);
+      setErrorMsg(err.response?.data?.message || err.message || 'Failed to initiate secure payment.');
+      setTopupLoading(false);
     }
   };
 
@@ -421,30 +531,93 @@ export const Dashboard: React.FC = () => {
               <div className="space-y-6">
                 <h3 className="font-poppins font-black text-sm text-indigo-400 uppercase tracking-wider border-b border-white/5 pb-2">Wallet & Transactions Ledger</h3>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-                  <div className="p-6 bg-black/40 border border-white/5 rounded-2xl space-y-2">
-                    <span className="text-[10px] uppercase font-bold text-gray-400 block tracking-widest">Available Credit</span>
-                    <h4 className="text-3xl font-black text-emerald-400">{formatCurrency(user?.walletBalance || 0)}</h4>
-                    <p className="text-[10px] text-gray-400 font-light leading-relaxed">Top up wallet credit. Credits are used for instant slot settlements.</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                  <div className="p-6 bg-black/40 border border-white/5 rounded-2xl space-y-2 h-full flex flex-col justify-between">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-gray-400 block tracking-widest">Available Credit</span>
+                      <h4 className="text-3xl font-black text-emerald-400 mt-1">{formatCurrency(user?.walletBalance || 0)}</h4>
+                    </div>
+                    <p className="text-[10px] text-gray-400 font-light leading-relaxed">
+                      Top up wallet credit with Razorpay. Wallet credits are used for instant slot settlements and priority bookings.
+                    </p>
                   </div>
 
-                  <form onSubmit={handleTopup} className="p-4 bg-white/5 border border-white/5 rounded-2xl space-y-3 text-xs">
-                    <h5 className="font-bold text-white uppercase tracking-wider text-[10px]">Add Wallet Credits</h5>
-                    <div className="flex gap-2">
+                  <form onSubmit={handleTopup} className="p-5 bg-white/5 border border-white/5 rounded-2xl space-y-4 text-xs">
+                    <div className="flex justify-between items-center">
+                      <h5 className="font-bold text-white uppercase tracking-wider text-[11px]">Add Wallet Credits</h5>
+                      <span className="text-[10px] text-indigo-300 font-semibold bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
+                        ₹100 – ₹10,000
+                      </span>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                        Amount (₹)
+                      </label>
                       <input
-                        required
-                        type="number"
-                        placeholder="e.g. 1000"
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="Enter amount"
                         value={topupAmount}
-                        onChange={(e) => setTopupAmount(e.target.value)}
-                        className="flex-1 bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white"
+                        disabled={topupLoading}
+                        onChange={(e) => {
+                          setTopupAmount(e.target.value);
+                          if (topupInputError) setTopupInputError('');
+                        }}
+                        className={`w-full bg-black/40 border ${
+                          topupInputError ? 'border-red-500/60' : 'border-white/10'
+                        } rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition-colors`}
                       />
-                      <button
-                        type="submit"
-                        className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2 rounded-xl text-xs transition-all"
-                      >
-                        Topup
-                      </button>
+
+                      {topupInputError && (
+                        <p className="text-[11px] text-red-400 font-medium">{topupInputError}</p>
+                      )}
+
+                      {/* Quick rupee preset buttons */}
+                      <div className="flex items-center gap-2 pt-1">
+                        <span className="text-[9px] text-gray-500 font-medium">Quick:</span>
+                        <button
+                          type="button"
+                          onClick={() => { setTopupAmount('500'); setTopupInputError(''); }}
+                          className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-indigo-600/30 text-[10px] font-semibold text-gray-300 hover:text-white border border-white/5 transition-all"
+                        >
+                          ₹500
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setTopupAmount('1000'); setTopupInputError(''); }}
+                          className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-indigo-600/30 text-[10px] font-semibold text-gray-300 hover:text-white border border-white/5 transition-all"
+                        >
+                          ₹1,000
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setTopupAmount('2000'); setTopupInputError(''); }}
+                          className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-indigo-600/30 text-[10px] font-semibold text-gray-300 hover:text-white border border-white/5 transition-all"
+                        >
+                          ₹2,000
+                        </button>
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={topupLoading}
+                      className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-900/50 disabled:cursor-not-allowed text-white font-bold px-4 py-3 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 active:scale-[0.99]"
+                    >
+                      {topupLoading ? (
+                        <>
+                          <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                          <span>Creating secure payment...</span>
+                        </>
+                      ) : (
+                        <span>TOP UP WITH RAZORPAY</span>
+                      )}
+                    </button>
+
+                    <div className="flex justify-between items-center text-[9px] text-gray-400 pt-1 border-t border-white/5">
+                      <span>Minimum top-up: ₹100</span>
+                      <span>Maximum top-up: ₹10,000</span>
                     </div>
                   </form>
                 </div>
@@ -457,17 +630,29 @@ export const Dashboard: React.FC = () => {
                     <p className="text-xs text-gray-500">No transactions recorded yet.</p>
                   ) : (
                     <div className="space-y-2">
-                      {transactions.map((t) => (
-                        <div key={t.id} className="p-3 bg-black/40 border border-white/5 rounded-2xl flex items-center justify-between text-xs">
-                          <div>
-                            <p className="font-bold text-white">{t.description}</p>
-                            <p className="text-[9px] text-gray-400 mt-0.5">{new Date(t.createdAt).toLocaleDateString()}</p>
+                      {transactions.map((t) => {
+                        const isTopup = t.description.toLowerCase().includes('top-up') || t.description.toLowerCase().includes('topup');
+                        const displayDescription = isTopup && (t.description.includes('Razorpay') || t.description.includes('Online Payment'))
+                          ? 'Wallet top-up (Razorpay)'
+                          : t.description;
+
+                        const dateObj = new Date(t.createdAt);
+                        const formattedDate = !isNaN(dateObj.getTime())
+                          ? `${dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} • ${dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                          : '';
+
+                        return (
+                          <div key={t.id} className="p-3 bg-black/40 border border-white/5 rounded-2xl flex items-center justify-between text-xs">
+                            <div>
+                              <p className="font-bold text-white">{displayDescription}</p>
+                              <p className="text-[9px] text-gray-400 mt-0.5">{formattedDate}</p>
+                            </div>
+                            <span className={`font-bold ${t.amount >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                              {t.amount >= 0 ? '+' : ''}{formatCurrency(t.amount)}
+                            </span>
                           </div>
-                          <span className={`font-bold ${t.amount >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                            {t.amount >= 0 ? '+' : ''}{formatCurrency(t.amount)}
-                          </span>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>

@@ -115,3 +115,23 @@ export const BookingCancelSchema = z.object({
 
 export type BookingCancelInput = z.infer<typeof BookingCancelSchema>;
 
+export const WalletTopupOrderSchema = z.object({
+  amount: z
+    .number({
+      required_error: 'Top-up amount is required',
+      invalid_type_error: 'Top-up amount must be a number',
+    })
+    .int('Top-up amount must be a whole rupee amount')
+    .min(100, 'Minimum top-up amount is ₹100')
+    .max(10000, 'Maximum top-up amount is ₹10,000'),
+});
+
+export type WalletTopupOrderInput = z.infer<typeof WalletTopupOrderSchema>;
+
+export const WalletTopupVerifySchema = z.object({
+  razorpayOrderId: z.string().min(1, 'Razorpay order ID is required'),
+  razorpayPaymentId: z.string().min(1, 'Razorpay payment ID is required'),
+  razorpaySignature: z.string().min(1, 'Razorpay signature is required'),
+});
+
+export type WalletTopupVerifyInput = z.infer<typeof WalletTopupVerifySchema>;

@@ -1,7 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { prisma } from '../../config/db.js';
 import { AppError } from '../../utils/appError.js';
-import { HttpStatus } from '@be11/shared';
+import { HttpStatus, WalletTopupOrderSchema, WalletTopupVerifySchema } from '@be11/shared';
 import { AuthenticatedRequest } from '../../middlewares/auth.js';
 import {
   getRazorpayPublicKey,
@@ -45,43 +45,13 @@ export const getTransactions = async (req: AuthenticatedRequest, res: Response, 
   }
 };
 
-// POST /api/v1/payments/topup - tops up user wallet balance
+// POST /api/v1/payments/topup - deprecated direct topup, now redirects to Razorpay flow
 export const topupWallet = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
-    const { amount } = req.body;
-    const userId = req.user?.userId;
-
-    if (!userId) {
-      throw new AppError('Unauthorized', HttpStatus.UNAUTHORIZED);
-    }
-
-    if (!amount || typeof amount !== 'number' || amount <= 0) {
-      throw new AppError('Invalid top-up amount', HttpStatus.BAD_REQUEST);
-    }
-
-    const updatedUser = await prisma.$transaction(async (tx) => {
-      await tx.walletTransaction.create({
-        data: {
-          userId,
-          amount,
-          type: 'CREDIT',
-          description: 'Wallet top-up (Online Payment)',
-        },
-      });
-
-      return tx.user.update({
-        where: { id: userId },
-        data: { walletBalance: { increment: amount } },
-      });
-    });
-
-    res.status(HttpStatus.OK).json({
-      success: true,
-      message: `Successfully topped up wallet by ₹${amount}`,
-      data: {
-        walletBalance: updatedUser.walletBalance,
-      },
-    });
+    throw new AppError(
+      'Direct wallet top-up is disabled. Please create a Razorpay order via /api/v1/wallet/topup/create-order',
+      HttpStatus.BAD_REQUEST
+    );
   } catch (error) {
     next(error);
   }
@@ -303,14 +273,25 @@ export const verifyBookingPayment = async (
   }
 };
 
-// POST /api/v1/payments/create-order - general Razorpay order creation (e.g. wallet top-up)
-export const createRazorpayOrder = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+// POST /api/v1/wallet/topup/create-order - initiates Razorpay order for wallet top-up
+export const createWalletTopupOrder = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const { amount } = req.body;
-    if (!amount || typeof amount !== 'number' || amount <= 0) {
-      throw new AppError('Invalid payment amount', HttpStatus.BAD_REQUEST);
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new AppError('Unauthorized', HttpStatus.UNAUTHORIZED);
     }
 
+    const parseResult = WalletTopupOrderSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      const firstError = parseResult.error.errors[0]?.message || 'Invalid top-up amount';
+      throw new AppError(firstError, HttpStatus.BAD_REQUEST);
+    }
+
+    const { amount } = parseResult.data;
     const amountPaise = Math.round(amount * 100);
 
     let razorpayOrderId: string;
@@ -318,20 +299,33 @@ export const createRazorpayOrder = async (req: AuthenticatedRequest, res: Respon
       const order = await createServerOrder({
         amountPaise,
         currency: 'INR',
+        receipt: `topup_${Date.now()}`,
         notes: {
-          userId: req.user?.userId || '',
+          userId,
           type: 'WALLET_TOPUP',
         },
       });
       razorpayOrderId = order.id;
     } else {
-      razorpayOrderId = `order_${Math.random().toString(36).substring(2, 15)}`;
+      razorpayOrderId = `order_test_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     }
+
+    // Persist WalletTopUp record in database
+    await prisma.walletTopUp.create({
+      data: {
+        userId,
+        amount,
+        currency: 'INR',
+        status: 'CREATED',
+        razorpayOrderId,
+      },
+    });
 
     res.status(HttpStatus.OK).json({
       success: true,
+      message: 'Razorpay wallet top-up order created successfully',
       data: {
-        id: razorpayOrderId,
+        orderId: razorpayOrderId,
         amount: amountPaise,
         currency: 'INR',
         keyId: getRazorpayPublicKey(),
@@ -342,20 +336,54 @@ export const createRazorpayOrder = async (req: AuthenticatedRequest, res: Respon
   }
 };
 
-// POST /api/v1/payments/verify - general Razorpay payment verification (e.g. wallet top-up)
-export const verifyRazorpayPayment = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+// POST /api/v1/wallet/topup/verify - cryptographically verifies Razorpay payment & idempotently credits wallet
+export const verifyWalletTopup = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const userId = req.user?.userId;
     if (!userId) {
       throw new AppError('Unauthorized', HttpStatus.UNAUTHORIZED);
     }
 
-    const { razorpayOrderId, razorpayPaymentId, razorpaySignature, amount, description } = req.body;
-
-    if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature || !amount) {
-      throw new AppError('Invalid payment credentials', HttpStatus.BAD_REQUEST);
+    const parseResult = WalletTopupVerifySchema.safeParse(req.body);
+    if (!parseResult.success) {
+      const firstError = parseResult.error.errors[0]?.message || 'Invalid payment credentials';
+      throw new AppError(firstError, HttpStatus.BAD_REQUEST);
     }
 
+    const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = parseResult.data;
+
+    const topUp = await prisma.walletTopUp.findUnique({
+      where: { razorpayOrderId },
+      include: { user: true },
+    });
+
+    if (!topUp) {
+      throw new AppError('Top-up order not found', HttpStatus.NOT_FOUND);
+    }
+
+    if (topUp.userId !== userId && req.user?.role !== 'ADMIN') {
+      throw new AppError('Unauthorized access to top-up order', HttpStatus.FORBIDDEN);
+    }
+
+    // IDEMPOTENCY: If already marked PAID, return existing verified status without re-crediting
+    if (topUp.status === 'PAID') {
+      const currentUser = await prisma.user.findUnique({ where: { id: userId } });
+      return res.status(HttpStatus.OK).json({
+        success: true,
+        message: 'Payment has already been verified and credited to your wallet',
+        data: {
+          walletBalance: currentUser?.walletBalance ?? topUp.user.walletBalance,
+          amount: topUp.amount,
+          paymentId: topUp.razorpayPaymentId || razorpayPaymentId,
+        },
+      });
+    }
+
+    // Cryptographic signature verification via HMAC-SHA256
     if (isRazorpayConfigured()) {
       const isValid = verifyRazorpaySignature({
         orderId: razorpayOrderId,
@@ -364,31 +392,104 @@ export const verifyRazorpayPayment = async (req: AuthenticatedRequest, res: Resp
       });
 
       if (!isValid) {
+        await prisma.walletTopUp.update({
+          where: { id: topUp.id },
+          data: { status: 'FAILED' },
+        });
         throw new AppError('Payment signature verification failed', HttpStatus.BAD_REQUEST);
+      }
+
+      // Verify payment details with Razorpay API (authoritative amount, currency, and status)
+      const paymentDetails = await fetchRazorpayPayment(razorpayPaymentId);
+      const expectedPaise = Math.round(topUp.amount * 100);
+
+      if (paymentDetails.amount !== expectedPaise) {
+        logger.error('Wallet top-up amount tampering detected', {
+          expectedPaise,
+          receivedPaise: paymentDetails.amount,
+          userId,
+          orderId: razorpayOrderId,
+        });
+        await prisma.walletTopUp.update({
+          where: { id: topUp.id },
+          data: { status: 'FAILED' },
+        });
+        throw new AppError('Payment amount mismatch. Transaction rejected.', HttpStatus.BAD_REQUEST);
+      }
+
+      if (paymentDetails.currency !== 'INR') {
+        throw new AppError('Invalid payment currency', HttpStatus.BAD_REQUEST);
+      }
+
+      if (paymentDetails.status !== 'captured' && paymentDetails.status !== 'authorized') {
+        throw new AppError(
+          `Payment is not in captured or authorized state (Status: ${paymentDetails.status})`,
+          HttpStatus.BAD_REQUEST
+        );
       }
     }
 
+    // Protect against reusing payment ID
+    const existingPaymentUsage = await prisma.walletTopUp.findFirst({
+      where: {
+        razorpayPaymentId,
+        status: 'PAID',
+        NOT: { id: topUp.id },
+      },
+    });
+    if (existingPaymentUsage) {
+      throw new AppError('This payment ID has already been credited', HttpStatus.CONFLICT);
+    }
+
+    // Idempotent Atomic Database Transaction: Update TopUp record, create ledger entry, increment user wallet
     const updatedUser = await prisma.$transaction(async (tx) => {
+      await tx.walletTopUp.update({
+        where: { id: topUp.id },
+        data: {
+          status: 'PAID',
+          razorpayPaymentId,
+          razorpaySignature,
+        },
+      });
+
       await tx.walletTransaction.create({
         data: {
           userId,
-          amount: parseFloat(amount),
+          amount: topUp.amount,
           type: 'CREDIT',
-          description: description || 'Razorpay Gateway Payment',
+          description: 'Wallet top-up (Razorpay)',
+          razorpayOrderId,
+          razorpayPaymentId,
         },
       });
 
       return tx.user.update({
         where: { id: userId },
-        data: { walletBalance: { increment: parseFloat(amount) } },
+        data: { walletBalance: { increment: topUp.amount } },
       });
+    });
+
+    // Create persistent notification for user
+    await prisma.notification.create({
+      data: {
+        userId,
+        title: `Wallet Top-up Successful (₹${topUp.amount})`,
+        message: `₹${topUp.amount} has been successfully added to your BE11 wallet via Razorpay.`,
+      },
+    });
+
+    // Real-time notification
+    sendNotification(userId, {
+      title: 'Wallet Top-up Successful',
+      message: `₹${topUp.amount} added to your BE11 wallet.`,
     });
 
     res.status(HttpStatus.OK).json({
       success: true,
-      message: 'Razorpay payment verified and account credited successfully',
+      message: `Payment successful! ₹${topUp.amount} added to your BE11 wallet.`,
       data: {
         walletBalance: updatedUser.walletBalance,
+        amount: topUp.amount,
         paymentId: razorpayPaymentId,
       },
     });
@@ -396,6 +497,60 @@ export const verifyRazorpayPayment = async (req: AuthenticatedRequest, res: Resp
     next(error);
   }
 };
+
+// POST /api/v1/wallet/topup/cancel - marks cancelled top-up attempt
+export const cancelWalletTopup = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new AppError('Unauthorized', HttpStatus.UNAUTHORIZED);
+    }
+
+    const { razorpayOrderId, reason } = req.body;
+    if (!razorpayOrderId) {
+      throw new AppError('Razorpay order ID is required', HttpStatus.BAD_REQUEST);
+    }
+
+    const topUp = await prisma.walletTopUp.findUnique({
+      where: { razorpayOrderId },
+    });
+
+    if (!topUp) {
+      throw new AppError('Top-up order not found', HttpStatus.NOT_FOUND);
+    }
+
+    if (topUp.userId !== userId && req.user?.role !== 'ADMIN') {
+      throw new AppError('Unauthorized access to top-up order', HttpStatus.FORBIDDEN);
+    }
+
+    if (topUp.status !== 'PAID') {
+      await prisma.walletTopUp.update({
+        where: { id: topUp.id },
+        data: { status: 'CANCELLED' },
+      });
+    }
+
+    res.status(HttpStatus.OK).json({
+      success: true,
+      message: 'Payment was not completed. Your wallet has not been charged/credited.',
+      data: {
+        status: topUp.status === 'PAID' ? 'PAID' : 'CANCELLED',
+        reason: reason || 'User cancelled checkout',
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Backwards-compatible aliases
+export const createRazorpayOrder = createWalletTopupOrder;
+export const verifyRazorpayPayment = verifyWalletTopup;
+
 
 // POST /api/v1/payments/refund - simulates processing a refund
 export const paymentRefund = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {

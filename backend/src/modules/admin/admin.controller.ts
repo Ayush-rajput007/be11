@@ -49,21 +49,63 @@ export const getAdminAnalytics = async (req: AuthenticatedRequest, res: Response
       { month: 'May', revenue: totalRevenue * 0.3 },
     ];
 
-    res.status(HttpStatus.OK).json({
-      success: true,
-      message: 'Admin analytics metrics retrieved successfully',
-      data: {
-        analytics: {
-          totalUsers,
-          totalGrounds,
-          totalBookings,
-          totalRevenue,
-          popularGrounds,
-          monthlyRevenue,
+      res.status(HttpStatus.OK).json({
+        success: true,
+        message: 'Admin analytics metrics retrieved successfully',
+        data: {
+          analytics: {
+            totalUsers,
+            totalGrounds,
+            totalBookings,
+            totalRevenue,
+            popularGrounds,
+            monthlyRevenue,
+          },
         },
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-};
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  export const getAdminWalletTopups = async (_req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    try {
+      const topups = await prisma.walletTopUp.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+            },
+          },
+        },
+      });
+
+      res.status(HttpStatus.OK).json({
+        success: true,
+        message: 'Admin wallet top-up records retrieved successfully',
+        data: {
+          topups: topups.map((t) => ({
+            id: t.id,
+            userId: t.userId,
+            user: t.user,
+            amount: t.amount,
+            currency: t.currency,
+            status: t.status,
+            razorpayOrderId: t.razorpayOrderId,
+            razorpayPaymentId: t.razorpayPaymentId,
+            createdAt: t.createdAt,
+            updatedAt: t.updatedAt,
+          })),
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
