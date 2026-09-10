@@ -34,6 +34,7 @@ export const ensureDatabaseSchema = async (): Promise<void> => {
         'CREATE INDEX IF NOT EXISTS "WalletTopUp_status_idx" ON "WalletTopUp"("status")',
         'ALTER TABLE "WalletTransaction" ADD COLUMN IF NOT EXISTS "razorpayOrderId" TEXT',
         'ALTER TABLE "WalletTransaction" ADD COLUMN IF NOT EXISTS "razorpayPaymentId" TEXT',
+        'CREATE UNIQUE INDEX IF NOT EXISTS "WalletTransaction_razorpayPaymentId_key" ON "WalletTransaction"("razorpayPaymentId") WHERE "razorpayPaymentId" IS NOT NULL',
       ];
       for (const q of queries) {
         await prisma.$executeRawUnsafe(q);

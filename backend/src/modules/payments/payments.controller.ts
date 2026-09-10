@@ -441,16 +441,25 @@ export const verifyWalletTopup = async (
       throw new AppError('This payment ID has already been credited', HttpStatus.CONFLICT);
     }
 
-    // Idempotent Atomic Database Transaction: Update TopUp record, create ledger entry, increment user wallet
+    // Idempotent Atomic Database Transaction: Update TopUp record conditionally, create ledger entry, increment user wallet
     const updatedUser = await prisma.$transaction(async (tx) => {
-      await tx.walletTopUp.update({
-        where: { id: topUp.id },
+      // Concurrency lock: update only if status is NOT already PAID
+      const updateResult = await tx.walletTopUp.updateMany({
+        where: {
+          id: topUp.id,
+          status: { not: 'PAID' },
+        },
         data: {
           status: 'PAID',
           razorpayPaymentId,
           razorpaySignature,
         },
       });
+
+      // If already marked PAID concurrently by another request, return existing balance without re-crediting
+      if (updateResult.count === 0) {
+        return tx.user.findUnique({ where: { id: userId } });
+      }
 
       await tx.walletTransaction.create({
         data: {
@@ -488,7 +497,7 @@ export const verifyWalletTopup = async (
       success: true,
       message: `Payment successful! ₹${topUp.amount} added to your BE11 wallet.`,
       data: {
-        walletBalance: updatedUser.walletBalance,
+        walletBalance: updatedUser?.walletBalance ?? topUp.user.walletBalance,
         amount: topUp.amount,
         paymentId: razorpayPaymentId,
       },
@@ -639,6 +648,48 @@ export const handleRazorpayWebhook = async (req: any, res: Response, next: NextF
             },
           });
           logger.info(`Webhook idempotently confirmed payment for booking ${booking.id}`);
+        }
+      }
+
+      // Handle Wallet Top-up reconciliation if client timed out
+      if (orderId) {
+        const topUp = await prisma.walletTopUp.findUnique({
+          where: { razorpayOrderId: orderId },
+        });
+
+        if (topUp && topUp.status !== 'PAID') {
+          await prisma.$transaction(async (tx) => {
+            const updateResult = await tx.walletTopUp.updateMany({
+              where: {
+                id: topUp.id,
+                status: { not: 'PAID' },
+              },
+              data: {
+                status: 'PAID',
+                razorpayPaymentId: paymentId || null,
+              },
+            });
+
+            if (updateResult.count > 0) {
+              await tx.walletTransaction.create({
+                data: {
+                  userId: topUp.userId,
+                  amount: topUp.amount,
+                  type: 'CREDIT',
+                  description: 'Wallet top-up (Razorpay)',
+                  razorpayOrderId: orderId,
+                  razorpayPaymentId: paymentId || null,
+                },
+              });
+
+              await tx.user.update({
+                where: { id: topUp.userId },
+                data: { walletBalance: { increment: topUp.amount } },
+              });
+
+              logger.info(`Webhook idempotently reconciled wallet top-up for order ${orderId}`);
+            }
+          });
         }
       }
     }

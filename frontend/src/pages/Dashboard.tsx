@@ -268,10 +268,7 @@ export const Dashboard: React.FC = () => {
             fetchWallet();
           } catch (verifyErr: any) {
             console.error('Wallet payment verification error:', verifyErr);
-            setErrorMsg(
-              verifyErr.response?.data?.message ||
-              'Payment verification failed. If money was debited, it will be credited automatically within 24 hours.'
-            );
+            setErrorMsg('Payment failed. No amount was added to your wallet.');
           } finally {
             setTopupLoading(false);
           }
@@ -279,7 +276,7 @@ export const Dashboard: React.FC = () => {
         modal: {
           ondismiss: async function () {
             setTopupLoading(false);
-            setErrorMsg('Payment was not completed. Your wallet has not been charged/credited.');
+            setErrorMsg('Payment was cancelled. No amount was added to your wallet.');
             try {
               await api.post('/wallet/topup/cancel', {
                 razorpayOrderId: orderId,
@@ -294,7 +291,7 @@ export const Dashboard: React.FC = () => {
       rzp.on('payment.failed', function (response: any) {
         setTopupLoading(false);
         console.error('Razorpay top-up failed:', response.error);
-        setErrorMsg(`Payment failed: ${response.error?.description || 'Payment was not completed.'}`);
+        setErrorMsg('Payment failed. No amount was added to your wallet.');
       });
 
       rzp.open();
