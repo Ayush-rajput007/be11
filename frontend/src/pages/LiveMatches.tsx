@@ -5,10 +5,12 @@ import { useAuthStore } from '../store/authStore.js';
 import { useLocationStore } from '../store/locationStore.js';
 import { io } from 'socket.io-client';
 import { API_URL } from '../config/env.js';
+import { loadRazorpaySdk } from '../lib/razorpay.js';
 
 interface Ground {
   id: string;
   name: string;
+  slug?: string;
   location: string;
   city: string;
   pricePerHour: number;
@@ -69,65 +71,243 @@ export const LiveMatches: React.FC = () => {
 
   // Player Join Flow Premium Modal State
   const [playerBookingMatch, setPlayerBookingMatch] = useState<Match | null>(null);
-  const [bookingStep, setBookingStep] = useState<1 | 2 | 3 | 4 | 5>(1); // 1: Option Select, 2: Form Input, 3: Invoice Summary, 4: Payment choice, 5: Success screen
+  const [bookingStep, setBookingStep] = useState<1 | 2 | 3 | 4 | 5>(1); // 1: Overview, 3: Invoice & Payment, 5: Success screen
+  const [paymentMethod, setPaymentMethod] = useState<'WALLET' | 'RAZORPAY'>('WALLET');
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [topupLoading, setTopupLoading] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
+  const [invoiceResult, setInvoiceResult] = useState<any | null>(null);
 
-  // Coupon state for the new flow
-  const [playerCouponCode, setPlayerCouponCode] = useState('');
-  const [playerCouponDiscount, setPlayerCouponDiscount] = useState(0);
+  // Helper to determine if match is RRR
+  const isRRRMatch = (m?: Match | null) => {
+    if (!m) return false;
+    return (
+      m.ground?.slug === 'rrr-cricket-club-kidawali-faridabad' ||
+      m.groundId === '04b615ea-c1a6-4a60-9b06-926d3b3b020c' ||
+      (m.ground?.name && m.ground.name.includes('RRR'))
+    );
+  };
 
-  const handlePlayerApplyCoupon = () => {
-    if (playerCouponCode.trim().toUpperCase() === 'BE11PLAY') {
-      setPlayerCouponDiscount(35);
-      alert('Coupon code BE11PLAY applied! ₹35 discount active.');
-    } else {
-      alert('Invalid Coupon Code');
+  // Authoritative price calculation for live match booking
+  const getMatchPriceInfo = (m?: Match | null) => {
+    if (!m) return { markedPrice: 0, discount: 0, finalPrice: 0, isRRR: false };
+    const isRRR = isRRRMatch(m);
+    if (isRRR) {
+      return {
+        markedPrice: 373.75,
+        discount: 74.75,
+        finalPrice: 299.0,
+        isRRR: true,
+      };
+    }
+    const base = m.entryFee;
+    const gst = base * 0.18;
+    const platformFee = 20.0;
+    return {
+      markedPrice: base,
+      discount: 0,
+      finalPrice: Math.max(0, base + gst + platformFee),
+      isRRR: false,
+    };
+  };
+
+  // Top Up Wallet with Razorpay
+  const handleTopupWallet = async (shortfallAmount: number) => {
+    if (!isAuthenticated) {
+      alert('Please log in first.');
+      navigate('/login');
+      return;
+    }
+    const topupAmount = Math.max(1, Math.ceil(shortfallAmount));
+
+    setTopupLoading(true);
+    setPaymentError('');
+    try {
+      const isLoaded = await loadRazorpaySdk();
+      if (!isLoaded || !window.Razorpay) {
+        alert('Failed to load Razorpay payment gateway. Please check your internet connection.');
+        return;
+      }
+
+      // 1. Create wallet top-up order
+      const orderRes = await api.post('/wallet/topup/create-order', {
+        amount: topupAmount,
+      });
+
+      const { orderId, amount, keyId } = orderRes.data.data;
+
+      // 2. Open Razorpay modal
+      const options = {
+        key: keyId,
+        amount: amount,
+        currency: 'INR',
+        name: 'BE11 Sports',
+        description: `Wallet Top-Up (₹${topupAmount})`,
+        order_id: orderId,
+        handler: async (response: any) => {
+          try {
+            const verifyRes = await api.post('/wallet/topup/verify', {
+              razorpayOrderId: response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature,
+            });
+
+            const newBal = verifyRes.data.data.walletBalance;
+            updateWalletBalance(newBal);
+            setPaymentError('');
+            alert(`Wallet topped up successfully by ₹${topupAmount}! Current balance: ₹${newBal}. You can now pay from wallet.`);
+          } catch (err: any) {
+            console.error('Wallet topup verification failed:', err);
+            setPaymentError(err.response?.data?.message || 'Top-up verification failed.');
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setPaymentError('Wallet top-up was cancelled.');
+          },
+        },
+        prefill: {
+          name: `${user?.firstName || ''} ${user?.lastName || ''}`.trim(),
+          email: user?.email || '',
+          contact: user?.phone || '',
+        },
+        theme: { color: '#FF9933' },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (err: any) {
+      console.error(err);
+      setPaymentError(err.response?.data?.message || 'Failed to initiate wallet top-up.');
+    } finally {
+      setTopupLoading(false);
     }
   };
 
-  const handlePlayerBookingSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Pay from Wallet
+  const handleWalletPaymentSubmit = async () => {
     if (!playerBookingMatch) return;
+    const priceInfo = getMatchPriceInfo(playerBookingMatch);
+    const payable = priceInfo.finalPrice;
 
-    // Individual player pricing calculation
-    const basePrice = playerBookingMatch.entryFee;
-    const gst = basePrice * 0.18;
-    const platformFee = 20.0;
-    const grandTotal = Math.max(0, basePrice + gst + platformFee - playerCouponDiscount);
-
-    if (paymentMethod === 'WALLET' && user && user.walletBalance < grandTotal) {
-      alert('Insufficient wallet balance. Please top up from your dashboard account.');
+    if ((user?.walletBalance ?? 0) < payable) {
+      setPaymentError(`Insufficient wallet balance. Required: ₹${payable}, Available: ₹${(user?.walletBalance ?? 0).toFixed(2)}`);
       return;
     }
 
     setCheckoutLoading(true);
+    setPaymentError('');
+
     try {
-      // API call to custom endpoint
       const res = await api.post(`/matches/${playerBookingMatch.id}/booking`, {
-        bookingType: 'SINGLE',
+        bookingType: 'INDIVIDUAL',
         playerCount: 1,
-        couponCode: playerCouponCode,
       });
 
-      // Update wallet balance locally
       if (user) {
-        updateWalletBalance(user.walletBalance - grandTotal);
+        updateWalletBalance(user.walletBalance - payable);
       }
 
+      const booking = res.data.data.booking;
       setInvoiceResult({
-        transactionId: res.data.data.booking.transactionId || `tx_m_${Math.floor(10000000 + Math.random() * 90000000)}`,
-        invoiceId: res.data.data.booking.invoice || `inv_m_${Math.floor(100000 + Math.random() * 900000)}`,
-        amountPaid: grandTotal,
+        transactionId: booking.transactionId || `tx_w_${Math.floor(10000000 + Math.random() * 90000000)}`,
+        invoiceId: booking.invoice || `inv_m_${Math.floor(100000 + Math.random() * 900000)}`,
+        amountPaid: payable,
         date: new Date().toLocaleDateString(),
-        bookingId: res.data.data.booking.id,
-        qrCode: res.data.data.booking.qrCode || `qr_m_${Math.floor(100000 + Math.random() * 900000)}`,
+        bookingId: booking.id,
+        status: 'PENDING ADMIN CONFIRMATION',
       });
 
-      setBookingStep(5); // Transition to success step!
+      setBookingStep(5);
       fetchMatches();
     } catch (err: any) {
       console.error(err);
-      alert(err.response?.data?.message || 'Failed to complete playroom booking.');
+      setPaymentError(err.response?.data?.message || 'Failed to complete wallet payment.');
     } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
+  // Pay with Razorpay Checkout
+  const handleRazorpayPaymentSubmit = async () => {
+    if (!playerBookingMatch) return;
+    setCheckoutLoading(true);
+    setPaymentError('');
+
+    try {
+      const isLoaded = await loadRazorpaySdk();
+      if (!isLoaded || !window.Razorpay) {
+        alert('Failed to load Razorpay checkout.');
+        setCheckoutLoading(false);
+        return;
+      }
+
+      const orderRes = await api.post(`/matches/${playerBookingMatch.id}/create-order`, {
+        bookingType: 'INDIVIDUAL',
+        playerCount: 1,
+      });
+
+      const { orderId, amount, keyId, finalPrice } = orderRes.data.data;
+
+      const options = {
+        key: keyId,
+        amount: amount,
+        currency: 'INR',
+        name: 'BE11 Sports',
+        description: `Match Booking: ${playerBookingMatch.ground?.name || 'Cricket Match'}`,
+        order_id: orderId,
+        handler: async (response: any) => {
+          try {
+            const verifyRes = await api.post(`/matches/${playerBookingMatch.id}/verify-payment`, {
+              razorpayOrderId: response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature,
+              bookingType: 'INDIVIDUAL',
+              playerCount: 1,
+            });
+
+            const booking = verifyRes.data.data.booking;
+            setInvoiceResult({
+              transactionId: response.razorpay_payment_id || booking?.transactionId,
+              invoiceId: booking?.invoice || `inv_m_${Math.floor(100000 + Math.random() * 900000)}`,
+              amountPaid: finalPrice,
+              date: new Date().toLocaleDateString(),
+              bookingId: booking?.id,
+              status: 'PENDING ADMIN CONFIRMATION',
+            });
+
+            setBookingStep(5);
+            fetchMatches();
+          } catch (verifyErr: any) {
+            console.error('Payment verification error:', verifyErr);
+            setPaymentError(verifyErr.response?.data?.message || 'Payment signature verification failed.');
+          } finally {
+            setCheckoutLoading(false);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setCheckoutLoading(false);
+            setPaymentError('Payment cancelled. Your booking has not been paid.');
+          },
+        },
+        prefill: {
+          name: `${user?.firstName || ''} ${user?.lastName || ''}`.trim(),
+          email: user?.email || '',
+          contact: user?.phone || '',
+        },
+        theme: { color: '#FF9933' },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', (resp: any) => {
+        setCheckoutLoading(false);
+        setPaymentError(resp.error?.description || 'Payment failed. Your booking has not been paid.');
+      });
+      rzp.open();
+    } catch (err: any) {
+      console.error(err);
+      setPaymentError(err.response?.data?.message || 'Failed to start Razorpay payment.');
       setCheckoutLoading(false);
     }
   };
@@ -192,13 +372,6 @@ export const LiveMatches: React.FC = () => {
     }
   }, [selectedSport]);
 
-  // Billing Checkout Modal State
-  const [checkoutMatch, setCheckoutMatch] = useState<Match | null>(null);
-  const [couponCode, setCouponCode] = useState('');
-  const [couponDiscount, setCouponDiscount] = useState(0);
-  const [paymentMethod, setPaymentMethod] = useState<'UPI' | 'CARD' | 'WALLET'>('WALLET');
-  const [checkoutLoading, setCheckoutLoading] = useState(false);
-  const [invoiceResult, setInvoiceResult] = useState<any | null>(null);
 
   // Match Chat Room State
   const [chatRoomMatchId, setChatRoomMatchId] = useState<string | null>(null);
@@ -309,55 +482,6 @@ export const LiveMatches: React.FC = () => {
     }
   }, [isHostOpen, selectedCity]);
 
-  // Apply checkout coupon
-  const handleApplyCoupon = () => {
-    if (couponCode.trim().toUpperCase() === 'BE11PLAY') {
-      setCouponDiscount(30); // ₹30 off
-      setSuccessMsg('Coupon code BE11PLAY applied! Discount applied.');
-    } else {
-      alert('Invalid Coupon Code');
-    }
-  };
-
-  // Process join checkout match
-  const handleCheckoutSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!checkoutMatch) return;
-
-    if (paymentMethod === 'WALLET' && user && user.walletBalance < (checkoutMatch.entryFee - couponDiscount)) {
-      alert('Insufficient wallet credit. Please top up from your dashboard account.');
-      return;
-    }
-
-    setCheckoutLoading(true);
-    try {
-      // Pick a random team ('A' or 'B') to join
-      const teamA = getTeamRoster(checkoutMatch.teamA);
-      const teamB = getTeamRoster(checkoutMatch.teamB);
-      const teamChoice = teamA.length <= teamB.length ? 'A' : 'B';
-
-      await api.post(`/matches/${checkoutMatch.id}/join`, { team: teamChoice });
-      
-      if (checkoutMatch.entryFee > 0 && user) {
-        updateWalletBalance(user.walletBalance - (checkoutMatch.entryFee - couponDiscount));
-      }
-
-      setInvoiceResult({
-        transactionId: `tx_m_${Math.floor(10000000 + Math.random() * 90000000)}`,
-        invoiceId: `inv_m_${Math.floor(100000 + Math.random() * 900000)}`,
-        amountPaid: checkoutMatch.entryFee - couponDiscount,
-        date: new Date().toLocaleDateString(),
-        team: teamChoice,
-      });
-
-      fetchMatches();
-    } catch (err: any) {
-      console.error(err);
-      alert(err.response?.data?.message || 'Failed to checkout join match.');
-    } finally {
-      setCheckoutLoading(false);
-    }
-  };
 
   // Host playroom publish
   const handleHostPublish = async () => {
@@ -373,7 +497,7 @@ export const LiveMatches: React.FC = () => {
         skillLevel: hostSkill,
       });
 
-      alert('Match Playroom successfully hosted and published live!');
+      setSuccessMsg('Match Playroom successfully hosted and published live!');
       setIsHostOpen(false);
       setWizardStep(1);
       fetchMatches();
@@ -941,378 +1065,415 @@ export const LiveMatches: React.FC = () => {
               </button>
 
               {/* STEP 1: Individual Player Booking Overview */}
-              {bookingStep === 1 && (
-                <div>
-                  <div className="mb-6">
-                    <div className="inline-flex items-center gap-2 bg-[#FF9933]/15 border border-[#FF9933]/25 px-3 py-1 rounded-full mb-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#FF9933]"></span>
-                      <span className="text-[9px] text-[#FF9933] font-bold uppercase tracking-widest">LIVE MATCH PARTICIPATION</span>
-                    </div>
-                    <h3 className="font-poppins font-black text-2xl uppercase tracking-wider text-white">
-                      🏏 BOOK AS INDIVIDUAL PLAYER
-                    </h3>
-                    <p className="text-gray-400 text-xs mt-1">
-                      Join individually and get automatically assigned to a playing team for this official match.
-                    </p>
-                  </div>
+              {(() => {
+                const priceInfo = getMatchPriceInfo(playerBookingMatch);
+                const isRRR = priceInfo.isRRR;
+                const payableAmount = priceInfo.finalPrice;
+                const currentBalance = user?.walletBalance ?? 0;
+                const hasSufficientWallet = currentBalance >= payableAmount;
+                const walletShortfall = Math.max(0, payableAmount - currentBalance);
 
-                  <div className="bg-gradient-to-b from-[#0e0e1a]/80 to-[#07070f]/90 border border-white/10 rounded-2xl p-6 space-y-4">
-                    <div className="grid grid-cols-2 gap-4 text-xs pb-4 border-b border-white/5">
+                return (
+                  <>
+                    {bookingStep === 1 && (
                       <div>
-                        <span className="text-[9px] uppercase tracking-widest text-gray-400 block font-bold">Venue</span>
-                        <span className="font-bold text-white block mt-1">{playerBookingMatch.ground?.name}</span>
-                        <span className="text-gray-400 text-[10px] block mt-0.5">{playerBookingMatch.ground?.location}</span>
-                      </div>
-                      <div>
-                        <span className="text-[9px] uppercase tracking-widest text-gray-400 block font-bold">Date & Slot</span>
-                        <span className="font-bold text-white block mt-1">{playerBookingMatch.date}</span>
-                        <span className="text-indigo-400 text-[10px] block mt-0.5">{playerBookingMatch.startTime}</span>
-                      </div>
-                    </div>
+                        <div className="mb-6">
+                          <div className="inline-flex items-center gap-2 bg-[#FF9933]/15 border border-[#FF9933]/25 px-3 py-1 rounded-full mb-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#FF9933]"></span>
+                            <span className="text-[9px] text-[#FF9933] font-bold uppercase tracking-widest">LIVE MATCH PARTICIPATION</span>
+                          </div>
+                          <h3 className="font-poppins font-black text-2xl uppercase tracking-wider text-white">
+                            🏏 BOOK AS INDIVIDUAL PLAYER
+                          </h3>
+                          <p className="text-gray-400 text-xs mt-1">
+                            Join individually and get automatically assigned to a playing team for this official match.
+                          </p>
+                        </div>
 
-                    <div className="grid grid-cols-3 gap-2 text-center text-xs bg-black/40 p-3 rounded-xl border border-white/5">
-                      <div>
-                        <span className="text-[8px] uppercase tracking-widest text-gray-400 block font-bold">Price</span>
-                        <span className="text-emerald-400 font-bold text-sm block mt-0.5">₹{playerBookingMatch.entryFee}</span>
-                      </div>
-                      <div>
-                        <span className="text-[8px] uppercase tracking-widest text-gray-400 block font-bold">Available Spots</span>
-                        <span className="text-white font-bold text-sm block mt-0.5">{playerBookingMatch.totalPlayers - playerBookingMatch.playersJoined} / {playerBookingMatch.totalPlayers}</span>
-                      </div>
-                      <div>
-                        <span className="text-[8px] uppercase tracking-widest text-gray-400 block font-bold">Assignment</span>
-                        <span className="text-indigo-400 font-bold text-sm block mt-0.5">Automatic</span>
-                      </div>
-                    </div>
+                        <div className="bg-gradient-to-b from-[#0e0e1a]/80 to-[#07070f]/90 border border-white/10 rounded-2xl p-6 space-y-4">
+                          <div className="grid grid-cols-2 gap-4 text-xs pb-4 border-b border-white/5">
+                            <div>
+                              <span className="text-[9px] uppercase tracking-widest text-gray-400 block font-bold">Venue</span>
+                              <span className="font-bold text-white block mt-1">{playerBookingMatch.ground?.name}</span>
+                              <span className="text-gray-400 text-[10px] block mt-0.5">{playerBookingMatch.ground?.location}</span>
+                            </div>
+                            <div>
+                              <span className="text-[9px] uppercase tracking-widest text-gray-400 block font-bold">Date & Slot</span>
+                              <span className="font-bold text-white block mt-1">{formatDateDisplay(playerBookingMatch.date)}</span>
+                              <span className="text-indigo-400 text-[10px] block mt-0.5">{playerBookingMatch.startTime}</span>
+                            </div>
+                          </div>
 
-                    <div className="p-3 bg-white/5 rounded-xl text-[11px] text-gray-300 space-y-1">
-                      <div className="flex items-center gap-1.5 text-indigo-300 font-semibold">
-                        <span className="material-symbols-outlined text-[14px]">info</span>
-                        <span>Individual Player Only</span>
-                      </div>
-                      <p className="text-gray-400 text-[10px] leading-relaxed">
-                        This match is exclusively configured for individual player participation. No team or full-ground booking is accepted for this live room.
-                      </p>
-                    </div>
+                          <div className="grid grid-cols-3 gap-2 text-center text-xs bg-black/40 p-3 rounded-xl border border-white/5">
+                            <div>
+                              <span className="text-[8px] uppercase tracking-widest text-gray-400 block font-bold">Payable Price</span>
+                              <div className="mt-0.5">
+                                {isRRR && (
+                                  <span className="text-[10px] text-gray-400 line-through mr-1">₹373.75</span>
+                                )}
+                                <span className="text-emerald-400 font-bold text-sm">₹{payableAmount}</span>
+                              </div>
+                            </div>
+                            <div>
+                              <span className="text-[8px] uppercase tracking-widest text-gray-400 block font-bold">Available Spots</span>
+                              <span className="text-white font-bold text-sm block mt-0.5">
+                                {playerBookingMatch.totalPlayers - playerBookingMatch.playersJoined} / {playerBookingMatch.totalPlayers}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[8px] uppercase tracking-widest text-gray-400 block font-bold">Assignment</span>
+                              <span className="text-indigo-400 font-bold text-sm block mt-0.5">Automatic</span>
+                            </div>
+                          </div>
 
-                    <button
-                      onClick={() => {
-                        setBookingStep(3);
-                      }}
-                      className="w-full py-3.5 bg-[#FF9933] hover:bg-[#e07f24] text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-lg mt-2"
-                    >
-                      PROCEED TO PAYMENT (₹{playerBookingMatch.entryFee})
-                    </button>
-                  </div>
-                </div>
-              )}
+                          {isRRR && (
+                            <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl p-3 text-[11px] text-emerald-300 space-y-1 text-left">
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold text-[10px] uppercase tracking-wider text-emerald-400 flex items-center gap-1">
+                                  <span className="material-symbols-outlined text-sm">loyalty</span>
+                                  PROMO APPLIED
+                                </span>
+                                <span className="bg-emerald-500/20 px-2 py-0.5 rounded text-[9px] font-bold text-emerald-200">
+                                  🏷 BE11 WELCOMES (25% OFF)
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-emerald-200 leading-relaxed font-medium">
+                                ✓ Welcome discount applied automatically (₹373.75 - ₹74.75 = ₹299).
+                              </p>
+                            </div>
+                          )}
 
-              {/* STEP 3: Booking Invoice Summary */}
-              {bookingStep === 3 && (
-                <div className="max-w-md mx-auto">
-                  <h4 className="font-black text-sm uppercase tracking-wide text-white border-b border-white/5 pb-2 text-left mb-4">📄 Individual Player Invoice Summary</h4>
-                  
-                  <div className="bg-black/35 border border-white/5 rounded-2xl p-5 space-y-3 text-xs text-gray-400 text-left font-light">
-                    <div className="flex justify-between">
-                      <span>Venue:</span>
-                      <span className="text-white font-bold">{playerBookingMatch.ground?.name}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Sport:</span>
-                      <span className="text-white font-bold">{playerBookingMatch.sport}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Schedule:</span>
-                      <span className="text-white font-bold">{formatDateDisplay(playerBookingMatch.date)} ({playerBookingMatch.startTime})</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Participation Type:</span>
-                      <span className="text-indigo-400 font-bold uppercase tracking-wider">Individual Player</span>
-                    </div>
-                    
-                    <div className="h-[1px] bg-white/5 w-full my-2"></div>
-                    
-                    <div className="flex justify-between">
-                      <span>Base Entry Fee:</span>
-                      <span className="text-white font-semibold">₹{playerBookingMatch.entryFee}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>GST (18%):</span>
-                      <span className="text-white font-semibold">₹{(playerBookingMatch.entryFee * 0.18).toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Platform Booking Fee:</span>
-                      <span className="text-white font-semibold">₹20.00</span>
-                    </div>
+                          <div className="p-3 bg-white/5 rounded-xl text-[11px] text-gray-300 space-y-1 text-left">
+                            <div className="flex items-center gap-1.5 text-indigo-300 font-semibold">
+                              <span className="material-symbols-outlined text-[14px]">info</span>
+                              <span>Individual Player Only</span>
+                            </div>
+                            <p className="text-gray-400 text-[10px] leading-relaxed">
+                              This match is exclusively configured for individual player participation. No team or full-ground booking is accepted for this live room.
+                            </p>
+                          </div>
 
-                    {playerCouponDiscount > 0 && (
-                      <div className="flex justify-between text-emerald-400 font-semibold">
-                        <span>Coupon Discount Applied:</span>
-                        <span>-₹{playerCouponDiscount}</span>
+                          <button
+                            onClick={() => {
+                              setBookingStep(3);
+                              setPaymentError('');
+                            }}
+                            className="w-full py-3.5 bg-[#FF9933] hover:bg-[#e07f24] text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-lg mt-2"
+                          >
+                            PROCEED TO PAYMENT (₹{payableAmount})
+                          </button>
+                        </div>
                       </div>
                     )}
 
-                    <div className="h-[1px] bg-white/5 w-full my-2"></div>
-
-                    <div className="flex justify-between text-sm font-black text-white">
-                      <span>Total Amount:</span>
-                      <span className="text-emerald-400">
-                        ₹{Math.max(0, playerBookingMatch.entryFee * 1.18 + 20.00 - playerCouponDiscount).toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Coupon */}
-                  <div className="space-y-1 mt-4 text-left">
-                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Apply Promo Coupon</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="e.g. BE11PLAY"
-                        value={playerCouponCode}
-                        onChange={(e) => setPlayerCouponCode(e.target.value)}
-                        className="flex-1 bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none uppercase"
-                      />
-                      <button
-                        type="button"
-                        onClick={handlePlayerApplyCoupon}
-                        className="bg-white/10 hover:bg-white/20 border border-white/10 text-white font-bold text-xs uppercase px-4 py-2 rounded-xl"
-                      >
-                        Apply
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Payment selection */}
-                  <div className="space-y-2 mt-4 text-left">
-                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block">Payment Method</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {[
-                        { key: 'WALLET', label: 'Credits' },
-                        { key: 'UPI', label: 'UPI PIN' },
-                        { key: 'CARD', label: 'Card' }
-                      ].map((m) => (
-                        <button
-                          key={m.key}
-                          type="button"
-                          onClick={() => setPaymentMethod(m.key as any)}
-                          className={`py-2 text-[10px] font-black uppercase tracking-wider rounded-xl text-center border transition-all cursor-pointer ${
-                            paymentMethod === m.key ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-black/30 text-gray-400 border-white/10 hover:text-white'
-                          }`}
-                        >
-                          {m.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3 pt-6">
-                    <button
-                      onClick={() => setBookingStep(1)}
-                      className="flex-1 py-3 bg-white/5 border border-white/10 rounded-xl text-xs font-bold uppercase text-gray-400 cursor-pointer"
-                    >
-                      Back
-                    </button>
-                    <button
-                      onClick={handlePlayerBookingSubmit}
-                      disabled={checkoutLoading}
-                      className="flex-1 py-3 bg-[#FF9933] hover:bg-[#e07f24] disabled:opacity-40 rounded-xl text-xs font-black uppercase text-white shadow-md cursor-pointer"
-                    >
-                      {checkoutLoading ? 'Processing...' : 'Confirm & Pay'}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* STEP 5: Success Screen */}
-              {bookingStep === 5 && invoiceResult && (
-                <div className="text-center space-y-6 py-4 max-w-md mx-auto">
-                  <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mx-auto text-emerald-400 text-3xl">
-                    ✓
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className="font-poppins font-black text-xl uppercase tracking-wider text-white">Spot Confirmed!</h3>
-                    <p className="text-gray-400 text-xs">
-                      You're in! Your individual spot for {playerBookingMatch.ground?.name} on {formatDateDisplay(playerBookingMatch.date)}, {playerBookingMatch.startTime} is confirmed.
-                    </p>
-                  </div>
-
-                  <div className="bg-black/35 border border-white/5 rounded-2xl p-4 text-xs space-y-2 text-left text-gray-400">
-                    <div className="flex justify-between">
-                      <span>Receipt Invoice:</span>
-                      <span className="text-white font-bold">{invoiceResult.invoiceId}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Transaction ID:</span>
-                      <span className="text-white font-bold">{invoiceResult.transactionId}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Amount Paid:</span>
-                      <span className="text-emerald-400 font-bold">₹{invoiceResult.amountPaid.toFixed(2)}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => {
-                        setPlayerBookingMatch(null);
-                        setBookingStep(1);
-                        fetchMatches();
-                      }}
-                      className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-xs uppercase tracking-wider cursor-pointer"
-                    >
-                      Done / Return to Live Matches
-                    </button>
-                  </div>
-                </div>
-              )}
-
-            </div>
-          </div>
-        )}
-
-        {/* Join Checkout Invoice Modal */}
-        {checkoutMatch && (
-          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-[#09090F] border border-white/10 rounded-[28px] max-w-md w-full p-8 relative shadow-2xl text-left">
-              
-              <button
-                onClick={() => setCheckoutMatch(null)}
-                className="absolute top-6 right-6 text-gray-400 hover:text-white transition-all scale-110 cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-2xl">close</span>
-              </button>
-
-              {!invoiceResult ? (
-                <>
-                  <h3 className="font-poppins font-black text-xl uppercase tracking-wider text-white mb-1">Confirm Slot</h3>
-                  <p className="text-gray-400 text-xs mb-6">Review your ticket invoice details.</p>
-
-                  <form onSubmit={handleCheckoutSubmit} className="space-y-4">
-                    {/* Invoice ledger */}
-                    <div className="bg-black/35 border border-white/5 rounded-2xl p-4 space-y-2 text-xs text-gray-400 font-light">
-                      <div className="flex justify-between">
-                        <span>Base Slot Fee:</span>
-                        <span className="text-white font-semibold">₹{checkoutMatch.entryFee}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>GST (18%):</span>
-                        <span className="text-white font-semibold">₹{(checkoutMatch.entryFee * 0.18).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Platform Booking Fee:</span>
-                        <span className="text-white font-semibold">₹20.00</span>
-                      </div>
-                      {couponDiscount > 0 && (
-                        <div className="flex justify-between text-emerald-400">
-                          <span>Discount Applied:</span>
-                          <span>-₹{couponDiscount}</span>
-                        </div>
-                      )}
-                      <div className="h-[1px] bg-white/5 w-full my-2"></div>
-                      <div className="flex justify-between text-sm font-black text-white">
-                        <span>Total Pay:</span>
-                        <span className="text-emerald-400">₹{(checkoutMatch.entryFee * 1.18 + 20.00 - couponDiscount).toFixed(2)}</span>
-                      </div>
-                    </div>
-
-                    {/* Coupons input */}
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Apply coupon</label>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          placeholder="e.g. BE11PLAY"
-                          value={couponCode}
-                          onChange={(e) => setCouponCode(e.target.value)}
-                          className="flex-1 bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
-                        />
-                        <button
-                          type="button"
-                          onClick={handleApplyCoupon}
-                          className="bg-white/10 hover:bg-white/20 border border-white/10 text-white font-bold text-xs uppercase px-4 py-2 rounded-xl"
-                        >
-                          Apply
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Payment methods selectors */}
-                    <div className="space-y-2">
-                      <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block">Payment Method</label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {[
-                          { key: 'WALLET', label: 'Credits' },
-                          { key: 'UPI', label: 'UPI PIN' },
-                          { key: 'CARD', label: 'Card' }
-                        ].map((m) => (
+                    {/* STEP 3: Booking Invoice & Payment Screen */}
+                    {bookingStep === 3 && (
+                      <div className="max-w-md mx-auto space-y-4">
+                        <div className="flex items-center justify-between pb-2 border-b border-white/5">
+                          <h4 className="font-black text-sm uppercase tracking-wide text-white">
+                            BOOKING SUMMARY
+                          </h4>
                           <button
-                            key={m.key}
-                            type="button"
-                            onClick={() => setPaymentMethod(m.key as any)}
-                            className={`py-2 text-[10px] font-black uppercase tracking-wider rounded-xl text-center border transition-all cursor-pointer ${
-                              paymentMethod === m.key ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-black/30 text-gray-400 border-white/10 hover:text-white'
-                            }`}
+                            onClick={() => {
+                              setBookingStep(1);
+                              setPaymentError('');
+                            }}
+                            className="text-xs text-gray-400 hover:text-white flex items-center gap-1 cursor-pointer"
                           >
-                            {m.label}
+                            <span className="material-symbols-outlined text-sm">arrow_back</span>
+                            Back
                           </button>
-                        ))}
+                        </div>
+
+                        {/* Invoice Breakdown Card */}
+                        <div className="bg-black/40 border border-white/10 rounded-2xl p-5 space-y-3 text-xs text-gray-300 text-left">
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">Venue:</span>
+                            <span className="text-white font-bold">{playerBookingMatch.ground?.name}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">Date:</span>
+                            <span className="text-white font-bold">{formatDateDisplay(playerBookingMatch.date)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">Match:</span>
+                            <span className="text-white font-bold">{playerBookingMatch.startTime}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">Booking:</span>
+                            <span className="text-indigo-400 font-bold uppercase tracking-wider">Individual Player</span>
+                          </div>
+
+                          <div className="h-[1px] bg-white/5 w-full my-2"></div>
+
+                          {isRRR ? (
+                            <>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Marked Price:</span>
+                                <span className="text-gray-400 font-semibold">₹373.75</span>
+                              </div>
+                              <div className="flex justify-between text-emerald-400 font-bold">
+                                <span className="flex items-center gap-1">
+                                  <span className="material-symbols-outlined text-sm">loyalty</span>
+                                  BE11 WELCOMES (25% OFF):
+                                </span>
+                                <span>-₹74.75</span>
+                              </div>
+                              <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2 text-[10px] text-emerald-300 flex items-center gap-1.5 font-medium">
+                                <span className="material-symbols-outlined text-xs text-emerald-400">check_circle</span>
+                                <span>✓ 25% welcome discount applied automatically</span>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Base Entry Fee:</span>
+                                <span className="text-white font-semibold">₹{playerBookingMatch.entryFee}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">GST (18%):</span>
+                                <span className="text-white font-semibold">₹{(playerBookingMatch.entryFee * 0.18).toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Platform Booking Fee:</span>
+                                <span className="text-white font-semibold">₹20.00</span>
+                              </div>
+                            </>
+                          )}
+
+                          <div className="h-[1px] bg-white/5 w-full my-2"></div>
+
+                          <div className="flex justify-between items-center text-sm font-black text-white pt-1">
+                            <span className="uppercase tracking-wide">YOU PAY</span>
+                            <div className="text-right">
+                              {isRRR && (
+                                <span className="text-xs text-gray-400 line-through mr-2 font-normal">₹373.75</span>
+                              )}
+                              <span className="text-emerald-400 text-lg">₹{payableAmount}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* PAYMENT METHOD SELECTOR */}
+                        <div className="space-y-2 text-left">
+                          <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block">
+                            PAYMENT METHOD
+                          </label>
+                          <div className="grid grid-cols-2 gap-3">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPaymentMethod('WALLET');
+                                setPaymentError('');
+                              }}
+                              className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+                                paymentMethod === 'WALLET'
+                                  ? 'bg-indigo-600/20 border-indigo-500 text-white shadow-lg'
+                                  : 'bg-black/30 border-white/10 text-gray-400 hover:text-white hover:border-white/20'
+                              }`}
+                            >
+                              <div className="flex items-center gap-1.5">
+                                <span className="material-symbols-outlined text-base text-indigo-400">account_balance_wallet</span>
+                                <span className="text-xs font-black uppercase tracking-wider">WALLET CREDITS</span>
+                              </div>
+                              <span className="text-[10px] text-gray-300 font-semibold">
+                                Balance: ₹{currentBalance.toFixed(2)}
+                              </span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPaymentMethod('RAZORPAY');
+                                setPaymentError('');
+                              }}
+                              className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+                                paymentMethod === 'RAZORPAY'
+                                  ? 'bg-[#FF9933]/20 border-[#FF9933] text-white shadow-lg'
+                                  : 'bg-black/30 border-white/10 text-gray-400 hover:text-white hover:border-white/20'
+                              }`}
+                            >
+                              <div className="flex items-center gap-1.5">
+                                <span className="material-symbols-outlined text-base text-[#FF9933]">credit_card</span>
+                                <span className="text-xs font-black uppercase tracking-wider">RAZORPAY</span>
+                              </div>
+                              <span className="text-[10px] text-gray-300 font-semibold">
+                                UPI, Cards, NetBanking
+                              </span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* WALLET DETAILS / TOPUP IF SELECTED */}
+                        {paymentMethod === 'WALLET' && (
+                          <div className="bg-black/40 border border-white/10 rounded-2xl p-4 text-xs space-y-2 text-left animate-fadeIn">
+                            <div className="flex justify-between text-gray-400">
+                              <span>Wallet Balance:</span>
+                              <span className="text-white font-bold">₹{currentBalance.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between text-gray-400">
+                              <span>Booking Amount:</span>
+                              <span className="text-emerald-400 font-bold">₹{payableAmount.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between text-gray-400">
+                              <span>Available:</span>
+                              <span className="text-white font-bold">₹{currentBalance.toFixed(2)}</span>
+                            </div>
+
+                            <div className="h-[1px] bg-white/5 w-full my-1"></div>
+
+                            {hasSufficientWallet ? (
+                              <div className="flex items-center gap-1.5 text-emerald-400 text-[11px] font-semibold pt-1">
+                                <span className="material-symbols-outlined text-sm">check_circle</span>
+                                <span>✓ Sufficient wallet balance</span>
+                              </div>
+                            ) : (
+                              <div className="space-y-2.5 pt-1">
+                                <div className="bg-amber-500/10 border border-amber-500/25 rounded-xl p-3 text-[11px] text-amber-300 space-y-1">
+                                  <div className="flex items-center gap-1.5 font-bold uppercase tracking-wide">
+                                    <span className="material-symbols-outlined text-sm text-amber-400">warning</span>
+                                    <span>INSUFFICIENT WALLET BALANCE</span>
+                                  </div>
+                                  <div className="flex justify-between text-[10px] text-gray-300 pt-1">
+                                    <span>Required: ₹{payableAmount.toFixed(2)}</span>
+                                    <span className="text-amber-300 font-bold">Short by: ₹{walletShortfall.toFixed(2)}</span>
+                                  </div>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleTopupWallet(walletShortfall)}
+                                  disabled={topupLoading}
+                                  className="w-full py-3 bg-gradient-to-r from-[#f97316] to-[#ea580c] hover:from-[#ea580c] hover:to-[#c2410c] disabled:opacity-50 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-lg flex items-center justify-center gap-2"
+                                >
+                                  {topupLoading ? (
+                                    <span>Opening Razorpay Top-Up...</span>
+                                  ) : (
+                                    <>
+                                      <span className="material-symbols-outlined text-sm">add_card</span>
+                                      <span>TOP UP WALLET WITH RAZORPAY (₹{Math.ceil(walletShortfall)})</span>
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* RAZORPAY DETAILS IF SELECTED */}
+                        {paymentMethod === 'RAZORPAY' && (
+                          <div className="bg-black/40 border border-white/10 rounded-2xl p-4 text-xs text-left text-gray-300 flex items-center gap-2.5 animate-fadeIn">
+                            <span className="material-symbols-outlined text-lg text-emerald-400 shrink-0">verified_user</span>
+                            <span className="text-[11px] leading-relaxed">
+                              Secure payment powered by Razorpay. Supports UPI apps, Credit/Debit Cards, NetBanking and Wallets.
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Error Alert */}
+                        {paymentError && (
+                          <div className="bg-red-500/15 border border-red-500/30 text-red-300 p-3 rounded-xl text-xs text-left flex items-start gap-2">
+                            <span className="material-symbols-outlined text-base text-red-400 shrink-0 mt-0.5">error</span>
+                            <span className="leading-relaxed">{paymentError}</span>
+                          </div>
+                        )}
+
+                        {/* ACTION BUTTONS */}
+                        <div className="flex gap-3 pt-4">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBookingStep(1);
+                              setPaymentError('');
+                            }}
+                            className="flex-1 py-3.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold uppercase text-gray-400 hover:text-white cursor-pointer transition-all"
+                          >
+                            Back
+                          </button>
+
+                          {paymentMethod === 'WALLET' ? (
+                            <button
+                              type="button"
+                              onClick={handleWalletPaymentSubmit}
+                              disabled={checkoutLoading || !hasSufficientWallet}
+                              className="flex-1 py-3.5 bg-[#FF9933] hover:bg-[#e07f24] disabled:opacity-40 disabled:cursor-not-allowed rounded-xl text-xs font-black uppercase text-white shadow-lg cursor-pointer transition-all flex items-center justify-center gap-2"
+                            >
+                              {checkoutLoading ? 'Processing Payment...' : `PAY ₹${payableAmount} FROM WALLET`}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={handleRazorpayPaymentSubmit}
+                              disabled={checkoutLoading}
+                              className="flex-1 py-3.5 bg-[#FF9933] hover:bg-[#e07f24] disabled:opacity-40 disabled:cursor-not-allowed rounded-xl text-xs font-black uppercase text-white shadow-lg cursor-pointer transition-all flex items-center justify-center gap-2"
+                            >
+                              {checkoutLoading ? 'Connecting to Razorpay...' : `PAY ₹${payableAmount} WITH RAZORPAY`}
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    )}
 
-                    <button
-                      type="submit"
-                      disabled={checkoutLoading}
-                      className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-xl font-bold text-xs uppercase tracking-wider shadow-md cursor-pointer transition-all mt-6 text-center"
-                    >
-                      {checkoutLoading ? 'Processing...' : 'Proceed to Payment'}
-                    </button>
-                  </form>
-                </>
-              ) : (
-                <div className="text-center space-y-6 py-4">
-                  <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mx-auto text-emerald-400 text-3xl">
-                    ✓
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className="font-poppins font-black text-xl uppercase tracking-wider text-white">Payment Confirmed!</h3>
-                    <p className="text-gray-400 text-xs">Slot reserved in playrooms lobby.</p>
-                  </div>
+                    {/* STEP 5: Success Screen */}
+                    {bookingStep === 5 && invoiceResult && (
+                      <div className="text-center space-y-6 py-4 max-w-md mx-auto animate-fadeIn">
+                        <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mx-auto text-emerald-400 text-3xl">
+                          ✓
+                        </div>
+                        <div className="space-y-1">
+                          <h3 className="font-poppins font-black text-xl uppercase tracking-wider text-emerald-400">
+                            ✓ PAYMENT SUCCESSFUL
+                          </h3>
+                          <p className="text-gray-300 text-xs">
+                            Your payment has been received and verified. Your spot reservation is submitted.
+                          </p>
+                        </div>
 
-                  <div className="bg-black/35 border border-white/5 rounded-2xl p-4 text-xs space-y-2 text-left text-gray-400">
-                    <div className="flex justify-between">
-                      <span>Receipt Invoice:</span>
-                      <span className="text-white font-bold">{invoiceResult.invoiceId}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Transaction ID:</span>
-                      <span className="text-white font-bold">{invoiceResult.transactionId}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Team Assigned:</span>
-                      <span className="text-white font-bold">Team {invoiceResult.team}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Debit Amount:</span>
-                      <span className="text-emerald-400 font-bold">₹{invoiceResult.amountPaid.toFixed(2)}</span>
-                    </div>
-                  </div>
+                        <div className="bg-black/40 border border-white/10 rounded-2xl p-4 text-xs space-y-2.5 text-left text-gray-300">
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">Amount Paid:</span>
+                            <span className="text-emerald-400 font-bold text-sm">₹{invoiceResult.amountPaid.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">Booking Status:</span>
+                            <span className="text-amber-400 font-bold uppercase tracking-wider bg-amber-500/15 px-2 py-0.5 rounded text-[10px]">
+                              PENDING ADMIN CONFIRMATION
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">Receipt Invoice:</span>
+                            <span className="text-white font-mono font-bold">{invoiceResult.invoiceId}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">Transaction ID:</span>
+                            <span className="text-white font-mono font-bold">{invoiceResult.transactionId}</span>
+                          </div>
+                        </div>
 
-                  <button
-                    onClick={() => {
-                      setCheckoutMatch(null);
-                      setInvoiceResult(null);
-                    }}
-                    className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-xs uppercase tracking-wider cursor-pointer"
-                  >
-                    Done
-                  </button>
-                </div>
-              )}
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => {
+                              setPlayerBookingMatch(null);
+                              setBookingStep(1);
+                              setInvoiceResult(null);
+                              fetchMatches();
+                            }}
+                            className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-xs uppercase tracking-wider cursor-pointer shadow-lg"
+                          >
+                            Done / Return to Live Matches
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
 
             </div>
           </div>
         )}
+
+
 
         {/* Host Match Wizard Multi-Step Form */}
         {isHostOpen && (

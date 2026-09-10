@@ -157,7 +157,11 @@ export const createBooking = async (req: AuthenticatedRequest, res: Response, ne
         startTime = startTime || '07:00';
         endTime = endTime || '11:30';
       }
-    } else if (ground.slug === 'rrr-cricket-club-kidawali-faridabad') {
+    } else if (
+      ground.slug === 'rrr-cricket-club-kidawali-faridabad' ||
+      ground.id === '04b615ea-c1a6-4a60-9b06-926d3b3b020c' ||
+      ground.name.includes('RRR')
+    ) {
       // RRR Cricket Club: exactly 3 fixed 4-hour periods per day
       // 1. MORNING: 06:00 -> 10:00
       // 2. AFTERNOON: 10:00 -> 14:00
@@ -183,10 +187,10 @@ export const createBooking = async (req: AuthenticatedRequest, res: Response, ne
       // B. BOOK HALF TEAM FOR A MATCH: Base ₹2,600 (Display ₹3,250 - ₹650 coupon)
       // C. BOOK ENTIRE VENUE: Base ₹5,000 (Display ₹6,250 - ₹1,250 coupon)
       const bType = (validated.bookingType || '').toUpperCase().trim().replace('-', '_');
-      if (bType === 'INDIVIDUAL') {
+      if (bType === 'INDIVIDUAL' || bType === 'SINGLE') {
         totalPrice = 299;
         storedBookingType = 'INDIVIDUAL';
-      } else if (bType === 'HALF_TEAM' || bType === 'HALF_TEAM_MATCH' || bType === 'SINGLE_TEAM_OF_11' || bType === 'TEAM_OF_11') {
+      } else if (bType === 'HALF_TEAM' || bType === 'HALF_TEAM_MATCH' || bType === 'SINGLE_TEAM_OF_11' || bType === 'TEAM_OF_11' || bType === 'TEAM') {
         totalPrice = 2600;
         storedBookingType = 'HALF_TEAM';
       } else if (bType === 'ENTIRE_VENUE' || bType === 'WHOLE_GROUND' || !bType) {
@@ -245,9 +249,9 @@ export const createBooking = async (req: AuthenticatedRequest, res: Response, ne
       let bookingStatus = 'PENDING';
       let paymentStatus = 'PENDING';
 
-      // If user has sufficient wallet credit, instantly confirm
+      // If user has sufficient wallet credit, deduct wallet atomically and mark PAID (Status: PENDING ADMIN CONFIRMATION)
       if (customer.walletBalance >= totalPrice && totalPrice > 0) {
-        bookingStatus = 'CONFIRMED';
+        bookingStatus = 'PENDING';
         paymentStatus = 'PAID';
         await tx.user.update({
           where: { id: customerId },
@@ -259,11 +263,10 @@ export const createBooking = async (req: AuthenticatedRequest, res: Response, ne
             userId: customerId,
             amount: totalPrice,
             type: 'DEBIT',
-            description: `Booking for ${ground.name} (${validated.date} ${matchPeriodNormalized || startTime} - ${storedBookingType})`,
+            description: `Venue Booking • ${ground.name} (${validated.date} ${matchPeriodNormalized || startTime} - ${storedBookingType})`,
           },
         });
       } else {
-        // Real payment gateway is not integrated yet: create booking as PENDING (Payment Pending)
         bookingStatus = 'PENDING';
         paymentStatus = 'PAYMENT_PENDING';
       }

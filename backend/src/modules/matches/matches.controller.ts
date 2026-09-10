@@ -4,6 +4,14 @@ import { AppError } from '../../utils/appError.js';
 import { HttpStatus } from '@be11/shared';
 import { AuthenticatedRequest } from '../../middlewares/auth.js';
 import { sendNotification, broadcastMatchUpdate } from '../notifications/notifications.controller.js';
+import {
+  createRazorpayOrder as createServerOrder,
+  verifyRazorpaySignature,
+  fetchRazorpayPayment,
+  getRazorpayPublicKey,
+  isRazorpayConfigured,
+} from '../../services/razorpay.service.js';
+import { logger } from '../../config/logger.js';
 
 // GET /api/v1/matches
 export const getMatches = async (req: Request, res: Response, next: NextFunction) => {
@@ -451,7 +459,63 @@ export const leaveMatch = async (req: AuthenticatedRequest, res: Response, next:
   }
 };
 
-// POST /api/v1/matches/:id/booking
+// Helper to calculate authoritative match price (isolated RRR vs other grounds)
+export const calculateMatchPrice = (match: any, bookingType: string, playerCount: number = 1, durationHours: number = 2) => {
+  const isRRR =
+    match.ground?.slug === 'rrr-cricket-club-kidawali-faridabad' ||
+    match.groundId === '04b615ea-c1a6-4a60-9b06-926d3b3b020c' ||
+    (match.ground?.name && match.ground.name.includes('RRR'));
+
+  const bType = (bookingType || 'INDIVIDUAL').toUpperCase().trim().replace('-', '_');
+
+  if (isRRR) {
+    if (bType === 'INDIVIDUAL' || bType === 'SINGLE') {
+      return {
+        markedPrice: 373.75,
+        discount: 74.75,
+        finalPrice: 299,
+        couponCode: 'BE11 WELCOMES',
+      };
+    } else if (bType === 'HALF_TEAM' || bType === 'TEAM') {
+      return {
+        markedPrice: 3250,
+        discount: 650,
+        finalPrice: 2600,
+        couponCode: 'BE11 WELCOMES',
+      };
+    } else {
+      return {
+        markedPrice: 6250,
+        discount: 1250,
+        finalPrice: 5000,
+        couponCode: 'BE11 WELCOMES',
+      };
+    }
+  }
+
+  // Generic / non-RRR match pricing
+  let basePrice = 0;
+  if (bType === 'INDIVIDUAL' || bType === 'SINGLE') {
+    basePrice = match.entryFee;
+  } else if (bType === 'TEAM' || bType === 'HALF_TEAM') {
+    basePrice = match.entryFee * (playerCount || 11);
+  } else {
+    basePrice = (match.ground?.pricePerHour || 0) * (durationHours || 2);
+  }
+
+  const gst = basePrice * 0.18;
+  const platformFee = 20.0;
+  const finalPrice = Math.max(0, basePrice + gst + platformFee);
+
+  return {
+    markedPrice: basePrice,
+    discount: 0,
+    finalPrice,
+    couponCode: undefined,
+  };
+};
+
+// POST /api/v1/matches/:id/booking (Wallet Payment)
 export const createPlayroomBooking = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const userId = req.user?.userId;
@@ -460,7 +524,7 @@ export const createPlayroomBooking = async (req: AuthenticatedRequest, res: Resp
     }
 
     const id = req.params.id as string;
-    const { bookingType, playerCount, captainName, teamName, couponCode, teamChoice, durationHours } = req.body;
+    const { bookingType, playerCount, captainName, teamName, teamChoice, durationHours } = req.body;
 
     const match = await prisma.match.findUnique({
       where: { id },
@@ -479,9 +543,11 @@ export const createPlayroomBooking = async (req: AuthenticatedRequest, res: Resp
     }
 
     const effectiveBookingType = (bookingType === 'SINGLE' ? 'INDIVIDUAL' : bookingType) || 'INDIVIDUAL';
+    const count = parseInt(playerCount || '1', 10);
+    const duration = parseInt(durationHours || '2', 10);
 
     // Check capacity and duplicate joining for individual/team bookings
-    if (effectiveBookingType !== 'FULL_GROUND') {
+    if (effectiveBookingType !== 'FULL_GROUND' && effectiveBookingType !== 'ENTIRE_VENUE') {
       if (match.playersJoined >= match.totalPlayers) {
         throw new AppError('Match is already full', HttpStatus.BAD_REQUEST);
       }
@@ -494,32 +560,21 @@ export const createPlayroomBooking = async (req: AuthenticatedRequest, res: Resp
       }
     }
 
-    // Calculate prices based on booking type
-    let basePrice = 0;
-    const count = parseInt(playerCount || '1', 10);
-    const duration = parseInt(durationHours || '2', 10);
-
-    if (effectiveBookingType === 'INDIVIDUAL') {
-      basePrice = match.entryFee;
-    } else if (effectiveBookingType === 'TEAM') {
-      basePrice = match.entryFee * count;
-    } else if (effectiveBookingType === 'FULL_GROUND') {
-      basePrice = match.ground.pricePerHour * duration;
-    }
-
-    // Taxes & fees
-    const gst = basePrice * 0.18;
-    const platformFee = 20.0;
-    let discount = 0;
-    if (couponCode === 'BE11PLAY') {
-      discount = 30.0;
-    }
-
-    const finalPrice = Math.max(0, basePrice + gst + platformFee - discount);
+    // Authoritative pricing
+    const pricing = calculateMatchPrice(match, effectiveBookingType, count, duration);
+    const finalPrice = pricing.finalPrice;
 
     if (user.walletBalance < finalPrice) {
-      throw new AppError('Insufficient wallet credits to complete booking', HttpStatus.BAD_REQUEST);
+      throw new AppError(
+        `Insufficient wallet balance. Balance: ₹${user.walletBalance}, Required: ₹${finalPrice}`,
+        HttpStatus.BAD_REQUEST
+      );
     }
+
+    const isRRR =
+      match.ground?.slug === 'rrr-cricket-club-kidawali-faridabad' ||
+      match.groundId === '04b615ea-c1a6-4a60-9b06-926d3b3b020c' ||
+      (match.ground?.name && match.ground.name.includes('RRR'));
 
     // Process atomic checkout booking transaction
     const booking = await prisma.$transaction(async (tx) => {
@@ -533,9 +588,11 @@ export const createPlayroomBooking = async (req: AuthenticatedRequest, res: Resp
       await tx.walletTransaction.create({
         data: {
           userId,
-          amount: -finalPrice,
+          amount: finalPrice,
           type: 'DEBIT',
-          description: `Booking [${bookingType}] - ${match.ground.name}`,
+          description: isRRR
+            ? `RRR Match Booking`
+            : `Match Booking [${effectiveBookingType}] - ${match.ground.name}`,
         },
       });
 
@@ -544,19 +601,22 @@ export const createPlayroomBooking = async (req: AuthenticatedRequest, res: Resp
         data: {
           groundId: match.groundId,
           customerId: userId,
+          customerName: `${user.firstName} ${user.lastName}`,
+          customerPhone: user.phone,
+          customerEmail: user.email,
           date: match.date,
           startTime: match.startTime,
-          endTime: match.startTime, // estimation
+          endTime: match.startTime,
           totalPrice: finalPrice,
-          status: 'CONFIRMED',
+          status: 'PENDING',
           paymentStatus: 'PAID',
-          bookingType,
+          bookingType: effectiveBookingType,
           playerCount: count,
           captainName,
           teamName,
-          groundReserved: bookingType === 'FULL_GROUND',
+          groundReserved: effectiveBookingType === 'FULL_GROUND' || effectiveBookingType === 'ENTIRE_VENUE',
           invoice: `inv_m_${Math.floor(100000 + Math.random() * 900000)}`,
-          transactionId: `tx_m_${Math.floor(10000000 + Math.random() * 90000000)}`,
+          transactionId: `tx_w_${Math.floor(10000000 + Math.random() * 90000000)}`,
           qrCode: `qr_m_${Math.floor(100000 + Math.random() * 900000)}`,
         },
         include: {
@@ -565,19 +625,18 @@ export const createPlayroomBooking = async (req: AuthenticatedRequest, res: Resp
       });
 
       // 4. Update match rosters if not booking the entire ground
-      if (effectiveBookingType !== 'FULL_GROUND') {
+      if (effectiveBookingType !== 'FULL_GROUND' && effectiveBookingType !== 'ENTIRE_VENUE') {
         const teamA = typeof match.teamA === 'string' ? JSON.parse(match.teamA) : (match.teamA || []);
         const teamB = typeof match.teamB === 'string' ? JSON.parse(match.teamB) : (match.teamB || []);
         const playerDetails = { id: user.id, firstName: user.firstName, lastName: user.lastName };
 
         // Auto assign or teamChoice
         const choice = teamChoice || (teamA.length <= teamB.length ? 'A' : 'B');
-        if (effectiveBookingType === 'INDIVIDUAL') {
+        if (effectiveBookingType === 'INDIVIDUAL' || effectiveBookingType === 'SINGLE') {
           if (choice === 'A') teamA.push(playerDetails);
           else teamB.push(playerDetails);
-        } else if (effectiveBookingType === 'TEAM') {
-          // Add captain plus team names mock placeholders
-          teamA.push({ id: user.id, firstName: user.firstName, lastName: `(Captain - ${teamName})` });
+        } else if (effectiveBookingType === 'TEAM' || effectiveBookingType === 'HALF_TEAM') {
+          teamA.push({ id: user.id, firstName: user.firstName, lastName: `(Captain - ${teamName || 'Squad'})` });
           for (let i = 1; i < count; i++) {
             if (i % 2 === 0) {
               teamA.push({ id: `team-member-${i}`, firstName: `Squad Member ${i}`, lastName: '' });
@@ -589,7 +648,14 @@ export const createPlayroomBooking = async (req: AuthenticatedRequest, res: Resp
 
         const nextPlayersJoined = Math.min(match.totalPlayers, match.playersJoined + count);
         let nextStatus = 'Open';
-        if (nextPlayersJoined >= match.totalPlayers) nextStatus = 'Match Full';
+        const ratio = nextPlayersJoined / match.totalPlayers;
+        if (nextPlayersJoined >= match.totalPlayers) {
+          nextStatus = 'Match Full';
+        } else if (ratio >= 0.95) {
+          nextStatus = 'Almost Full';
+        } else if (ratio >= 0.8) {
+          nextStatus = 'Filling Fast';
+        }
 
         await tx.match.update({
           where: { id },
@@ -614,8 +680,8 @@ export const createPlayroomBooking = async (req: AuthenticatedRequest, res: Resp
       await tx.notification.create({
         data: {
           userId,
-          title: `Playroom Booking Confirmed!`,
-          message: `Your booking type [${effectiveBookingType}] at ${match.ground.name} has been successfully paid and reserved.`,
+          title: `Match Booking Payment Successful!`,
+          message: `Your booking for ${match.ground.name} on ${match.date} has been paid from wallet (Status: PENDING ADMIN CONFIRMATION).`,
         },
       });
 
@@ -632,8 +698,316 @@ export const createPlayroomBooking = async (req: AuthenticatedRequest, res: Resp
 
     res.status(HttpStatus.CREATED).json({
       success: true,
-      message: 'Booking confirmed successfully',
-      data: { booking },
+      message: 'Booking paid from wallet successfully',
+      data: { booking, match: updatedMatch },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/v1/matches/:id/create-order (Razorpay Order for Live Match)
+export const createMatchPaymentOrder = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new AppError('Unauthorized', HttpStatus.UNAUTHORIZED);
+    }
+
+    const id = req.params.id as string;
+    const { bookingType, playerCount, durationHours } = req.body;
+
+    const match = await prisma.match.findUnique({
+      where: { id },
+      include: { ground: true },
+    }) as any;
+
+    if (!match) {
+      throw new AppError('Match not found', HttpStatus.NOT_FOUND);
+    }
+
+    const effectiveBookingType = (bookingType === 'SINGLE' ? 'INDIVIDUAL' : bookingType) || 'INDIVIDUAL';
+    const count = parseInt(playerCount || '1', 10);
+    const duration = parseInt(durationHours || '2', 10);
+
+    // Check capacity and duplicate joining
+    if (effectiveBookingType !== 'FULL_GROUND' && effectiveBookingType !== 'ENTIRE_VENUE') {
+      if (match.playersJoined >= match.totalPlayers) {
+        throw new AppError('Match is already full', HttpStatus.BAD_REQUEST);
+      }
+      const teamA = typeof match.teamA === 'string' ? JSON.parse(match.teamA) : (match.teamA || []);
+      const teamB = typeof match.teamB === 'string' ? JSON.parse(match.teamB) : (match.teamB || []);
+      const existsA = teamA.some((p: any) => p.id === userId);
+      const existsB = teamB.some((p: any) => p.id === userId);
+      if (existsA || existsB) {
+        throw new AppError('You have already joined this match', HttpStatus.BAD_REQUEST);
+      }
+    }
+
+    // Authoritative pricing
+    const pricing = calculateMatchPrice(match, effectiveBookingType, count, duration);
+    const finalPrice = pricing.finalPrice;
+    const amountPaise = Math.round(finalPrice * 100);
+
+    if (!amountPaise || amountPaise <= 0) {
+      throw new AppError('Invalid match entry amount for payment', HttpStatus.BAD_REQUEST);
+    }
+
+    let razorpayOrderId: string;
+    if (isRazorpayConfigured()) {
+      const order = await createServerOrder({
+        amountPaise,
+        currency: 'INR',
+        receipt: `match_${match.id.slice(0, 8)}_${Date.now()}`,
+        notes: {
+          matchId: match.id,
+          groundId: match.groundId,
+          groundName: match.ground?.name || 'Cricket Ground',
+          bookingType: effectiveBookingType,
+          userId,
+          date: match.date,
+          startTime: match.startTime,
+        },
+      });
+      razorpayOrderId = order.id;
+    } else {
+      razorpayOrderId = `order_sim_${Math.random().toString(36).substring(2, 15)}`;
+    }
+
+    res.status(HttpStatus.OK).json({
+      success: true,
+      message: 'Razorpay order created successfully for match booking',
+      data: {
+        orderId: razorpayOrderId,
+        amount: amountPaise,
+        currency: 'INR',
+        keyId: getRazorpayPublicKey(),
+        matchId: match.id,
+        finalPrice,
+        markedPrice: pricing.markedPrice,
+        discount: pricing.discount,
+        couponCode: pricing.couponCode,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/v1/matches/:id/verify-payment (Verify Razorpay Payment for Live Match)
+export const verifyMatchPayment = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new AppError('Unauthorized', HttpStatus.UNAUTHORIZED);
+    }
+
+    const id = req.params.id as string;
+    const { razorpayOrderId, razorpayPaymentId, razorpaySignature, bookingType, playerCount, teamChoice, captainName, teamName } = req.body;
+
+    if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+      throw new AppError(
+        'Missing required payment credentials (razorpayOrderId, razorpayPaymentId, razorpaySignature)',
+        HttpStatus.BAD_REQUEST
+      );
+    }
+
+    const match = await prisma.match.findUnique({
+      where: { id },
+      include: { ground: true },
+    }) as any;
+
+    if (!match) {
+      throw new AppError('Match not found', HttpStatus.NOT_FOUND);
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (!user) {
+      throw new AppError('User not found', HttpStatus.NOT_FOUND);
+    }
+
+    const effectiveBookingType = (bookingType === 'SINGLE' ? 'INDIVIDUAL' : bookingType) || 'INDIVIDUAL';
+    const count = parseInt(playerCount || '1', 10);
+    const pricing = calculateMatchPrice(match, effectiveBookingType, count);
+    const expectedAmountPaise = Math.round(pricing.finalPrice * 100);
+
+    // Cryptographic verification of HMAC-SHA256 signature
+    if (isRazorpayConfigured()) {
+      const isValidSignature = verifyRazorpaySignature({
+        orderId: razorpayOrderId,
+        paymentId: razorpayPaymentId,
+        signature: razorpaySignature,
+      });
+
+      if (!isValidSignature) {
+        throw new AppError('Payment signature verification failed. Invalid credentials.', HttpStatus.BAD_REQUEST);
+      }
+
+      // Authoritative verification with Razorpay API
+      const paymentDetails = await fetchRazorpayPayment(razorpayPaymentId);
+      if (paymentDetails.amount !== expectedAmountPaise) {
+        logger.error('Payment amount manipulation detected in match payment', {
+          matchId: match.id,
+          expectedPaise: expectedAmountPaise,
+          receivedPaise: paymentDetails.amount,
+        });
+        throw new AppError(
+          'Payment amount mismatch. Transaction rejected.',
+          HttpStatus.BAD_REQUEST
+        );
+      }
+
+      if (paymentDetails.currency !== 'INR') {
+        throw new AppError('Invalid payment currency', HttpStatus.BAD_REQUEST);
+      }
+
+      if (paymentDetails.status !== 'captured' && paymentDetails.status !== 'authorized') {
+        throw new AppError(
+          `Payment is not in an authorized or captured state (Status: ${paymentDetails.status})`,
+          HttpStatus.BAD_REQUEST
+        );
+      }
+    }
+
+    // Protect against reusing payment ID
+    const existingPayment = await prisma.booking.findFirst({
+      where: {
+        transactionId: razorpayPaymentId,
+        paymentStatus: 'PAID',
+      },
+    });
+    if (existingPayment) {
+      return res.status(HttpStatus.OK).json({
+        success: true,
+        message: 'Payment has already been confirmed for this booking',
+        data: {
+          booking: existingPayment,
+          match,
+        },
+      });
+    }
+
+    const isRRR =
+      match.ground?.slug === 'rrr-cricket-club-kidawali-faridabad' ||
+      match.groundId === '04b615ea-c1a6-4a60-9b06-926d3b3b020c' ||
+      (match.ground?.name && match.ground.name.includes('RRR'));
+
+    // Atomic transaction: add player to match & create booking record
+    const result = await prisma.$transaction(async (tx) => {
+      // Create Booking DB entry with PENDING status, PAID paymentStatus
+      const newBooking = await tx.booking.create({
+        data: {
+          groundId: match.groundId,
+          customerId: userId,
+          customerName: `${user.firstName} ${user.lastName}`,
+          customerPhone: user.phone,
+          customerEmail: user.email,
+          date: match.date,
+          startTime: match.startTime,
+          endTime: match.startTime,
+          totalPrice: pricing.finalPrice,
+          status: 'PENDING',
+          paymentStatus: 'PAID',
+          bookingType: effectiveBookingType,
+          playerCount: count,
+          captainName,
+          teamName,
+          groundReserved: effectiveBookingType === 'FULL_GROUND' || effectiveBookingType === 'ENTIRE_VENUE',
+          invoice: `inv_m_${Math.floor(100000 + Math.random() * 900000)}`,
+          transactionId: razorpayPaymentId,
+          qrCode: `qr_m_${Math.floor(100000 + Math.random() * 900000)}`,
+        },
+        include: {
+          ground: true,
+        },
+      });
+
+      // Update match rosters if not booking the entire ground
+      if (effectiveBookingType !== 'FULL_GROUND' && effectiveBookingType !== 'ENTIRE_VENUE') {
+        const teamA = typeof match.teamA === 'string' ? JSON.parse(match.teamA) : (match.teamA || []);
+        const teamB = typeof match.teamB === 'string' ? JSON.parse(match.teamB) : (match.teamB || []);
+        const playerDetails = { id: user.id, firstName: user.firstName, lastName: user.lastName };
+
+        const choice = teamChoice || (teamA.length <= teamB.length ? 'A' : 'B');
+        if (effectiveBookingType === 'INDIVIDUAL' || effectiveBookingType === 'SINGLE') {
+          if (choice === 'A') teamA.push(playerDetails);
+          else teamB.push(playerDetails);
+        } else if (effectiveBookingType === 'TEAM' || effectiveBookingType === 'HALF_TEAM') {
+          teamA.push({ id: user.id, firstName: user.firstName, lastName: `(Captain - ${teamName || 'Squad'})` });
+          for (let i = 1; i < count; i++) {
+            if (i % 2 === 0) {
+              teamA.push({ id: `team-member-${i}`, firstName: `Squad Member ${i}`, lastName: '' });
+            } else {
+              teamB.push({ id: `team-member-${i}`, firstName: `Squad Member ${i}`, lastName: '' });
+            }
+          }
+        }
+
+        const nextPlayersJoined = Math.min(match.totalPlayers, match.playersJoined + count);
+        let nextStatus = 'Open';
+        const ratio = nextPlayersJoined / match.totalPlayers;
+        if (nextPlayersJoined >= match.totalPlayers) {
+          nextStatus = 'Match Full';
+        } else if (ratio >= 0.95) {
+          nextStatus = 'Almost Full';
+        } else if (ratio >= 0.8) {
+          nextStatus = 'Filling Fast';
+        }
+
+        const updated = await tx.match.update({
+          where: { id },
+          data: {
+            playersJoined: nextPlayersJoined,
+            status: nextStatus,
+            teamA: JSON.stringify(teamA),
+            teamB: JSON.stringify(teamB),
+          },
+          include: {
+            ground: true,
+          },
+        });
+
+        // Notification
+        await tx.notification.create({
+          data: {
+            userId,
+            title: `Payment Verified! Spot Confirmed`,
+            message: `Your payment of ₹${pricing.finalPrice} for ${match.ground.name} on ${match.date} (${match.startTime}) was verified. Status: PENDING ADMIN CONFIRMATION.`,
+          },
+        });
+
+        return { booking: newBooking, match: updated };
+      } else {
+        const updated = await tx.match.update({
+          where: { id },
+          data: {
+            status: 'Reserved',
+          },
+          include: {
+            ground: true,
+          },
+        });
+
+        await tx.notification.create({
+          data: {
+            userId,
+            title: `Payment Verified! Full Ground Reserved`,
+            message: `Your payment of ₹${pricing.finalPrice} for ${match.ground.name} on ${match.date} was verified. Status: PENDING ADMIN CONFIRMATION.`,
+          },
+        });
+
+        return { booking: newBooking, match: updated };
+      }
+    });
+
+    broadcastMatchUpdate(id, 'JOINED', result.match);
+
+    res.status(HttpStatus.OK).json({
+      success: true,
+      message: 'Payment verified and match spot reserved successfully',
+      data: result,
     });
   } catch (error) {
     next(error);

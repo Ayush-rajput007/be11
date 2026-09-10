@@ -58,6 +58,8 @@ export const VenueDetail: React.FC = () => {
   const [confirmedBooking, setConfirmedBooking] = useState<any | null>(null);
   const [paymentState, setPaymentState] = useState<PaymentState>('idle');
   const [paymentError, setPaymentError] = useState<string>('');
+  const [paymentMethod, setPaymentMethod] = useState<'WALLET' | 'RAZORPAY'>('WALLET');
+  const [topupLoading, setTopupLoading] = useState(false);
 
   // Customer Details Form State
   const [customerName, setCustomerName] = useState('');
@@ -414,7 +416,79 @@ export const VenueDetail: React.FC = () => {
     setBookingStep('SUMMARY');
   };
 
-  // Step 4: Final Booking Submission with Razorpay Standard Checkout
+  // Top Up Wallet with Razorpay
+  const handleTopupWallet = async (shortfallAmount: number) => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+    const topupAmount = Math.max(1, Math.ceil(shortfallAmount));
+
+    setTopupLoading(true);
+    setError('');
+    setPaymentError('');
+    try {
+      const isSdkLoaded = await loadRazorpaySdk();
+      if (!isSdkLoaded || !window.Razorpay) {
+        throw new Error('Razorpay Checkout SDK could not be loaded. Please check your internet connection.');
+      }
+
+      const orderRes = await api.post('/wallet/topup/create-order', {
+        amount: topupAmount,
+      });
+
+      const { orderId, amount, keyId } = orderRes.data.data;
+
+      const options = {
+        key: keyId,
+        amount: amount,
+        currency: 'INR',
+        name: 'BE11 Sports',
+        description: `Wallet Top-Up (₹${topupAmount})`,
+        order_id: orderId,
+        handler: async function (response: any) {
+          try {
+            const verifyRes = await api.post('/wallet/topup/verify', {
+              razorpayOrderId: response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature,
+            });
+
+            const newBal = verifyRes.data.data.walletBalance;
+            updateWalletBalance(newBal);
+            setPaymentError('');
+            alert(`Wallet topped up successfully by ₹${topupAmount}! Current balance: ₹${newBal}. You can now complete your booking from wallet.`);
+          } catch (verifyErr: any) {
+            console.error('Wallet top-up verification error:', verifyErr);
+            setPaymentError(verifyErr.response?.data?.message || 'Top-up verification failed.');
+          }
+        },
+        modal: {
+          ondismiss: function () {
+            setPaymentError('Wallet top-up was cancelled.');
+          },
+        },
+        prefill: {
+          name: customerName.trim() || `${user?.firstName || ''} ${user?.lastName || ''}`.trim(),
+          email: customerEmail.trim() || user?.email || '',
+          contact: normalizePhone(customerPhone) || normalizePhone(user?.phone) || '',
+        },
+        theme: {
+          color: '#ea580c',
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (err: any) {
+      console.error(err);
+      setPaymentError(err.response?.data?.message || err.message || 'Failed to initiate wallet top-up.');
+    } finally {
+      setTopupLoading(false);
+    }
+  };
+
+  // Step 4: Final Booking Submission (Wallet or Razorpay)
   const handleFinalBookingSubmit = async () => {
     if (isAB && bookingType === 'SINGLE_TEAM_OF_11') {
       setError('Single Team of 11 pricing for AB Cricket Ground is on request. Please call venue owner Rajesh Bajaj at +91 95402 28222.');
@@ -429,7 +503,7 @@ export const VenueDetail: React.FC = () => {
     try {
       let b = confirmedBooking;
 
-      // 1. Create booking atomically if not already created (prevents duplicate bookings when retrying payment)
+      // 1. Create booking atomically if not already created
       if (!b || !b.id) {
         const res = await api.post('/bookings', {
           venueId: ground?.id || id,
@@ -449,7 +523,7 @@ export const VenueDetail: React.FC = () => {
         });
       }
 
-      // 2. If already paid (e.g. from user wallet balance during creation), complete instantly
+      // 2. If already paid (or if paid with wallet during creation), complete instantly
       if (b.paymentStatus === 'PAID') {
         if (user) {
           updateWalletBalance(user.walletBalance - (b.totalPrice || b.serverPrice));
@@ -460,7 +534,18 @@ export const VenueDetail: React.FC = () => {
         return;
       }
 
-      // 3. Request authoritative Razorpay order from backend
+      // 3. If user selected WALLET CREDITS but wallet is insufficient
+      if (paymentMethod === 'WALLET') {
+        const reqAmount = b.totalPrice || b.serverPrice || 0;
+        if ((user?.walletBalance ?? 0) < reqAmount) {
+          setPaymentState('failed');
+          setPaymentError(`Insufficient wallet balance. Balance: ₹${(user?.walletBalance ?? 0).toFixed(2)}, Required: ₹${reqAmount}`);
+          setBookingLoading(false);
+          return;
+        }
+      }
+
+      // 4. Request authoritative Razorpay order from backend
       setPaymentState('pending');
       const orderRes = await api.post('/payments/booking/create-order', {
         bookingId: b.id,
@@ -468,13 +553,13 @@ export const VenueDetail: React.FC = () => {
 
       const { orderId, amount, currency, keyId } = orderRes.data.data;
 
-      // 4. Ensure Razorpay Standard Checkout SDK is loaded
+      // 5. Ensure Razorpay Standard Checkout SDK is loaded
       const isSdkLoaded = await loadRazorpaySdk();
       if (!isSdkLoaded || !window.Razorpay) {
         throw new Error('Razorpay Checkout SDK could not be loaded. Please check your internet connection.');
       }
 
-      // 5. Trigger Razorpay Standard Checkout Modal
+      // 6. Trigger Razorpay Standard Checkout Modal
       const options = {
         key: keyId,
         amount: amount, // authoritative amount in paise
@@ -1738,97 +1823,237 @@ export const VenueDetail: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Dynamic Payment State Alerts */}
-                      {paymentState === 'cancelled' && (
-                        <div className="bg-amber-50 border border-amber-300 p-3 rounded-xl text-xs text-amber-900 space-y-1 animate-fade-in">
-                          <div className="flex items-center gap-1.5 font-bold">
-                            <span className="material-symbols-outlined text-base text-amber-600">warning</span>
-                            <span>Payment Cancelled / Dismissed</span>
+                      {/* PAYMENT METHOD SELECTOR */}
+                      {(() => {
+                        const payableAmount = currentSummaryPrice.amount || 0;
+                        const currentBalance = user?.walletBalance ?? 0;
+                        const hasSufficientWallet = currentBalance >= payableAmount;
+                        const walletShortfall = Math.max(0, payableAmount - currentBalance);
+
+                        return (
+                          <div className="space-y-4 pt-1">
+                            <div className="space-y-2 text-left">
+                              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">
+                                PAYMENT METHOD
+                              </label>
+                              <div className="grid grid-cols-2 gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setPaymentMethod('WALLET');
+                                    setPaymentError('');
+                                  }}
+                                  className={`p-3.5 rounded-2xl border-2 flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                                    paymentMethod === 'WALLET'
+                                      ? 'bg-blue-50/80 border-[#0a2e6e] text-[#0a2e6e] shadow-md ring-2 ring-[#0a2e6e]/20'
+                                      : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="material-symbols-outlined text-lg text-[#0a2e6e]">account_balance_wallet</span>
+                                    <span className="text-xs font-black uppercase tracking-wider">WALLET CREDITS</span>
+                                  </div>
+                                  <span className="text-[11px] font-semibold text-slate-600">
+                                    Balance: ₹{currentBalance.toFixed(2)}
+                                  </span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setPaymentMethod('RAZORPAY');
+                                    setPaymentError('');
+                                  }}
+                                  className={`p-3.5 rounded-2xl border-2 flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                                    paymentMethod === 'RAZORPAY'
+                                      ? 'bg-orange-50/80 border-[#ea580c] text-[#ea580c] shadow-md ring-2 ring-[#ea580c]/20'
+                                      : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="material-symbols-outlined text-lg text-[#ea580c]">credit_card</span>
+                                    <span className="text-xs font-black uppercase tracking-wider">RAZORPAY</span>
+                                  </div>
+                                  <span className="text-[11px] font-semibold text-slate-600">
+                                    UPI, Cards, NetBanking
+                                  </span>
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* WALLET DETAILS / TOPUP IF SELECTED */}
+                            {paymentMethod === 'WALLET' && (
+                              <div className="bg-[#F8FAFC] border border-slate-200 rounded-2xl p-4 text-xs space-y-2 text-left animate-fadeIn">
+                                <div className="flex justify-between text-slate-600">
+                                  <span>Wallet Balance:</span>
+                                  <span className="text-primary font-bold">₹{currentBalance.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between text-slate-600">
+                                  <span>Booking Amount:</span>
+                                  <span className="text-emerald-700 font-bold">{currentSummaryPrice.label}</span>
+                                </div>
+                                <div className="flex justify-between text-slate-600">
+                                  <span>Available:</span>
+                                  <span className="text-primary font-bold">₹{currentBalance.toFixed(2)}</span>
+                                </div>
+
+                                <div className="h-[1px] bg-slate-200 w-full my-1"></div>
+
+                                {hasSufficientWallet ? (
+                                  <div className="flex items-center gap-1.5 text-emerald-700 text-xs font-semibold pt-1">
+                                    <span className="material-symbols-outlined text-sm text-emerald-600">check_circle</span>
+                                    <span>✓ Sufficient wallet balance</span>
+                                  </div>
+                                ) : (
+                                  <div className="space-y-2.5 pt-1">
+                                    <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 text-xs text-amber-900 space-y-1">
+                                      <div className="flex items-center gap-1.5 font-bold uppercase tracking-wide">
+                                        <span className="material-symbols-outlined text-sm text-amber-600">warning</span>
+                                        <span>INSUFFICIENT WALLET BALANCE</span>
+                                      </div>
+                                      <div className="flex justify-between text-[11px] text-slate-700 pt-1">
+                                        <span>Required: {currentSummaryPrice.label}</span>
+                                        <span className="text-amber-800 font-bold">Short by: ₹{walletShortfall.toFixed(2)}</span>
+                                      </div>
+                                    </div>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleTopupWallet(walletShortfall)}
+                                      disabled={topupLoading}
+                                      className="w-full py-3 bg-gradient-to-r from-[#f97316] to-[#ea580c] hover:from-[#ea580c] hover:to-[#c2410c] disabled:opacity-50 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-md flex items-center justify-center gap-2"
+                                    >
+                                      {topupLoading ? (
+                                        <span>Opening Razorpay Top-Up...</span>
+                                      ) : (
+                                        <>
+                                          <span className="material-symbols-outlined text-sm">add_card</span>
+                                          <span>TOP UP WALLET WITH RAZORPAY (₹{Math.ceil(walletShortfall)})</span>
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* RAZORPAY DETAILS IF SELECTED */}
+                            {paymentMethod === 'RAZORPAY' && (
+                              <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-2xl text-[11px] text-slate-700 leading-relaxed flex items-start gap-2 animate-fadeIn">
+                                <span className="material-symbols-outlined text-base text-emerald-600 shrink-0 mt-0.5">verified_user</span>
+                                <div>
+                                  <strong>Secure payment powered by Razorpay:</strong> Supports UPI, Debit/Credit Cards & NetBanking. Charges authoritative final amount <strong>{currentSummaryPrice.label}</strong> with slot reservation.
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Dynamic Payment State Alerts */}
+                            {paymentState === 'cancelled' && (
+                              <div className="bg-amber-50 border border-amber-300 p-3 rounded-xl text-xs text-amber-900 space-y-1 animate-fade-in">
+                                <div className="flex items-center gap-1.5 font-bold">
+                                  <span className="material-symbols-outlined text-base text-amber-600">warning</span>
+                                  <span>Payment Cancelled / Dismissed</span>
+                                </div>
+                                <p className="text-[11px] leading-relaxed">
+                                  Your reservation request is safely saved with ID{' '}
+                                  <strong className="font-mono text-primary">BK-{confirmedBooking?.id?.slice(0, 8)}</strong>{' '}
+                                  (Status: PENDING). Your slot is temporarily reserved. Click <strong>RETRY PAYMENT</strong> below to complete checkout.
+                                </p>
+                              </div>
+                            )}
+
+                            {paymentState === 'failed' && (
+                              <div className="bg-red-50 border border-red-300 p-4 rounded-xl text-xs text-red-900 space-y-2 animate-fade-in">
+                                <div className="flex items-center gap-1.5 font-bold">
+                                  <span className="material-symbols-outlined text-base text-red-600">error</span>
+                                  <span>Booking Request Notice</span>
+                                </div>
+                                <p className="text-[11px] leading-relaxed">
+                                  {paymentError || error || 'The transaction could not be processed. Please check your card or UPI app and retry.'}
+                                </p>
+                                {(paymentError?.includes('verify your phone') || error?.includes('verify your phone')) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => navigate('/verify-phone')}
+                                    className="mt-2 px-3 py-1.5 rounded-lg bg-[#0a2e6e] text-white font-bold text-xs uppercase tracking-wider cursor-pointer hover:bg-[#071f4a] transition-all inline-flex items-center gap-1"
+                                  >
+                                    <span>Verify Phone Number</span>
+                                    <span className="material-symbols-outlined text-xs">arrow_forward</span>
+                                  </button>
+                                )}
+                              </div>
+                            )}
+
+                            {paymentState === 'processing' && (
+                              <div className="bg-blue-50 border border-blue-300 p-3 rounded-xl text-xs text-[#0a2e6e] flex items-center gap-2 animate-pulse">
+                                <svg className="animate-spin h-4 w-4 text-[#0a2e6e]" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                                </svg>
+                                <span className="font-semibold text-[11px]">Verifying payment signature with Razorpay...</span>
+                              </div>
+                            )}
+
+                            {/* Confirm & Pay Button */}
+                            <div className="pt-2 flex gap-3">
+                              <button
+                                type="button"
+                                onClick={() => setBookingStep('TYPE')}
+                                disabled={bookingLoading || paymentState === 'processing'}
+                                className="w-1/3 py-3.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs uppercase hover:bg-slate-50 cursor-pointer disabled:opacity-50"
+                              >
+                                Back
+                              </button>
+
+                              {paymentMethod === 'WALLET' ? (
+                                <button
+                                  type="button"
+                                  onClick={handleFinalBookingSubmit}
+                                  disabled={bookingLoading || paymentState === 'processing' || !hasSufficientWallet}
+                                  className="w-2/3 py-3.5 rounded-xl bg-[#0a2e6e] hover:bg-[#082252] disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-xs uppercase tracking-wider text-center cursor-pointer transition-all shadow-lg active:scale-98 duration-150 flex items-center justify-center gap-2"
+                                >
+                                  {bookingLoading ? (
+                                    <>
+                                      <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                                      </svg>
+                                      <span>Processing Wallet Payment...</span>
+                                    </>
+                                  ) : (
+                                    `PAY ${currentSummaryPrice.label} FROM WALLET`
+                                  )}
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={handleFinalBookingSubmit}
+                                  disabled={bookingLoading || paymentState === 'processing'}
+                                  className="w-2/3 py-3.5 rounded-xl bg-[#f97316] hover:bg-[#ea580c] disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-xs uppercase tracking-wider text-center cursor-pointer transition-all shadow-lg active:scale-98 duration-150 flex items-center justify-center gap-2"
+                                >
+                                  {bookingLoading || paymentState === 'processing' ? (
+                                    <>
+                                      <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                                      </svg>
+                                      <span>{paymentState === 'processing' ? 'Verifying Payment...' : 'Connecting to Razorpay...'}</span>
+                                    </>
+                                  ) : paymentState === 'cancelled' || paymentState === 'failed' ? (
+                                    `RETRY PAYMENT (${currentSummaryPrice.label})`
+                                  ) : (
+                                    `PAY ${currentSummaryPrice.label} WITH RAZORPAY`
+                                  )}
+                                </button>
+                              )}
+                            </div>
+
+                            <p className="text-[10px] text-slate-400 text-center leading-relaxed">
+                              Atomic database transaction • Server-side HMAC SHA256 verification • Double-booking protected
+                            </p>
                           </div>
-                          <p className="text-[11px] leading-relaxed">
-                            Your reservation request is safely saved with ID{' '}
-                            <strong className="font-mono text-primary">BK-{confirmedBooking?.id?.slice(0, 8)}</strong>{' '}
-                            (Status: PENDING). Your slot is temporarily reserved. Click <strong>RETRY PAYMENT</strong> below to complete checkout.
-                          </p>
-                        </div>
-                      )}
-
-                      {paymentState === 'failed' && (
-                        <div className="bg-red-50 border border-red-300 p-4 rounded-xl text-xs text-red-900 space-y-2 animate-fade-in">
-                          <div className="flex items-center gap-1.5 font-bold">
-                            <span className="material-symbols-outlined text-base text-red-600">error</span>
-                            <span>Booking Request Notice</span>
-                          </div>
-                          <p className="text-[11px] leading-relaxed">
-                            {paymentError || error || 'The transaction could not be processed. Please check your card or UPI app and retry.'}
-                          </p>
-                          {(paymentError?.includes('verify your phone') || error?.includes('verify your phone')) && (
-                            <button
-                              type="button"
-                              onClick={() => navigate('/verify-phone')}
-                              className="mt-2 px-3 py-1.5 rounded-lg bg-[#0a2e6e] text-white font-bold text-xs uppercase tracking-wider cursor-pointer hover:bg-[#071f4a] transition-all inline-flex items-center gap-1"
-                            >
-                              <span>Verify Phone Number</span>
-                              <span className="material-symbols-outlined text-xs">arrow_forward</span>
-                            </button>
-                          )}
-                        </div>
-                      )}
-
-                      {paymentState === 'processing' && (
-                        <div className="bg-blue-50 border border-blue-300 p-3 rounded-xl text-xs text-[#0a2e6e] flex items-center gap-2 animate-pulse">
-                          <svg className="animate-spin h-4 w-4 text-[#0a2e6e]" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-                          </svg>
-                          <span className="font-semibold text-[11px]">Verifying payment signature with Razorpay...</span>
-                        </div>
-                      )}
-
-                      {paymentState === 'idle' && (
-                        <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl text-[11px] text-slate-700 leading-relaxed flex items-start gap-2">
-                          <span className="material-symbols-outlined text-base text-emerald-600 shrink-0 mt-0.5">verified_user</span>
-                          <div>
-                            <strong>Razorpay Standard Checkout:</strong> UPI, Debit/Credit Cards & NetBanking. Charges authoritative final amount <strong>{currentSummaryPrice.label}</strong> with slot reservation.
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Confirm & Pay Button */}
-                      <div className="pt-2 flex gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setBookingStep('TYPE')}
-                          disabled={bookingLoading || paymentState === 'processing'}
-                          className="w-1/3 py-3.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs uppercase hover:bg-slate-50 cursor-pointer disabled:opacity-50"
-                        >
-                          Back
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleFinalBookingSubmit}
-                          disabled={bookingLoading || paymentState === 'processing'}
-                          className="w-2/3 py-3.5 rounded-xl bg-[#f97316] hover:bg-[#ea580c] disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-xs uppercase tracking-wider text-center cursor-pointer transition-all shadow-lg active:scale-98 duration-150 flex items-center justify-center gap-2"
-                        >
-                          {bookingLoading || paymentState === 'processing' ? (
-                            <>
-                              <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-                              </svg>
-                              <span>{paymentState === 'processing' ? 'Verifying Payment...' : 'Connecting to Razorpay...'}</span>
-                            </>
-                          ) : paymentState === 'cancelled' || paymentState === 'failed' ? (
-                            `RETRY PAYMENT (${currentSummaryPrice.label})`
-                          ) : (
-                            `PAY & CONFIRM (${currentSummaryPrice.label})`
-                          )}
-                        </button>
-                      </div>
-
-                      <p className="text-[10px] text-slate-400 text-center leading-relaxed">
-                        Atomic database transaction • Server-side HMAC SHA256 verification • Double-booking protected
-                      </p>
+                        );
+                      })()}
                     </div>
                   )}
 

@@ -8,6 +8,8 @@ import {
   updateSlotCount,
   leaveMatch,
   createPlayroomBooking,
+  createMatchPaymentOrder,
+  verifyMatchPayment,
 } from './matches.controller.js';
 
 const router = Router();
@@ -54,5 +56,7 @@ router.post('/host/*', authenticate, requireRoles(hostRoles), (req, res) => res.
 router.post('/:id/join', authenticate, joinMatch);
 router.post('/:id/leave', authenticate, leaveMatch);
 router.post('/:id/booking', authenticate, createPlayroomBooking);
+router.post('/:id/create-order', authenticate, createMatchPaymentOrder);
+router.post('/:id/verify-payment', authenticate, verifyMatchPayment);
 
 export default router;
