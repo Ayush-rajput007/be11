@@ -123,11 +123,6 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
 
     const passwordHash = await bcrypt.hash(validated.password, 10);
 
-    // Generate secure 6-digit phone OTP
-    const phoneOtpCode = crypto.randomInt(100000, 1000000).toString();
-    const phoneOtpHash = crypto.createHash('sha256').update(phoneOtpCode).digest('hex');
-    const phoneOtpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
-
     const user = await prisma.user.create({
       data: {
         email: normalizedEmail,
@@ -138,18 +133,10 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
         role: validated.role,
         walletBalance: 0.0,
         emailVerified: false,
-        phoneVerified: false,
-        phoneOtpHash,
-        phoneOtpExpiresAt,
-        phoneOtpAttempts: 0,
-        phoneOtpLastSentAt: new Date(),
       },
     });
 
-    // Send transactional SMS to customer's mobile
-    await sendPhoneOtpSms(normalizedPhone, phoneOtpCode);
-
-    // Generate secure 6 digit pin verification code for email step
+    // Generate secure 6-digit verification code for email step
     const emailCode = Math.floor(100000 + Math.random() * 900000).toString();
     const emailExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min expiry
 
@@ -166,13 +153,12 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
 
     res.status(HttpStatus.CREATED).json({
       success: true,
-      message: 'Account created successfully. Please verify your phone number to continue.',
+      message: 'Account created successfully. Please check your email to verify your account.',
       data: {
         email: user.email,
         phone: user.phone,
-        phoneVerified: false,
         emailVerified: false,
-        step: 'VERIFY_PHONE',
+        step: 'VERIFY_EMAIL',
       },
     });
   } catch (error) {

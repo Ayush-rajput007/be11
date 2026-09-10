@@ -27,10 +27,6 @@ export const createBooking = async (req: AuthenticatedRequest, res: Response, ne
       throw new AppError('Customer not found', HttpStatus.NOT_FOUND);
     }
 
-    if (!customer.phoneVerified) {
-      throw new AppError('Please verify your phone number before booking.', HttpStatus.FORBIDDEN);
-    }
-
     if (!customer.emailVerified) {
       throw new AppError('Please verify your email address before booking.', HttpStatus.FORBIDDEN);
     }

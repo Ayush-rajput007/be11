@@ -950,20 +950,9 @@ export const VenueDetail: React.FC = () => {
               </div>
 
               {error && (
-                <div className="mb-4 p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 animate-fadeIn">
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-base text-red-600 shrink-0">error</span>
-                    <span className="font-medium leading-tight">{error}</span>
-                  </div>
-                  {error.includes('verify your phone') && (
-                    <button
-                      type="button"
-                      onClick={() => navigate('/verify-phone')}
-                      className="px-3 py-1.5 bg-[#0a2e6e] text-white rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-[#071f4a] shrink-0 text-center transition-all cursor-pointer"
-                    >
-                      Verify Phone
-                    </button>
-                  )}
+                <div className="mb-4 p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-center gap-2 animate-fadeIn">
+                  <span className="material-symbols-outlined text-base text-red-600 shrink-0">error</span>
+                  <span className="font-medium leading-tight">{error}</span>
                 </div>
               )}
 
@@ -1971,16 +1960,6 @@ export const VenueDetail: React.FC = () => {
                                 <p className="text-[11px] leading-relaxed">
                                   {paymentError || error || 'The transaction could not be processed. Please check your card or UPI app and retry.'}
                                 </p>
-                                {(paymentError?.includes('verify your phone') || error?.includes('verify your phone')) && (
-                                  <button
-                                    type="button"
-                                    onClick={() => navigate('/verify-phone')}
-                                    className="mt-2 px-3 py-1.5 rounded-lg bg-[#0a2e6e] text-white font-bold text-xs uppercase tracking-wider cursor-pointer hover:bg-[#071f4a] transition-all inline-flex items-center gap-1"
-                                  >
-                                    <span>Verify Phone Number</span>
-                                    <span className="material-symbols-outlined text-xs">arrow_forward</span>
-                                  </button>
-                                )}
                               </div>
                             )}
 
