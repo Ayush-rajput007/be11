@@ -9,24 +9,78 @@ import { sendNotification, broadcastMatchUpdate } from '../notifications/notific
 export const getMatches = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { sport, city, search } = req.query;
-    const filter: any = {};
+    const conditions: any[] = [];
 
     if (sport && sport !== 'All' && sport !== 'All Sports') {
-      filter.sport = { equals: sport as string };
-    }
-    if (city) {
-      filter.ground = { city: { equals: city as string } };
-    }
-    if (search) {
-      filter.OR = [
-        { sport: { contains: search as string } },
-        { ground: { name: { contains: search as string } } },
-        { ground: { location: { contains: search as string } } },
-      ];
+      const sportStr = (sport as string).trim();
+      conditions.push({
+        sport: { equals: sportStr, mode: 'insensitive' },
+      });
     }
 
+    if (city && city !== 'All' && city !== 'All Cities') {
+      const cityStr = (city as string).trim();
+      const cityLower = cityStr.toLowerCase();
+      if (cityLower === 'haryana') {
+        conditions.push({
+          ground: {
+            OR: [
+              { state: { equals: 'Haryana', mode: 'insensitive' } },
+              { city: { equals: 'Haryana', mode: 'insensitive' } },
+              { city: { equals: 'Faridabad', mode: 'insensitive' } },
+              { city: { equals: 'Gurugram', mode: 'insensitive' } },
+              { location: { contains: 'Haryana', mode: 'insensitive' } },
+              { address: { contains: 'Haryana', mode: 'insensitive' } },
+              { location: { contains: 'Faridabad', mode: 'insensitive' } },
+              { address: { contains: 'Faridabad', mode: 'insensitive' } },
+            ],
+          },
+        });
+      } else if (cityLower === 'delhi' || cityLower === 'delhi ncr' || cityLower === 'ncr') {
+        conditions.push({
+          ground: {
+            OR: [
+              { city: { equals: 'Delhi', mode: 'insensitive' } },
+              { state: { equals: 'Delhi', mode: 'insensitive' } },
+              { city: { equals: 'Noida', mode: 'insensitive' } },
+              { city: { equals: 'Gurugram', mode: 'insensitive' } },
+              { city: { equals: 'Faridabad', mode: 'insensitive' } },
+              { location: { contains: 'Delhi', mode: 'insensitive' } },
+              { address: { contains: 'Delhi', mode: 'insensitive' } },
+            ],
+          },
+        });
+      } else {
+        conditions.push({
+          ground: {
+            OR: [
+              { city: { equals: cityStr, mode: 'insensitive' } },
+              { state: { equals: cityStr, mode: 'insensitive' } },
+              { location: { contains: cityStr, mode: 'insensitive' } },
+              { address: { contains: cityStr, mode: 'insensitive' } },
+            ],
+          },
+        });
+      }
+    }
+
+    if (search) {
+      const searchStr = (search as string).trim();
+      conditions.push({
+        OR: [
+          { sport: { contains: searchStr, mode: 'insensitive' } },
+          { ground: { name: { contains: searchStr, mode: 'insensitive' } } },
+          { ground: { location: { contains: searchStr, mode: 'insensitive' } } },
+          { ground: { city: { contains: searchStr, mode: 'insensitive' } } },
+          { ground: { address: { contains: searchStr, mode: 'insensitive' } } },
+        ],
+      });
+    }
+
+    const where = conditions.length > 0 ? { AND: conditions } : {};
+
     const matches = await prisma.match.findMany({
-      where: filter,
+      where,
       include: {
         ground: true,
       },
