@@ -64,6 +64,158 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: strin
   return <>{children}</>;
 };
 
+const AppContent: React.FC = () => {
+  const location = useLocation();
+  const showFooter = location.pathname !== '/jersey-builder';
+
+  return (
+    <div className="flex flex-col min-h-screen bg-surface">
+      <Header />
+      <main className="flex-grow">
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ForgotPassword />} />
+          <Route path="/verify-phone" element={<VerifyPhone />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/privacy-policy" element={<Navigate to="/privacy" replace />} />
+          <Route path="/terms" element={<TermsOfService />} />
+          <Route path="/terms-of-service" element={<Navigate to="/terms" replace />} />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <ProfileSettings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfileSettings />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/venues" element={<Venues />} />
+          <Route path="/venues/:id" element={<VenueDetail />} />
+          <Route path="/store/*" element={<Shop />} />
+          <Route path="/jersey-builder" element={<JerseyBuilder />} />
+          <Route path="/tournaments" element={<Tournaments />} />
+          <Route path="/become-vendor" element={<BecomeVendor />} />
+          <Route path="/toss" element={<Toss />} />
+          <Route path="/capture" element={<Capture />} />
+          
+          <Route path="/live-matches" element={<LiveMatches />} />
+          <Route path="/host-match" element={<Navigate to="/live-matches" replace state={{ permissionDenied: true }} />} />
+          <Route path="/host-lobbies" element={<Navigate to="/live-matches" replace state={{ permissionDenied: true }} />} />
+          <Route
+            path="/host-dashboard"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'OWNER', 'COACH']}>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/manage-matches"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'OWNER', 'COACH']}>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/edit-match"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'OWNER', 'COACH']}>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/create-match"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'OWNER', 'COACH']}>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/kit-builder" element={<KitBuilder />} />
+          
+          <Route path="/coaches" element={<Coaches />} />
+          <Route path="/coaches/:id" element={<CoachProfile />} />
+          
+          <Route
+            path="/coach-dashboard"
+            element={
+              <ProtectedRoute allowedRoles={['COACH']}>
+                <CoachDashboard />
+              </ProtectedRoute>
+            }
+          />
+          
+          <Route
+            path="/my-training"
+            element={
+              <ProtectedRoute>
+                <MyTraining />
+              </ProtectedRoute>
+            }
+          />
+          
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+                <Admin />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/bookings"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+                <AdminBookings />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/venue-bookings"
+            element={<Navigate to="/admin/bookings" replace />}
+          />
+
+          <Route
+            path="/my-bookings"
+            element={
+              <ProtectedRoute>
+                <MyBookings />
+              </ProtectedRoute>
+            }
+          />
+          
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </main>
+      {showFooter && <Footer />}
+    </div>
+  );
+};
+
 export const App: React.FC = () => {
   const { login, logout } = useAuthStore();
   const [checkingSession, setCheckingSession] = React.useState(true);
@@ -106,158 +258,6 @@ export const App: React.FC = () => {
     );
   }
 
-  const AppContent: React.FC = () => {
-    const location = useLocation();
-    const showFooter = location.pathname !== '/jersey-builder';
-
-    return (
-      <div className="flex flex-col min-h-screen bg-surface">
-        <Header />
-        <main className="flex-grow">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ForgotPassword />} />
-            <Route path="/verify-phone" element={<VerifyPhone />} />
-            <Route path="/verify-email" element={<VerifyEmail />} />
-            <Route path="/privacy" element={<PrivacyPolicy />} />
-            <Route path="/privacy-policy" element={<Navigate to="/privacy" replace />} />
-            <Route path="/terms" element={<TermsOfService />} />
-            <Route path="/terms-of-service" element={<Navigate to="/terms" replace />} />
-            <Route
-              path="/settings"
-              element={
-                <ProtectedRoute>
-                  <ProfileSettings />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/profile"
-              element={
-                <ProtectedRoute>
-                  <ProfileSettings />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="/venues" element={<Venues />} />
-            <Route path="/venues/:id" element={<VenueDetail />} />
-            <Route path="/store/*" element={<Shop />} />
-            <Route path="/jersey-builder" element={<JerseyBuilder />} />
-            <Route path="/tournaments" element={<Tournaments />} />
-            <Route path="/become-vendor" element={<BecomeVendor />} />
-            <Route path="/toss" element={<Toss />} />
-            <Route path="/capture" element={<Capture />} />
-            
-            <Route path="/live-matches" element={<LiveMatches />} />
-            <Route path="/host-match" element={<Navigate to="/live-matches" replace state={{ permissionDenied: true }} />} />
-            <Route path="/host-lobbies" element={<Navigate to="/live-matches" replace state={{ permissionDenied: true }} />} />
-            <Route
-              path="/host-dashboard"
-              element={
-                <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'OWNER', 'COACH']}>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/manage-matches"
-              element={
-                <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'OWNER', 'COACH']}>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/edit-match"
-              element={
-                <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'OWNER', 'COACH']}>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/create-match"
-              element={
-                <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN', 'OWNER', 'COACH']}>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="/kit-builder" element={<KitBuilder />} />
-            
-            <Route path="/coaches" element={<Coaches />} />
-            <Route path="/coaches/:id" element={<CoachProfile />} />
-            
-            <Route
-              path="/coach-dashboard"
-              element={
-                <ProtectedRoute allowedRoles={['COACH']}>
-                  <CoachDashboard />
-                </ProtectedRoute>
-              }
-            />
-            
-            <Route
-              path="/my-training"
-              element={
-                <ProtectedRoute>
-                  <MyTraining />
-                </ProtectedRoute>
-              }
-            />
-            
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-            
-            <Route
-              path="/admin"
-              element={
-                <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
-                  <Admin />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/admin/bookings"
-              element={
-                <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
-                  <AdminBookings />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/admin/venue-bookings"
-              element={<Navigate to="/admin/bookings" replace />}
-            />
-
-            <Route
-              path="/my-bookings"
-              element={
-                <ProtectedRoute>
-                  <MyBookings />
-                </ProtectedRoute>
-              }
-            />
-            
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </main>
-        {showFooter && <Footer />}
-      </div>
-    );
-  };
-
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
@@ -268,3 +268,4 @@ export const App: React.FC = () => {
   );
 };
 export default App;
+

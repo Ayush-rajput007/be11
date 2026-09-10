@@ -3,7 +3,6 @@ import { api } from '../lib/api.js';
 import { useLocation, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore.js';
 import { useLocationStore } from '../store/locationStore.js';
-import { formatCurrency } from '@be11/shared';
 import { io } from 'socket.io-client';
 import { API_URL } from '../config/env.js';
 
@@ -38,6 +37,23 @@ interface Match {
   teamB: any; // array or string
 }
 
+const formatDateDisplay = (dateStr: string) => {
+  if (!dateStr) return '';
+  try {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    if (!y || !m || !d) return dateStr;
+    const dateObj = new Date(y, m - 1, d);
+    return dateObj.toLocaleDateString('en-US', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+  } catch {
+    return dateStr;
+  }
+};
+
 export const LiveMatches: React.FC = () => {
   const { isAuthenticated, user, updateWalletBalance } = useAuthStore();
   const { selectedCity } = useLocationStore();
@@ -53,34 +69,7 @@ export const LiveMatches: React.FC = () => {
 
   // Player Join Flow Premium Modal State
   const [playerBookingMatch, setPlayerBookingMatch] = useState<Match | null>(null);
-  const [bookingOption, setBookingOption] = useState<'SINGLE' | 'TEAM' | 'GROUND' | null>(null);
   const [bookingStep, setBookingStep] = useState<1 | 2 | 3 | 4 | 5>(1); // 1: Option Select, 2: Form Input, 3: Invoice Summary, 4: Payment choice, 5: Success screen
-
-  // Form states for option 2 (Team)
-  const [teamForm, setTeamForm] = useState({
-    captainName: '',
-    captainPhone: '',
-    teamName: '',
-    playerCount: 9,
-    playerNames: ['', '', '', '', '', '', '', '', ''],
-  });
-
-  // Form states for option 3 (Ground)
-  const [groundForm, setGroundForm] = useState({
-    organizationName: '',
-    purpose: 'Corporate Matches',
-    expectedPlayers: 22,
-    durationHours: 2,
-    photography: false,
-    videography: false,
-    commentary: false,
-    liveStreaming: false,
-    umpire: false,
-    scorer: false,
-    coach: false,
-    refreshments: false,
-    specialRequests: '',
-  });
 
   // Coupon state for the new flow
   const [playerCouponCode, setPlayerCouponCode] = useState('');
@@ -99,16 +88,8 @@ export const LiveMatches: React.FC = () => {
     e.preventDefault();
     if (!playerBookingMatch) return;
 
-    // Pricing calculation
-    let basePrice = 0;
-    if (bookingOption === 'SINGLE') {
-      basePrice = playerBookingMatch.entryFee;
-    } else if (bookingOption === 'TEAM') {
-      basePrice = playerBookingMatch.entryFee * teamForm.playerCount;
-    } else if (bookingOption === 'GROUND') {
-      basePrice = playerBookingMatch.ground.pricePerHour * groundForm.durationHours;
-    }
-
+    // Individual player pricing calculation
+    const basePrice = playerBookingMatch.entryFee;
     const gst = basePrice * 0.18;
     const platformFee = 20.0;
     const grandTotal = Math.max(0, basePrice + gst + platformFee - playerCouponDiscount);
@@ -122,12 +103,9 @@ export const LiveMatches: React.FC = () => {
     try {
       // API call to custom endpoint
       const res = await api.post(`/matches/${playerBookingMatch.id}/booking`, {
-        bookingType: bookingOption,
-        playerCount: bookingOption === 'TEAM' ? teamForm.playerCount : 1,
-        captainName: bookingOption === 'TEAM' ? teamForm.captainName : null,
-        teamName: bookingOption === 'TEAM' ? teamForm.teamName : null,
+        bookingType: 'SINGLE',
+        playerCount: 1,
         couponCode: playerCouponCode,
-        durationHours: bookingOption === 'GROUND' ? groundForm.durationHours : 2,
       });
 
       // Update wallet balance locally
@@ -616,7 +594,7 @@ export const LiveMatches: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {matches.map((m) => {
               const joined = m.playersJoined || 0;
-              const max = m.totalPlayers || 10;
+              const max = m.totalPlayers || 22;
               const ratio = joined / max;
               const isFull = joined >= max;
 
@@ -635,12 +613,17 @@ export const LiveMatches: React.FC = () => {
                   <div>
                     {/* Badge and sports */}
                     <div className="flex justify-between items-center mb-3">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest ${
-                        m.sport === 'Cricket' ? 'bg-[#FF9933]/15 text-[#FF9933] border border-[#FF9933]/20' : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
-                      }`}>
-                        {m.sport}
-                      </span>
-                      <span className="text-[10px] text-indigo-300 font-bold uppercase tracking-widest">{m.skillLevel}</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest ${
+                          m.sport === 'Cricket' ? 'bg-[#FF9933]/15 text-[#FF9933] border border-[#FF9933]/20' : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
+                        }`}>
+                          {m.sport}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest bg-indigo-600/15 text-indigo-300 border border-indigo-500/20">
+                          {m.startTime.includes('10:00') ? 'AFTERNOON' : 'OPEN'}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-indigo-300 font-bold uppercase tracking-widest">{m.skillLevel || 'OPEN'}</span>
                     </div>
 
                     <h3 className="font-poppins font-black text-base text-white truncate uppercase tracking-wide group-hover:text-indigo-400 transition-colors">
@@ -655,7 +638,7 @@ export const LiveMatches: React.FC = () => {
                     <div className="flex items-center gap-3 mt-4 bg-white/5 border border-white/5 px-3 py-2 rounded-xl text-xs font-semibold">
                       <span className="flex items-center gap-1 text-gray-300">
                         <span className="material-symbols-outlined text-[14px] text-indigo-400">calendar_today</span>
-                        {m.date}
+                        {formatDateDisplay(m.date)}
                       </span>
                       <span className="flex items-center gap-1 text-gray-300">
                         <span className="material-symbols-outlined text-[14px] text-indigo-400">schedule</span>
@@ -668,7 +651,7 @@ export const LiveMatches: React.FC = () => {
                       <div className="flex justify-between text-[10px] font-black uppercase tracking-wider">
                         <span className="text-gray-300">{joined} / {max} Joined</span>
                         <span className="text-indigo-300">
-                          {isFull ? 'Roster Full' : `${max - joined} Spots Left`}
+                          {isFull ? 'Roster Full' : `${max - joined} Spots Available`}
                         </span>
                       </div>
                       <div className="w-full h-2 bg-black/40 rounded-full overflow-hidden border border-white/5">
@@ -685,8 +668,8 @@ export const LiveMatches: React.FC = () => {
                   {/* Foot action pricing */}
                   <div className="mt-6 pt-4 border-t border-white/5 flex items-center justify-between">
                     <div>
-                      <span className="text-[8px] text-gray-400 uppercase tracking-widest block font-bold">Entry Fee</span>
-                      <span className="text-sm font-black text-white uppercase">{m.entryFee === 0 ? 'Free' : formatCurrency(m.entryFee)}</span>
+                      <span className="text-[8px] text-gray-400 uppercase tracking-widest block font-bold">Individual Fee</span>
+                      <span className="text-sm font-black text-white uppercase">{m.entryFee === 0 ? 'Free' : `₹${m.entryFee}`}</span>
                     </div>
 
                     <button
@@ -695,17 +678,13 @@ export const LiveMatches: React.FC = () => {
                         if (hasJoined) {
                           setSelectedMatch(m);
                         } else if (isFull) {
-                          alert('Lobby is currently full. Waitlist integration active.');
+                          alert('Lobby is currently full. Capacity reached.');
                         } else if (!isAuthenticated) {
-                          alert('Please login to join this match.');
+                          alert('Please login to book this live match.');
                           navigate('/login');
-                        } else if (user?.role === 'PLAYER' || user?.role === 'CUSTOMER') {
-                          setPlayerBookingMatch(m);
-                          setBookingOption(null);
-                          setBookingStep(1);
-                          setInvoiceResult(null);
                         } else {
-                          setCheckoutMatch(m);
+                          setPlayerBookingMatch(m);
+                          setBookingStep(1);
                           setInvoiceResult(null);
                         }
                       }}
@@ -717,7 +696,7 @@ export const LiveMatches: React.FC = () => {
                           : 'bg-[#FF9933] hover:bg-[#e07f24] text-white shadow-md'
                       }`}
                     >
-                      {hasJoined ? 'Manage Room' : isFull ? 'Lobby Full' : 'Join Match'}
+                      {hasJoined ? 'Manage Room' : isFull ? 'Lobby Full' : 'BOOK INDIVIDUAL PLAYER'}
                     </button>
                   </div>
 
@@ -743,600 +722,16 @@ export const LiveMatches: React.FC = () => {
               </button>
 
               <div className="grid grid-cols-1 md:grid-cols-12 gap-6 pt-4">
-                
-                {/* Premium Join Match Flow Modal for Player Role */}
-        {playerBookingMatch && (
-          <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-            <div className="bg-[#09090F]/95 border border-white/10 rounded-[28px] max-w-4xl w-full p-6 md:p-8 relative shadow-2xl text-left backdrop-blur-xl my-8">
-              
-              <button
-                onClick={() => setPlayerBookingMatch(null)}
-                className="absolute top-6 right-6 text-gray-400 hover:text-white transition-all scale-110 cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-2xl">close</span>
-              </button>
-
-              <div className="mb-6">
-                <div className="inline-flex items-center gap-2 bg-[#FF9933]/15 border border-[#FF9933]/25 px-3 py-1 rounded-full mb-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#FF9933]"></span>
-                  <span className="text-[9px] text-[#FF9933] font-bold uppercase tracking-widest">Premium Booking Studio</span>
-                </div>
-                <h3 className="font-poppins font-black text-2xl uppercase tracking-wider text-white">
-                  🏏 How would you like to join?
-                </h3>
-                <p className="text-gray-400 text-xs">Choose the best way to participate in this match playroom.</p>
-              </div>
-
-              {/* STEP 1: Option Cards selector */}
-              {bookingStep === 1 && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-2">
-                  
-                  {/* Option 1: Single Player */}
-                  <div className="bg-gradient-to-b from-[#0e0e1a]/80 to-[#07070f]/90 border border-white/5 hover:border-indigo-500/40 rounded-2xl p-5 hover:translate-y-[-4px] hover:shadow-[0_8px_30px_rgb(99,102,241,0.1)] transition-all flex flex-col justify-between">
-                    <div>
-                      <div className="w-10 h-10 rounded-xl bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center mb-4 text-indigo-400">
-                        <span className="material-symbols-outlined">person</span>
-                      </div>
-                      <h4 className="font-black text-base text-white uppercase tracking-wider">👤 Single Player</h4>
-                      <p className="text-gray-400 text-[10px] font-light mt-2 leading-relaxed">
-                        Join individually and get automatically assigned to a team before the match begins.
-                      </p>
-                      <div className="mt-4 space-y-1.5 text-[10px] text-gray-400">
-                        <div className="flex justify-between"><span>Entry Fee:</span><span className="text-indigo-400 font-bold">₹{playerBookingMatch.entryFee}</span></div>
-                        <div className="flex justify-between"><span>Available Spots:</span><span className="text-white font-bold">{playerBookingMatch.totalPlayers - playerBookingMatch.playersJoined} spots</span></div>
-                        <div className="flex justify-between"><span>Skill Level:</span><span className="text-white font-bold">{playerBookingMatch.skillLevel}</span></div>
-                        <div className="flex justify-between"><span>Team Assignment:</span><span className="text-white font-bold">Automatic</span></div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setBookingOption('SINGLE');
-                        setBookingStep(3); // Direct to Summary
-                      }}
-                      className="mt-6 w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-md"
-                    >
-                      Join Individually
-                    </button>
-                  </div>
-
-                  {/* Option 2: Join as a Team */}
-                  <div className="bg-gradient-to-b from-[#0e0e1a]/80 to-[#07070f]/90 border border-white/5 hover:border-orange-500/40 rounded-2xl p-5 hover:translate-y-[-4px] hover:shadow-[0_8px_30px_rgb(249,115,22,0.1)] transition-all flex flex-col justify-between">
-                    <div>
-                      <div className="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center mb-4 text-orange-400">
-                        <span className="material-symbols-outlined">groups</span>
-                      </div>
-                      <h4 className="font-black text-base text-white uppercase tracking-wider">👥 Join as a Team</h4>
-                      <p className="text-gray-400 text-[10px] font-light mt-2 leading-relaxed">
-                        Bring your own squad and register together. Minimum 9 players required.
-                      </p>
-                      <div className="mt-4 space-y-1.5 text-[10px] text-gray-400">
-                        <div className="flex justify-between"><span>Min Squad Size:</span><span className="text-orange-400 font-bold">9 Players</span></div>
-                        <div className="flex justify-between"><span>Max Squad Size:</span><span className="text-white font-bold">11 Players</span></div>
-                        <div className="flex justify-between"><span>Captain Required:</span><span className="text-white font-bold">Yes</span></div>
-                        <div className="flex justify-between"><span>Roster Invites:</span><span className="text-white font-bold">WhatsApp/QR Link</span></div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setBookingOption('TEAM');
-                        setBookingStep(2); // Go to Team Form
-                      }}
-                      className="mt-6 w-full py-2.5 bg-orange-600 hover:bg-orange-500 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-md"
-                    >
-                      Join With My Team
-                    </button>
-                  </div>
-
-                  {/* Option 3: Book Entire Ground */}
-                  <div className="bg-gradient-to-b from-[#0e0e1a]/80 to-[#07070f]/90 border border-white/5 hover:border-[#FF9933]/40 rounded-2xl p-5 hover:translate-y-[-4px] hover:shadow-[0_8px_30px_rgb(255,153,51,0.1)] transition-all flex flex-col justify-between">
-                    <div>
-                      <div className="w-10 h-10 rounded-xl bg-[#FF9933]/10 border border-[#FF9933]/20 flex items-center justify-center mb-4 text-[#FF9933]">
-                        <span className="material-symbols-outlined">sports_cricket</span>
-                      </div>
-                      <h4 className="font-black text-base text-white uppercase tracking-wider">Stadium Booking</h4>
-                      <p className="text-gray-400 text-[10px] font-light mt-2 leading-relaxed">
-                        Reserve the entire arena exclusively. Perfect for corporate matches and tournaments.
-                      </p>
-                      <div className="mt-4 space-y-1.5 text-[10px] text-gray-400">
-                        <div className="flex justify-between"><span>Hourly Arena Rate:</span><span className="text-emerald-400 font-bold">₹{playerBookingMatch.ground.pricePerHour}/hr</span></div>
-                        <div className="flex justify-between"><span>Included Add-ons:</span><span className="text-white font-bold">Floodlights & Washrooms</span></div>
-                        <div className="flex justify-between"><span>Corporate Match:</span><span className="text-white font-bold">Corporate Friendly</span></div>
-                        <div className="flex justify-between"><span>Umpire/Scorer:</span><span className="text-white font-bold">Add-on optional</span></div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setBookingOption('GROUND');
-                        setBookingStep(2); // Go to Ground Form
-                      }}
-                      className="mt-6 w-full py-2.5 bg-gradient-to-r from-amber-500 to-[#FF9933] hover:opacity-90 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-md"
-                    >
-                      Book Entire Ground
-                    </button>
-                  </div>
-
-                </div>
-              )}
-
-              {/* STEP 2: Dedicated Form Input */}
-              {bookingStep === 2 && (
-                <div className="bg-black/35 border border-white/5 rounded-2xl p-6 text-xs text-left max-w-lg mx-auto">
-                  
-                  {bookingOption === 'TEAM' && (
-                    <div className="space-y-4">
-                      <h4 className="font-black text-sm uppercase tracking-wide text-white border-b border-white/5 pb-2">👥 Squad Roster Details</h4>
-                      
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Captain Name</label>
-                          <input
-                            type="text"
-                            required
-                            value={teamForm.captainName}
-                            onChange={(e) => setTeamForm({...teamForm, captainName: e.target.value})}
-                            placeholder="Captain Name"
-                            className="w-full bg-[#050508] border border-white/10 rounded-xl p-3 text-xs text-white"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Captain Phone</label>
-                          <input
-                            type="text"
-                            required
-                            value={teamForm.captainPhone}
-                            onChange={(e) => setTeamForm({...teamForm, captainPhone: e.target.value})}
-                            placeholder="Captain Mobile"
-                            className="w-full bg-[#050508] border border-white/10 rounded-xl p-3 text-xs text-white"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Team / Club Name</label>
-                        <input
-                          type="text"
-                          required
-                          value={teamForm.teamName}
-                          onChange={(e) => setTeamForm({...teamForm, teamName: e.target.value})}
-                          placeholder="e.g. Delhi Gladiators"
-                          className="w-full bg-[#050508] border border-white/10 rounded-xl p-3 text-xs text-white"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Number of Players (9 - 11)</label>
-                        <select
-                          value={teamForm.playerCount}
-                          onChange={(e) => setTeamForm({...teamForm, playerCount: parseInt(e.target.value, 10)})}
-                          className="w-full bg-[#050508] border border-white/10 rounded-xl p-3 text-xs text-white"
-                        >
-                          <option value="9">9 Players</option>
-                          <option value="10">10 Players</option>
-                          <option value="11">11 Players</option>
-                        </select>
-                      </div>
-
-                      <div className="bg-indigo-950/20 border border-indigo-500/10 p-3 rounded-xl space-y-1">
-                        <span className="block font-black text-[9px] text-indigo-300 uppercase tracking-wider mb-1">Squad Invite Link Generator</span>
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            readOnly
-                            value={`https://be11.com/join-squad?code=sq_${Math.floor(100000 + Math.random() * 900000)}`}
-                            className="flex-1 bg-black/40 border border-white/5 rounded-xl px-2 py-1 text-[10px] text-gray-400 focus:outline-none"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => alert('Invite Link copied to Clipboard! Share on WhatsApp.')}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[9px] px-3 py-1 rounded-xl uppercase"
-                          >
-                            Share
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-3 pt-2">
-                        <button
-                          onClick={() => setBookingStep(1)}
-                          className="flex-1 py-3 bg-white/5 border border-white/10 rounded-xl text-xs font-bold uppercase text-gray-400"
-                        >
-                          Back
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (!teamForm.captainName || !teamForm.captainPhone || !teamForm.teamName) {
-                              alert('Please complete all squad registration fields.');
-                              return;
-                            }
-                            setBookingStep(3); // Proceed to checkout summary
-                          }}
-                          className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-bold uppercase text-white shadow-md"
-                        >
-                          Roster Summary
-                        </button>
-                      </div>
-
-                    </div>
-                  )}
-
-                  {bookingOption === 'GROUND' && (
-                    <div className="space-y-4">
-                      <h4 className="font-black text-sm uppercase tracking-wide text-white border-b border-white/5 pb-2">🏟 Stadium Booking Details</h4>
-                      
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Organization Name (Optional)</label>
-                          <input
-                            type="text"
-                            value={groundForm.organizationName}
-                            onChange={(e) => setGroundForm({...groundForm, organizationName: e.target.value})}
-                            placeholder="e.g. Google India"
-                            className="w-full bg-[#050508] border border-white/10 rounded-xl p-3 text-xs text-white"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Purpose of Booking</label>
-                          <input
-                            type="text"
-                            value={groundForm.purpose}
-                            onChange={(e) => setGroundForm({...groundForm, purpose: e.target.value})}
-                            placeholder="Corporate Friendly Matches"
-                            className="w-full bg-[#050508] border border-white/10 rounded-xl p-3 text-xs text-white"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Expected Players</label>
-                          <input
-                            type="number"
-                            value={groundForm.expectedPlayers}
-                            onChange={(e) => setGroundForm({...groundForm, expectedPlayers: parseInt(e.target.value, 10)})}
-                            className="w-full bg-[#050508] border border-white/10 rounded-xl p-3 text-xs text-white"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Duration (Hours)</label>
-                          <select
-                            value={groundForm.durationHours}
-                            onChange={(e) => setGroundForm({...groundForm, durationHours: parseInt(e.target.value, 10)})}
-                            className="w-full bg-[#050508] border border-white/10 rounded-xl p-3 text-xs text-white"
-                          >
-                            <option value="2">2 Hours</option>
-                            <option value="3">3 Hours</option>
-                            <option value="4">4 Hours</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      <div>
-                        <span className="block font-black text-[9px] text-gray-400 uppercase tracking-widest mb-2">Request Additional Services</span>
-                        <div className="grid grid-cols-2 gap-2 text-[10px]">
-                          <label className="flex items-center gap-2 bg-black/20 p-2 rounded-lg border border-white/5">
-                            <input
-                              type="checkbox"
-                              checked={groundForm.photography}
-                              onChange={(e) => setGroundForm({...groundForm, photography: e.target.checked})}
-                            />
-                            Professional Photography
-                          </label>
-                          <label className="flex items-center gap-2 bg-black/20 p-2 rounded-lg border border-white/5">
-                            <input
-                              type="checkbox"
-                              checked={groundForm.umpire}
-                              onChange={(e) => setGroundForm({...groundForm, umpire: e.target.checked})}
-                            />
-                            Match Umpire & Scorer
-                          </label>
-                          <label className="flex items-center gap-2 bg-black/20 p-2 rounded-lg border border-white/5">
-                            <input
-                              type="checkbox"
-                              checked={groundForm.refreshments}
-                              onChange={(e) => setGroundForm({...groundForm, refreshments: e.target.checked})}
-                            />
-                            Refreshments & Energy Drinks
-                          </label>
-                          <label className="flex items-center gap-2 bg-black/20 p-2 rounded-lg border border-white/5">
-                            <input
-                              type="checkbox"
-                              checked={groundForm.commentary}
-                              onChange={(e) => setGroundForm({...groundForm, commentary: e.target.checked})}
-                            />
-                            Live Match Commentary
-                          </label>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-3 pt-2">
-                        <button
-                          onClick={() => setBookingStep(1)}
-                          className="flex-1 py-3 bg-white/5 border border-white/10 rounded-xl text-xs font-bold uppercase text-gray-400"
-                        >
-                          Back
-                        </button>
-                        <button
-                          onClick={() => setBookingStep(3)} // Proceed to summary
-                          className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-bold uppercase text-white shadow-md"
-                        >
-                          Booking Summary
-                        </button>
-                      </div>
-
-                    </div>
-                  )}
-
-                </div>
-              )}
-
-              {/* STEP 3: Booking Invoice Summary */}
-              {bookingStep === 3 && (
-                <div className="max-w-md mx-auto">
-                  <h4 className="font-black text-sm uppercase tracking-wide text-white border-b border-white/5 pb-2 text-left mb-4">📄 Playroom Invoice Summary</h4>
-                  
-                  <div className="bg-black/35 border border-white/5 rounded-2xl p-5 space-y-3 text-xs text-gray-400 text-left font-light">
-                    <div className="flex justify-between">
-                      <span>Venue:</span>
-                      <span className="text-white font-bold">{playerBookingMatch.ground.name}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Sport Type:</span>
-                      <span className="text-white font-bold">{playerBookingMatch.sport}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Playroom Date:</span>
-                      <span className="text-white font-bold">{playerBookingMatch.date} ({playerBookingMatch.startTime})</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Booking Type:</span>
-                      <span className="text-indigo-400 font-bold uppercase tracking-wider">{bookingOption}</span>
-                    </div>
-                    
-                    {bookingOption === 'TEAM' && (
-                      <div className="flex justify-between">
-                        <span>Squad Size:</span>
-                        <span className="text-white font-bold">{teamForm.playerCount} Players</span>
-                      </div>
-                    )}
-                    {bookingOption === 'GROUND' && (
-                      <div className="flex justify-between">
-                        <span>Reservation Hours:</span>
-                        <span className="text-white font-bold">{groundForm.durationHours} Hours</span>
-                      </div>
-                    )}
-
-                    <div className="h-[1px] bg-white/5 w-full my-1"></div>
-
-                    <div className="flex justify-between">
-                      <span>Base Pricing:</span>
-                      <span className="text-white font-bold">
-                        ₹{(() => {
-                          if (bookingOption === 'SINGLE') return playerBookingMatch.entryFee;
-                          if (bookingOption === 'TEAM') return playerBookingMatch.entryFee * teamForm.playerCount;
-                          return playerBookingMatch.ground.pricePerHour * groundForm.durationHours;
-                        })()}
-                      </span>
-                    </div>
-
-                    <div className="flex justify-between">
-                      <span>GST (18%):</span>
-                      <span className="text-white font-bold">
-                        ₹{(() => {
-                          let base = playerBookingMatch.entryFee;
-                          if (bookingOption === 'TEAM') base = playerBookingMatch.entryFee * teamForm.playerCount;
-                          if (bookingOption === 'GROUND') base = playerBookingMatch.ground.pricePerHour * groundForm.durationHours;
-                          return (base * 0.18).toFixed(2);
-                        })()}
-                      </span>
-                    </div>
-
-                    <div className="flex justify-between">
-                      <span>Platform Booking Fee:</span>
-                      <span className="text-white font-bold">₹20.00</span>
-                    </div>
-
-                    {playerCouponDiscount > 0 && (
-                      <div className="flex justify-between text-emerald-400">
-                        <span>Coupon Discount Applied:</span>
-                        <span>-₹{playerCouponDiscount}</span>
-                      </div>
-                    )}
-
-                    <div className="h-[1px] bg-white/5 w-full my-2"></div>
-                    <div className="flex justify-between text-sm font-black text-white">
-                      <span>Grand Total:</span>
-                      <span className="text-emerald-400">
-                        ₹{(() => {
-                          let base = playerBookingMatch.entryFee;
-                          if (bookingOption === 'TEAM') base = playerBookingMatch.entryFee * teamForm.playerCount;
-                          if (bookingOption === 'GROUND') base = playerBookingMatch.ground.pricePerHour * groundForm.durationHours;
-                          return (base * 1.18 + 20.00 - playerCouponDiscount).toFixed(2);
-                        })()}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Coupon layout */}
-                  <div className="mt-4 space-y-1.5 text-left">
-                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block">Apply Promo Code</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="e.g. BE11PLAY"
-                        value={playerCouponCode}
-                        onChange={(e) => setPlayerCouponCode(e.target.value)}
-                        className="flex-1 bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={handlePlayerApplyCoupon}
-                        className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-4 rounded-xl cursor-pointer"
-                      >
-                        Apply
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3 mt-6">
-                    <button
-                      onClick={() => {
-                        if (bookingOption === 'SINGLE') setBookingStep(1);
-                        else setBookingStep(2);
-                      }}
-                      className="flex-1 py-3 bg-white/5 border border-white/10 rounded-xl text-xs font-bold uppercase text-gray-400"
-                    >
-                      Back
-                    </button>
-                    <button
-                      onClick={() => setBookingStep(4)} // Go to payment
-                      className="flex-1 py-3 bg-[#FF9933] hover:bg-[#e07f24] rounded-xl text-xs font-bold uppercase text-white shadow-md"
-                    >
-                      Checkout Pay
-                    </button>
-                  </div>
-
-                </div>
-              )}
-
-              {/* STEP 4: Checkout Payment Selection */}
-              {bookingStep === 4 && (
-                <div className="max-w-md mx-auto space-y-4">
-                  <h4 className="font-black text-sm uppercase tracking-wide text-white border-b border-white/5 pb-2 text-left">💳 Select Payment Method</h4>
-                  
-                  <div className="space-y-2">
-                    <label className="flex items-center justify-between bg-black/40 border border-white/10 p-4 rounded-xl cursor-pointer hover:border-indigo-500/40">
-                      <div className="flex items-center gap-3">
-                        <span className="material-symbols-outlined text-indigo-400">account_balance_wallet</span>
-                        <div className="text-left">
-                          <span className="block text-xs font-bold text-white">Wallet Credit balance</span>
-                          <span className="text-[10px] text-gray-400">Available Balance: ₹{user?.walletBalance.toFixed(2)}</span>
-                        </div>
-                      </div>
-                      <input
-                        type="radio"
-                        name="payMethod"
-                        checked={paymentMethod === 'WALLET'}
-                        onChange={() => setPaymentMethod('WALLET')}
-                      />
-                    </label>
-
-                    <label className="flex items-center justify-between bg-black/40 border border-white/10 p-4 rounded-xl cursor-pointer hover:border-indigo-500/40">
-                      <div className="flex items-center gap-3">
-                        <span className="material-symbols-outlined text-[#FF9933]">qr_code_2</span>
-                        <div className="text-left">
-                          <span className="block text-xs font-bold text-white">UPI (GPay / PhonePe)</span>
-                          <span className="text-[10px] text-gray-400">Scan QR or enter UPI ID</span>
-                        </div>
-                      </div>
-                      <input
-                        type="radio"
-                        name="payMethod"
-                        checked={paymentMethod === 'UPI'}
-                        onChange={() => setPaymentMethod('UPI')}
-                      />
-                    </label>
-
-                    <label className="flex items-center justify-between bg-black/40 border border-white/10 p-4 rounded-xl cursor-pointer hover:border-indigo-500/40">
-                      <div className="flex items-center gap-3">
-                        <span className="material-symbols-outlined text-blue-400">credit_card</span>
-                        <div className="text-left">
-                          <span className="block text-xs font-bold text-white">Credit / Debit Card</span>
-                          <span className="text-[10px] text-gray-400">Visa, MasterCard, RuPay</span>
-                        </div>
-                      </div>
-                      <input
-                        type="radio"
-                        name="payMethod"
-                        checked={paymentMethod === 'CARD'}
-                        onChange={() => setPaymentMethod('CARD')}
-                      />
-                    </label>
-                  </div>
-
-                  <div className="flex gap-3 pt-4">
-                    <button
-                      onClick={() => setBookingStep(3)}
-                      className="flex-1 py-3 bg-white/5 border border-white/10 rounded-xl text-xs font-bold uppercase text-gray-400"
-                    >
-                      Back
-                    </button>
-                    <button
-                      onClick={handlePlayerBookingSubmit}
-                      disabled={checkoutLoading}
-                      className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-xs font-bold uppercase text-white shadow-md"
-                    >
-                      {checkoutLoading ? 'Processing...' : 'Complete Payment'}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* STEP 5: Success Ticket details screen */}
-              {bookingStep === 5 && invoiceResult && (
-                <div className="max-w-md mx-auto text-center space-y-4">
-                  <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto text-emerald-400 mb-2">
-                    <span className="material-symbols-outlined text-4xl animate-bounce">check_circle</span>
-                  </div>
-                  
-                  <h3 className="font-poppins font-black text-xl text-white uppercase tracking-wider">🎉 Booking Successful!</h3>
-                  <p className="text-xs text-gray-400 font-light">Your playroom slot has been locked and synced to your dashboard.</p>
-
-                  <div className="bg-[#0e0e1a] border border-white/10 rounded-2xl p-5 text-left text-[11px] space-y-2.5">
-                    <div className="flex justify-between"><span>Booking Ticket ID:</span><span className="text-white font-bold">{invoiceResult.bookingId || `bk_${Math.floor(100000 + Math.random() * 900000)}`}</span></div>
-                    <div className="flex justify-between"><span>Transaction Ref:</span><span className="text-white font-bold">{invoiceResult.transactionId}</span></div>
-                    <div className="flex justify-between"><span>Invoice Number:</span><span className="text-white font-bold">{invoiceResult.invoiceId}</span></div>
-                    <div className="flex justify-between"><span>Amount Settled:</span><span className="text-emerald-400 font-bold">₹{invoiceResult.amountPaid.toFixed(2)}</span></div>
-                    <div className="flex justify-between"><span>Payment Date:</span><span className="text-white font-bold">{invoiceResult.date}</span></div>
-                    
-                    <div className="h-[1px] bg-white/5 my-2 w-full"></div>
-                    
-                    <div className="flex flex-col items-center gap-2 pt-2">
-                      <span className="block text-[8px] font-black text-gray-400 uppercase tracking-widest">Entry Access QR Ticket</span>
-                      <div className="bg-white p-2 rounded-xl flex items-center justify-center">
-                        <div className="w-24 h-24 bg-gradient-to-br from-indigo-950 via-slate-900 to-indigo-900 flex flex-wrap p-1 gap-1">
-                          {Array.from({ length: 36 }).map((_, i) => (
-                            <span key={i} className={`w-3.5 h-3.5 rounded-sm ${i % 3 === 0 || i % 7 === 0 ? 'bg-white' : 'bg-black'}`}></span>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2 pt-3">
-                    <button
-                      onClick={() => {
-                        alert('Invoice downloaded successfully to Downloads folder!');
-                      }}
-                      className="flex-1 py-2.5 bg-white/5 border border-white/10 rounded-xl text-[10px] font-bold uppercase text-white"
-                    >
-                      Invoice Download
-                    </button>
-                    <button
-                      onClick={() => navigate('/dashboard')}
-                      className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-[10px] font-bold uppercase text-white shadow-md"
-                    >
-                      Go to Dashboard
-                    </button>
-                  </div>
-                  <button
-                    onClick={() => setPlayerBookingMatch(null)}
-                    className="w-full text-center text-indigo-400 hover:text-indigo-300 text-[10px] font-bold uppercase tracking-wider mt-2 cursor-pointer block"
-                  >
-                    Back to Playrooms
-                  </button>
-                </div>
-              )}
-
-            </div>
-          </div>
-        )}
-
-        {/* Host playroom customization Wizard overlay */}
                 <div className="md:col-span-7 space-y-6">
                   <div>
-                    <span className="px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest bg-indigo-600/20 text-indigo-300 border border-indigo-500/25">
-                      {selectedMatch.sport} Activity
-                    </span>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest bg-indigo-600/20 text-indigo-300 border border-indigo-500/25">
+                        {selectedMatch.sport} Activity
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest bg-emerald-500/20 text-emerald-300 border border-emerald-500/25">
+                        Match Status: {selectedMatch.status || 'Open'}
+                      </span>
+                    </div>
                     <h2 className="font-poppins font-black text-2xl uppercase tracking-wide mt-2 text-white">
                       {selectedMatch.ground?.name || 'Local Turf'}
                     </h2>
@@ -1349,18 +744,28 @@ export const LiveMatches: React.FC = () => {
                   <div className="p-4 bg-white/5 border border-white/5 rounded-2xl grid grid-cols-3 gap-2 text-center text-xs">
                     <div>
                       <span className="text-[8px] uppercase tracking-widest text-gray-400 block font-bold">Schedule</span>
-                      <span className="font-bold text-white block mt-0.5">{selectedMatch.date}</span>
+                      <span className="font-bold text-white block mt-0.5">{formatDateDisplay(selectedMatch.date)}</span>
                     </div>
                     <div>
                       <span className="text-[8px] uppercase tracking-widest text-gray-400 block font-bold">Timings</span>
                       <span className="font-bold text-white block mt-0.5">{selectedMatch.startTime}</span>
                     </div>
                     <div>
-                      <span className="text-[8px] uppercase tracking-widest text-gray-400 block font-bold">Price</span>
+                      <span className="text-[8px] uppercase tracking-widest text-gray-400 block font-bold">Entry Fee</span>
                       <span className="font-bold text-emerald-400 block mt-0.5">
-                        {selectedMatch.entryFee === 0 ? 'FREE' : formatCurrency(selectedMatch.entryFee)}
+                        {selectedMatch.entryFee === 0 ? 'FREE' : `₹${selectedMatch.entryFee} / player`}
                       </span>
                     </div>
+                  </div>
+
+                  <div className="p-4 bg-indigo-950/20 border border-indigo-500/15 rounded-2xl flex justify-between items-center text-xs">
+                    <div>
+                      <span className="text-[9px] uppercase tracking-widest text-indigo-300 block font-bold">Player Availability</span>
+                      <span className="font-bold text-white text-sm">
+                        {selectedMatch.totalPlayers - selectedMatch.playersJoined} spots available ({selectedMatch.playersJoined} / {selectedMatch.totalPlayers} joined)
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-gray-400 uppercase font-semibold">Individual Joining Only</span>
                   </div>
 
                   {/* Team rosters */}
@@ -1370,12 +775,16 @@ export const LiveMatches: React.FC = () => {
                         🛡️ Team A
                       </h4>
                       <ul className="space-y-2 mt-3 text-xs text-gray-300">
-                        {getTeamRoster(selectedMatch.teamA).map((p: any, i: number) => (
-                          <li key={p.id || i} className="flex items-center gap-2">
-                            <span className="material-symbols-outlined text-[14px]">account_circle</span>
-                            {p.firstName} {p.lastName}
-                          </li>
-                        ))}
+                        {getTeamRoster(selectedMatch.teamA).length === 0 ? (
+                          <li className="text-gray-500 text-[11px] italic">No players joined yet</li>
+                        ) : (
+                          getTeamRoster(selectedMatch.teamA).map((p: any, i: number) => (
+                            <li key={p.id || i} className="flex items-center gap-2">
+                              <span className="material-symbols-outlined text-[14px]">account_circle</span>
+                              {p.firstName} {p.lastName}
+                            </li>
+                          ))
+                        )}
                       </ul>
                     </div>
 
@@ -1384,12 +793,16 @@ export const LiveMatches: React.FC = () => {
                         🛡️ Team B
                       </h4>
                       <ul className="space-y-2 mt-3 text-xs text-gray-300">
-                        {getTeamRoster(selectedMatch.teamB).map((p: any, i: number) => (
-                          <li key={p.id || i} className="flex items-center gap-2">
-                            <span className="material-symbols-outlined text-[14px]">account_circle</span>
-                            {p.firstName} {p.lastName}
-                          </li>
-                        ))}
+                        {getTeamRoster(selectedMatch.teamB).length === 0 ? (
+                          <li className="text-gray-500 text-[11px] italic">No players joined yet</li>
+                        ) : (
+                          getTeamRoster(selectedMatch.teamB).map((p: any, i: number) => (
+                            <li key={p.id || i} className="flex items-center gap-2">
+                              <span className="material-symbols-outlined text-[14px]">account_circle</span>
+                              {p.firstName} {p.lastName}
+                            </li>
+                          ))
+                        )}
                       </ul>
                     </div>
                   </div>
@@ -1399,6 +812,7 @@ export const LiveMatches: React.FC = () => {
                     const teamA = getTeamRoster(selectedMatch.teamA);
                     const teamB = getTeamRoster(selectedMatch.teamB);
                     const isJoined = teamA.some((p: any) => p.id === user?.id) || teamB.some((p: any) => p.id === user?.id);
+                    const isFull = selectedMatch.playersJoined >= selectedMatch.totalPlayers;
 
                     if (isJoined) {
                       return (
@@ -1411,15 +825,34 @@ export const LiveMatches: React.FC = () => {
                       );
                     }
 
+                    if (isFull) {
+                      return (
+                        <button
+                          disabled
+                          className="w-full py-3 bg-white/5 text-gray-500 border border-white/10 rounded-xl font-bold text-xs uppercase tracking-wider text-center block cursor-not-allowed"
+                        >
+                          Lobby Full (22/22)
+                        </button>
+                      );
+                    }
+
                     return (
                       <button
                         onClick={() => {
-                          setCheckoutMatch(selectedMatch);
+                          if (!isAuthenticated) {
+                            alert('Please login to book this live match.');
+                            navigate('/login');
+                            return;
+                          }
+                          const m = selectedMatch;
                           setSelectedMatch(null);
+                          setPlayerBookingMatch(m);
+                          setBookingStep(1);
+                          setInvoiceResult(null);
                         }}
-                        className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-xs uppercase tracking-wider cursor-pointer text-center block transition-all"
+                        className="w-full py-3.5 bg-[#FF9933] hover:bg-[#e07f24] text-white rounded-xl font-black text-xs uppercase tracking-wider cursor-pointer text-center block transition-all shadow-lg"
                       >
-                        Join Playroom
+                        BOOK INDIVIDUAL PLAYER
                       </button>
                     );
                   })()}
@@ -1437,7 +870,7 @@ export const LiveMatches: React.FC = () => {
                         <div className="flex flex-col items-center justify-center h-full text-center p-6 text-gray-500 space-y-2">
                           <span className="material-symbols-outlined text-3xl">lock</span>
                           <h5 className="font-bold text-xs uppercase tracking-wider text-gray-400">Chat Room Locked</h5>
-                          <p className="text-[10px] leading-relaxed">Join this playroom to coordinate kits, positions and weather updates.</p>
+                          <p className="text-[10px] leading-relaxed">Join this playroom as an individual player to coordinate kits, positions and weather updates.</p>
                         </div>
                       );
                     }
@@ -1490,6 +923,249 @@ export const LiveMatches: React.FC = () => {
                 </div>
 
               </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* Premium Join Match Flow Modal - INDIVIDUAL PLAYER ONLY */}
+        {playerBookingMatch && (
+          <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-[#09090F]/95 border border-white/10 rounded-[28px] max-w-2xl w-full p-6 md:p-8 relative shadow-2xl text-left backdrop-blur-xl my-8">
+              
+              <button
+                onClick={() => setPlayerBookingMatch(null)}
+                className="absolute top-6 right-6 text-gray-400 hover:text-white transition-all scale-110 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-2xl">close</span>
+              </button>
+
+              {/* STEP 1: Individual Player Booking Overview */}
+              {bookingStep === 1 && (
+                <div>
+                  <div className="mb-6">
+                    <div className="inline-flex items-center gap-2 bg-[#FF9933]/15 border border-[#FF9933]/25 px-3 py-1 rounded-full mb-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#FF9933]"></span>
+                      <span className="text-[9px] text-[#FF9933] font-bold uppercase tracking-widest">LIVE MATCH PARTICIPATION</span>
+                    </div>
+                    <h3 className="font-poppins font-black text-2xl uppercase tracking-wider text-white">
+                      🏏 BOOK AS INDIVIDUAL PLAYER
+                    </h3>
+                    <p className="text-gray-400 text-xs mt-1">
+                      Join individually and get automatically assigned to a playing team for this official match.
+                    </p>
+                  </div>
+
+                  <div className="bg-gradient-to-b from-[#0e0e1a]/80 to-[#07070f]/90 border border-white/10 rounded-2xl p-6 space-y-4">
+                    <div className="grid grid-cols-2 gap-4 text-xs pb-4 border-b border-white/5">
+                      <div>
+                        <span className="text-[9px] uppercase tracking-widest text-gray-400 block font-bold">Venue</span>
+                        <span className="font-bold text-white block mt-1">{playerBookingMatch.ground?.name}</span>
+                        <span className="text-gray-400 text-[10px] block mt-0.5">{playerBookingMatch.ground?.location}</span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] uppercase tracking-widest text-gray-400 block font-bold">Date & Slot</span>
+                        <span className="font-bold text-white block mt-1">{playerBookingMatch.date}</span>
+                        <span className="text-indigo-400 text-[10px] block mt-0.5">{playerBookingMatch.startTime}</span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 text-center text-xs bg-black/40 p-3 rounded-xl border border-white/5">
+                      <div>
+                        <span className="text-[8px] uppercase tracking-widest text-gray-400 block font-bold">Price</span>
+                        <span className="text-emerald-400 font-bold text-sm block mt-0.5">₹{playerBookingMatch.entryFee}</span>
+                      </div>
+                      <div>
+                        <span className="text-[8px] uppercase tracking-widest text-gray-400 block font-bold">Available Spots</span>
+                        <span className="text-white font-bold text-sm block mt-0.5">{playerBookingMatch.totalPlayers - playerBookingMatch.playersJoined} / {playerBookingMatch.totalPlayers}</span>
+                      </div>
+                      <div>
+                        <span className="text-[8px] uppercase tracking-widest text-gray-400 block font-bold">Assignment</span>
+                        <span className="text-indigo-400 font-bold text-sm block mt-0.5">Automatic</span>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-white/5 rounded-xl text-[11px] text-gray-300 space-y-1">
+                      <div className="flex items-center gap-1.5 text-indigo-300 font-semibold">
+                        <span className="material-symbols-outlined text-[14px]">info</span>
+                        <span>Individual Player Only</span>
+                      </div>
+                      <p className="text-gray-400 text-[10px] leading-relaxed">
+                        This match is exclusively configured for individual player participation. No team or full-ground booking is accepted for this live room.
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setBookingStep(3);
+                      }}
+                      className="w-full py-3.5 bg-[#FF9933] hover:bg-[#e07f24] text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-lg mt-2"
+                    >
+                      PROCEED TO PAYMENT (₹{playerBookingMatch.entryFee})
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 3: Booking Invoice Summary */}
+              {bookingStep === 3 && (
+                <div className="max-w-md mx-auto">
+                  <h4 className="font-black text-sm uppercase tracking-wide text-white border-b border-white/5 pb-2 text-left mb-4">📄 Individual Player Invoice Summary</h4>
+                  
+                  <div className="bg-black/35 border border-white/5 rounded-2xl p-5 space-y-3 text-xs text-gray-400 text-left font-light">
+                    <div className="flex justify-between">
+                      <span>Venue:</span>
+                      <span className="text-white font-bold">{playerBookingMatch.ground?.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Sport:</span>
+                      <span className="text-white font-bold">{playerBookingMatch.sport}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Schedule:</span>
+                      <span className="text-white font-bold">{formatDateDisplay(playerBookingMatch.date)} ({playerBookingMatch.startTime})</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Participation Type:</span>
+                      <span className="text-indigo-400 font-bold uppercase tracking-wider">Individual Player</span>
+                    </div>
+                    
+                    <div className="h-[1px] bg-white/5 w-full my-2"></div>
+                    
+                    <div className="flex justify-between">
+                      <span>Base Entry Fee:</span>
+                      <span className="text-white font-semibold">₹{playerBookingMatch.entryFee}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>GST (18%):</span>
+                      <span className="text-white font-semibold">₹{(playerBookingMatch.entryFee * 0.18).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Platform Booking Fee:</span>
+                      <span className="text-white font-semibold">₹20.00</span>
+                    </div>
+
+                    {playerCouponDiscount > 0 && (
+                      <div className="flex justify-between text-emerald-400 font-semibold">
+                        <span>Coupon Discount Applied:</span>
+                        <span>-₹{playerCouponDiscount}</span>
+                      </div>
+                    )}
+
+                    <div className="h-[1px] bg-white/5 w-full my-2"></div>
+
+                    <div className="flex justify-between text-sm font-black text-white">
+                      <span>Total Amount:</span>
+                      <span className="text-emerald-400">
+                        ₹{Math.max(0, playerBookingMatch.entryFee * 1.18 + 20.00 - playerCouponDiscount).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Coupon */}
+                  <div className="space-y-1 mt-4 text-left">
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Apply Promo Coupon</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="e.g. BE11PLAY"
+                        value={playerCouponCode}
+                        onChange={(e) => setPlayerCouponCode(e.target.value)}
+                        className="flex-1 bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none uppercase"
+                      />
+                      <button
+                        type="button"
+                        onClick={handlePlayerApplyCoupon}
+                        className="bg-white/10 hover:bg-white/20 border border-white/10 text-white font-bold text-xs uppercase px-4 py-2 rounded-xl"
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Payment selection */}
+                  <div className="space-y-2 mt-4 text-left">
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block">Payment Method</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { key: 'WALLET', label: 'Credits' },
+                        { key: 'UPI', label: 'UPI PIN' },
+                        { key: 'CARD', label: 'Card' }
+                      ].map((m) => (
+                        <button
+                          key={m.key}
+                          type="button"
+                          onClick={() => setPaymentMethod(m.key as any)}
+                          className={`py-2 text-[10px] font-black uppercase tracking-wider rounded-xl text-center border transition-all cursor-pointer ${
+                            paymentMethod === m.key ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-black/30 text-gray-400 border-white/10 hover:text-white'
+                          }`}
+                        >
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 pt-6">
+                    <button
+                      onClick={() => setBookingStep(1)}
+                      className="flex-1 py-3 bg-white/5 border border-white/10 rounded-xl text-xs font-bold uppercase text-gray-400 cursor-pointer"
+                    >
+                      Back
+                    </button>
+                    <button
+                      onClick={handlePlayerBookingSubmit}
+                      disabled={checkoutLoading}
+                      className="flex-1 py-3 bg-[#FF9933] hover:bg-[#e07f24] disabled:opacity-40 rounded-xl text-xs font-black uppercase text-white shadow-md cursor-pointer"
+                    >
+                      {checkoutLoading ? 'Processing...' : 'Confirm & Pay'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 5: Success Screen */}
+              {bookingStep === 5 && invoiceResult && (
+                <div className="text-center space-y-6 py-4 max-w-md mx-auto">
+                  <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mx-auto text-emerald-400 text-3xl">
+                    ✓
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="font-poppins font-black text-xl uppercase tracking-wider text-white">Spot Confirmed!</h3>
+                    <p className="text-gray-400 text-xs">
+                      You're in! Your individual spot for {playerBookingMatch.ground?.name} on {formatDateDisplay(playerBookingMatch.date)}, {playerBookingMatch.startTime} is confirmed.
+                    </p>
+                  </div>
+
+                  <div className="bg-black/35 border border-white/5 rounded-2xl p-4 text-xs space-y-2 text-left text-gray-400">
+                    <div className="flex justify-between">
+                      <span>Receipt Invoice:</span>
+                      <span className="text-white font-bold">{invoiceResult.invoiceId}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Transaction ID:</span>
+                      <span className="text-white font-bold">{invoiceResult.transactionId}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Amount Paid:</span>
+                      <span className="text-emerald-400 font-bold">₹{invoiceResult.amountPaid.toFixed(2)}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setPlayerBookingMatch(null);
+                        setBookingStep(1);
+                        fetchMatches();
+                      }}
+                      className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-xs uppercase tracking-wider cursor-pointer"
+                    >
+                      Done / Return to Live Matches
+                    </button>
+                  </div>
+                </div>
+              )}
 
             </div>
           </div>

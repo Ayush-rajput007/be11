@@ -424,16 +424,32 @@ export const createPlayroomBooking = async (req: AuthenticatedRequest, res: Resp
       throw new AppError('User not found', HttpStatus.NOT_FOUND);
     }
 
+    const effectiveBookingType = (bookingType === 'SINGLE' ? 'INDIVIDUAL' : bookingType) || 'INDIVIDUAL';
+
+    // Check capacity and duplicate joining for individual/team bookings
+    if (effectiveBookingType !== 'FULL_GROUND') {
+      if (match.playersJoined >= match.totalPlayers) {
+        throw new AppError('Match is already full', HttpStatus.BAD_REQUEST);
+      }
+      const teamA = typeof match.teamA === 'string' ? JSON.parse(match.teamA) : (match.teamA || []);
+      const teamB = typeof match.teamB === 'string' ? JSON.parse(match.teamB) : (match.teamB || []);
+      const existsA = teamA.some((p: any) => p.id === userId);
+      const existsB = teamB.some((p: any) => p.id === userId);
+      if (existsA || existsB) {
+        throw new AppError('You have already joined this match', HttpStatus.BAD_REQUEST);
+      }
+    }
+
     // Calculate prices based on booking type
     let basePrice = 0;
     const count = parseInt(playerCount || '1', 10);
     const duration = parseInt(durationHours || '2', 10);
 
-    if (bookingType === 'INDIVIDUAL') {
+    if (effectiveBookingType === 'INDIVIDUAL') {
       basePrice = match.entryFee;
-    } else if (bookingType === 'TEAM') {
+    } else if (effectiveBookingType === 'TEAM') {
       basePrice = match.entryFee * count;
-    } else if (bookingType === 'FULL_GROUND') {
+    } else if (effectiveBookingType === 'FULL_GROUND') {
       basePrice = match.ground.pricePerHour * duration;
     }
 
@@ -495,17 +511,17 @@ export const createPlayroomBooking = async (req: AuthenticatedRequest, res: Resp
       });
 
       // 4. Update match rosters if not booking the entire ground
-      if (bookingType !== 'FULL_GROUND') {
+      if (effectiveBookingType !== 'FULL_GROUND') {
         const teamA = typeof match.teamA === 'string' ? JSON.parse(match.teamA) : (match.teamA || []);
         const teamB = typeof match.teamB === 'string' ? JSON.parse(match.teamB) : (match.teamB || []);
         const playerDetails = { id: user.id, firstName: user.firstName, lastName: user.lastName };
 
         // Auto assign or teamChoice
         const choice = teamChoice || (teamA.length <= teamB.length ? 'A' : 'B');
-        if (bookingType === 'INDIVIDUAL') {
+        if (effectiveBookingType === 'INDIVIDUAL') {
           if (choice === 'A') teamA.push(playerDetails);
           else teamB.push(playerDetails);
-        } else if (bookingType === 'TEAM') {
+        } else if (effectiveBookingType === 'TEAM') {
           // Add captain plus team names mock placeholders
           teamA.push({ id: user.id, firstName: user.firstName, lastName: `(Captain - ${teamName})` });
           for (let i = 1; i < count; i++) {
@@ -545,12 +561,20 @@ export const createPlayroomBooking = async (req: AuthenticatedRequest, res: Resp
         data: {
           userId,
           title: `Playroom Booking Confirmed!`,
-          message: `Your booking type [${bookingType}] at ${match.ground.name} has been successfully paid and reserved.`,
+          message: `Your booking type [${effectiveBookingType}] at ${match.ground.name} has been successfully paid and reserved.`,
         },
       });
 
       return newBooking;
     });
+
+    const updatedMatch = await prisma.match.findUnique({
+      where: { id },
+      include: { ground: true },
+    });
+    if (updatedMatch) {
+      broadcastMatchUpdate(id, 'JOINED', updatedMatch);
+    }
 
     res.status(HttpStatus.CREATED).json({
       success: true,
