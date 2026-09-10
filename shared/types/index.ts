@@ -7,6 +7,27 @@ export interface ApiResponse<T = any> {
   errors?: string[];
 }
 
+export interface CricketProfileDTO {
+  playingRole?: string | null;
+  favoriteIplTeam?: string | null;
+  favoritePlayer?: string | null;
+  battingStyle?: string | null;
+  bowlingStyle?: string | null;
+}
+
+export interface FootballProfileDTO {
+  position?: string | null;
+  favoriteClub?: string | null;
+  favoritePlayer?: string | null;
+  preferredFoot?: string | null;
+}
+
+export interface SportsProfileDTO {
+  favoriteSport: string;
+  cricketProfile: CricketProfileDTO;
+  footballProfile: FootballProfileDTO;
+}
+
 export interface UserDTO {
   id: string;
   email: string;
@@ -17,9 +38,15 @@ export interface UserDTO {
   walletBalance: number;
   emailVerified: boolean;
   phoneVerified: boolean;
+  city?: string | null;
+  state?: string | null;
+  favoriteSport?: string | null;
+  cricketProfile?: CricketProfileDTO | null;
+  footballProfile?: FootballProfileDTO | null;
   createdAt: string;
   updatedAt?: string;
 }
+
 
 export type BookingType = 'SINGLE_TEAM_OF_11' | 'TEAM_OF_11' | 'WHOLE_GROUND' | 'ENTIRE_VENUE';
 

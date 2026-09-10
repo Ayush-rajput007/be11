@@ -17,6 +17,8 @@ import {
 import { AuthenticatedRequest, TokenPayload } from '../../middlewares/auth.js';
 import { sendVerificationEmail, sendPasswordResetEmail } from '../../services/mail.service.js';
 import { sendPhoneOtpSms } from '../../services/sms.service.js';
+import { formatUserProfile, buildProfileResponse, validateAndSanitizeSportsProfile } from '../users/profile.helper.js';
+
 
 // Helper: parse custom refresh cookie manually to avoid dependencies
 const getRefreshTokenFromCookie = (req: Request): string | undefined => {
@@ -710,29 +712,59 @@ export const logoutAllDevices = async (req: AuthenticatedRequest, res: Response,
 export const updateProfile = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const userId = req.user?.userId;
-    const { firstName, lastName, phone } = req.body;
+    if (!userId) {
+      throw new AppError('Unauthorized', HttpStatus.UNAUTHORIZED);
+    }
+
+    const { firstName, lastName, phone, city, state, favoriteSport } = req.body;
+    const updateData: Record<string, any> = {};
+
+    if (firstName !== undefined) {
+      if (typeof firstName !== 'string' || !firstName.trim()) {
+        throw new AppError('First name cannot be empty', HttpStatus.BAD_REQUEST);
+      }
+      updateData.firstName = firstName.trim();
+    }
+
+    if (lastName !== undefined) {
+      if (typeof lastName !== 'string' || !lastName.trim()) {
+        throw new AppError('Last name cannot be empty', HttpStatus.BAD_REQUEST);
+      }
+      updateData.lastName = lastName.trim();
+    }
+
+    if (phone !== undefined) {
+      updateData.phone = typeof phone === 'string' && phone.trim() ? phone.trim() : null;
+    }
+
+    if (city !== undefined) {
+      updateData.city = typeof city === 'string' && city.trim() ? city.trim() : null;
+    }
+
+    if (state !== undefined) {
+      updateData.state = typeof state === 'string' && state.trim() ? state.trim() : null;
+    }
+
+    if (favoriteSport !== undefined) {
+      const sportClean = typeof favoriteSport === 'string' ? favoriteSport.trim() : null;
+      if (sportClean && !['Cricket', 'Football', 'cricket', 'football'].includes(sportClean)) {
+        throw new AppError('Supported sports are Cricket and Football.', HttpStatus.BAD_REQUEST);
+      }
+      updateData.favoriteSport = sportClean ? (sportClean.toLowerCase() === 'football' ? 'Football' : 'Cricket') : null;
+    }
+
+    const sportsFields = validateAndSanitizeSportsProfile(req.body);
+    Object.assign(updateData, sportsFields);
 
     const user = await prisma.user.update({
       where: { id: userId },
-      data: { firstName, lastName, phone },
+      data: updateData,
     });
 
     res.status(HttpStatus.OK).json({
       success: true,
       message: 'Profile updated successfully',
-      data: {
-        user: {
-          id: user.id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          phone: user.phone,
-          role: user.role,
-          walletBalance: user.walletBalance,
-          emailVerified: user.emailVerified,
-          createdAt: user.createdAt.toISOString(),
-        },
-      },
+      data: buildProfileResponse(user),
     });
   } catch (error) {
     next(error);
@@ -791,25 +823,13 @@ export const getMe = async (req: AuthenticatedRequest, res: Response, next: Next
     res.status(HttpStatus.OK).json({
       success: true,
       message: 'User profile retrieved',
-      data: {
-        user: {
-          id: user.id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          phone: user.phone,
-          role: user.role,
-          walletBalance: user.walletBalance,
-          emailVerified: user.emailVerified,
-          phoneVerified: user.phoneVerified,
-          createdAt: user.createdAt.toISOString(),
-        },
-      },
+      data: buildProfileResponse(user),
     });
   } catch (error) {
     next(error);
   }
 };
+
 
 export const googleAuth = async (req: Request, res: Response, next: NextFunction) => {
   try {

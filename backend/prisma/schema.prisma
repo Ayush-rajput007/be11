@@ -26,8 +26,26 @@ model User {
   googleId          String?             @unique
   profileImage      String?
   provider          String?             @default("local")
+  city              String?             @default("Mumbai")
+  state             String?             @default("Maharashtra")
+  favoriteSport     String?             @default("Cricket")
+  
+  // Cricket Profile
+  cricketPlayingRole    String?
+  favoriteIplTeam       String?
+  favoriteCricketPlayer String?
+  battingStyle          String?
+  bowlingStyle          String?
+
+  // Football Profile
+  footballPosition       String?
+  favoriteFootballClub   String?
+  favoriteFootballPlayer String?
+  preferredFoot          String?
+
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
+
   
   grounds           Ground[]            @relation("OwnedGrounds")
   bookings          Booking[]           @relation("CustomerBookings")

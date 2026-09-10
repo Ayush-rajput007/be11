@@ -35,13 +35,26 @@ export const ensureDatabaseSchema = async (): Promise<void> => {
         'ALTER TABLE "WalletTransaction" ADD COLUMN IF NOT EXISTS "razorpayOrderId" TEXT',
         'ALTER TABLE "WalletTransaction" ADD COLUMN IF NOT EXISTS "razorpayPaymentId" TEXT',
         'CREATE UNIQUE INDEX IF NOT EXISTS "WalletTransaction_razorpayPaymentId_key" ON "WalletTransaction"("razorpayPaymentId") WHERE "razorpayPaymentId" IS NOT NULL',
+        'ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "city" TEXT DEFAULT \'Mumbai\'',
+        'ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "state" TEXT DEFAULT \'Maharashtra\'',
+        'ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "favoriteSport" TEXT DEFAULT \'Cricket\'',
+        'ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "cricketPlayingRole" TEXT',
+        'ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "favoriteIplTeam" TEXT',
+        'ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "favoriteCricketPlayer" TEXT',
+        'ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "battingStyle" TEXT',
+        'ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "bowlingStyle" TEXT',
+        'ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "footballPosition" TEXT',
+        'ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "favoriteFootballClub" TEXT',
+        'ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "favoriteFootballPlayer" TEXT',
+        'ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "preferredFoot" TEXT',
       ];
       for (const q of queries) {
         await prisma.$executeRawUnsafe(q);
       }
       schemaEnsured = true;
-      logger.info('✅ Database schema verified in PostgreSQL (Phone auth, WalletTopUp & transactions)');
+      logger.info('✅ Database schema verified in PostgreSQL (Phone auth, WalletTopUp, Profile fields)');
     } else {
+
       schemaEnsured = true;
     }
   } catch (err: any) {

@@ -135,3 +135,62 @@ export const WalletTopupVerifySchema = z.object({
 });
 
 export type WalletTopupVerifyInput = z.infer<typeof WalletTopupVerifySchema>;
+
+import {
+  CRICKET_ROLES,
+  IPL_TEAMS,
+  BATTING_STYLES,
+  BOWLING_STYLES,
+  FOOTBALL_POSITIONS,
+  PREFERRED_FEET,
+} from '../constants/sports.js';
+
+export const CricketProfileSchema = z.object({
+  playingRole: z.enum(CRICKET_ROLES).optional().nullable().or(z.literal('')),
+  favoriteIplTeam: z.enum(IPL_TEAMS).optional().nullable().or(z.literal('')),
+  favoritePlayer: z.string().trim().max(80).optional().nullable().or(z.literal('')),
+  battingStyle: z.enum(BATTING_STYLES).optional().nullable().or(z.literal('')),
+  bowlingStyle: z.enum(BOWLING_STYLES).optional().nullable().or(z.literal('')),
+});
+
+export type CricketProfileInput = z.infer<typeof CricketProfileSchema>;
+
+export const FootballProfileSchema = z.object({
+  position: z.enum(FOOTBALL_POSITIONS).optional().nullable().or(z.literal('')),
+  favoriteClub: z.string().trim().max(80).optional().nullable().or(z.literal('')),
+  favoritePlayer: z.string().trim().max(80).optional().nullable().or(z.literal('')),
+  preferredFoot: z.enum(PREFERRED_FEET).optional().nullable().or(z.literal('')),
+});
+
+export type FootballProfileInput = z.infer<typeof FootballProfileSchema>;
+
+export const UpdateSportsProfileSchema = z.object({
+  favoriteSport: z.string().trim().max(50).optional().nullable(),
+  // Nested structure support
+  cricketProfile: CricketProfileSchema.optional().nullable(),
+  footballProfile: FootballProfileSchema.optional().nullable(),
+  // Flattened structure support
+  cricketPlayingRole: z.enum(CRICKET_ROLES).optional().nullable().or(z.literal('')),
+  favoriteIplTeam: z.enum(IPL_TEAMS).optional().nullable().or(z.literal('')),
+  favoriteCricketPlayer: z.string().trim().max(80).optional().nullable().or(z.literal('')),
+  battingStyle: z.enum(BATTING_STYLES).optional().nullable().or(z.literal('')),
+  bowlingStyle: z.enum(BOWLING_STYLES).optional().nullable().or(z.literal('')),
+  footballPosition: z.enum(FOOTBALL_POSITIONS).optional().nullable().or(z.literal('')),
+  favoriteFootballClub: z.string().trim().max(80).optional().nullable().or(z.literal('')),
+  favoriteFootballPlayer: z.string().trim().max(80).optional().nullable().or(z.literal('')),
+  preferredFoot: z.enum(PREFERRED_FEET).optional().nullable().or(z.literal('')),
+});
+
+export type UpdateSportsProfileInput = z.infer<typeof UpdateSportsProfileSchema>;
+
+export const UpdatePersonalProfileSchema = z.object({
+  firstName: z.string().trim().min(1, 'First name cannot be empty').max(50).optional(),
+  lastName: z.string().trim().min(1, 'Last name cannot be empty').max(50).optional(),
+  phone: z.string().trim().optional().nullable(),
+  city: z.string().trim().max(60).optional().nullable(),
+  state: z.string().trim().max(60).optional().nullable(),
+  favoriteSport: z.string().trim().max(50).optional().nullable(),
+});
+
+export type UpdatePersonalProfileInput = z.infer<typeof UpdatePersonalProfileSchema>;
+
