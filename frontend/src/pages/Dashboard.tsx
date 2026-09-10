@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore.js';
 import { api } from '../lib/api.js';
 import { BookingDTO, WalletTransactionDTO, NotificationDTO, formatCurrency } from '@be11/shared';
@@ -8,17 +9,41 @@ import { loadRazorpaySdk } from '../lib/razorpay.js';
 
 export const Dashboard: React.FC = () => {
   const { user, login, token, updateWalletBalance } = useAuthStore();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Role based tabs selection
-  const getInitialTabForRole = (role?: string) => {
+  const getInitialTabForRole = useCallback((role?: string) => {
     if (role === 'COACH') return 'sessions';
     if (role === 'OWNER') return 'grounds';
     if (role === 'VENDOR') return 'products';
     if (role === 'ADMIN' || role === 'SUPER_ADMIN') return 'system';
     return 'bookings';
+  }, []);
+
+  const VALID_TABS = ['bookings', 'wallet', 'notifications', 'sessions', 'availability', 'grounds', 'products', 'system'];
+
+  const getInitialTab = () => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && VALID_TABS.includes(tabParam)) {
+      return tabParam;
+    }
+    return getInitialTabForRole(user?.role);
   };
 
-  const [activeTab, setActiveTab] = useState<string>(getInitialTabForRole(user?.role));
+  const [activeTab, setActiveTab] = useState<string>(getInitialTab);
+
+  // Sync activeTab with URL search parameters
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && VALID_TABS.includes(tabParam) && tabParam !== activeTab) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams, activeTab]);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    setSearchParams({ tab }, { replace: true });
+  };
 
   // Common User States
   const [bookings, setBookings] = useState<BookingDTO[]>([]);
@@ -58,7 +83,7 @@ export const Dashboard: React.FC = () => {
     setBookingLoading(true);
     try {
       const res = await api.get('/bookings/my');
-      setBookings(res.data.data.bookings);
+      setBookings(res.data?.data?.bookings || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -70,16 +95,28 @@ export const Dashboard: React.FC = () => {
   const fetchWallet = async () => {
     setWalletLoading(true);
     try {
-      const [transRes, profRes] = await Promise.all([
+      const [transRes, profRes] = await Promise.allSettled([
         api.get('/wallet/transactions').catch(() => api.get('/payments/transactions')),
-        api.get('/auth/me').catch(() => null),
+        api.get('/auth/me'),
       ]);
-      setTransactions(transRes.data?.data?.transactions || []);
-      if (profRes?.data?.data?.user?.walletBalance !== undefined) {
-        updateWalletBalance(profRes.data.data.user.walletBalance);
+
+      if (transRes.status === 'fulfilled') {
+        const transList = transRes.value?.data?.data?.transactions ?? transRes.value?.data?.transactions;
+        if (Array.isArray(transList)) {
+          setTransactions(transList);
+        } else {
+          setTransactions([]);
+        }
+      }
+
+      if (profRes.status === 'fulfilled') {
+        const remoteBalance = profRes.value?.data?.data?.user?.walletBalance;
+        if (typeof remoteBalance === 'number' && user && user.walletBalance !== remoteBalance) {
+          updateWalletBalance(remoteBalance);
+        }
       }
     } catch (err) {
-      console.error(err);
+      console.error('fetchWallet error:', err);
     } finally {
       setWalletLoading(false);
     }
@@ -89,7 +126,7 @@ export const Dashboard: React.FC = () => {
   const fetchNotifications = async () => {
     try {
       const res = await api.get('/notifications');
-      setNotifications(res.data.data.notifications);
+      setNotifications(res.data?.data?.notifications || []);
     } catch (err) {
       console.error(err);
     }
@@ -166,7 +203,7 @@ export const Dashboard: React.FC = () => {
     if (activeTab === 'grounds') fetchOwnerData();
     if (activeTab === 'products') fetchVendorProducts();
     if (activeTab === 'system') fetchAdminMetrics();
-  }, [activeTab, user]);
+  }, [activeTab, user?.id]);
 
   // Socket Connection for Notifications
   useEffect(() => {
@@ -375,29 +412,33 @@ export const Dashboard: React.FC = () => {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start relative z-10">
           
           {/* Side tabs selector depending on user role */}
-          <div className="lg:col-span-3 bg-[#09090F]/70 border border-white/10 rounded-[28px] p-5 space-y-2 shadow-2xl">
-            {/* Player Dashboard tabs */}
-            {(user?.role === 'PLAYER' || user?.role === 'CUSTOMER') && (
+          <div className="lg:col-span-3 bg-[#09090F]/70 border border-white/10 rounded-[28px] p-5 space-y-2 shadow-2xl relative z-20">
+            {/* Player Dashboard tabs - accessible to all standard players/customers */}
+            {(!['COACH', 'OWNER', 'VENDOR', 'ADMIN', 'SUPER_ADMIN'].includes(user?.role || '') || user?.role === 'PLAYER' || user?.role === 'CUSTOMER') && (
               <>
                 <button
-                  onClick={() => setActiveTab('bookings')}
-                  className={`w-full py-3 px-4 rounded-xl text-left text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2.5 cursor-pointer ${
-                    activeTab === 'bookings' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  id="tab-bookings"
+                  type="button"
+                  onClick={() => handleTabChange('bookings')}
+                  className={`w-full py-3 px-4 rounded-xl text-left text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2.5 cursor-pointer select-none relative z-20 ${
+                    activeTab === 'bookings' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-gray-400 hover:text-white hover:bg-white/5'
                   }`}
                 >
-                  <span className="material-symbols-outlined text-sm">calendar_today</span>
+                  <span className="material-symbols-outlined text-sm pointer-events-none">calendar_today</span>
                   My Bookings
                 </button>
                 <button
-                  onClick={() => setActiveTab('wallet')}
-                  className={`w-full py-3 px-4 rounded-xl text-left text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2.5 cursor-pointer ${
-                    activeTab === 'wallet' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  id="tab-wallet"
+                  type="button"
+                  onClick={() => handleTabChange('wallet')}
+                  className={`w-full py-3 px-4 rounded-xl text-left text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2.5 cursor-pointer select-none relative z-20 ${
+                    activeTab === 'wallet' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-gray-400 hover:text-white hover:bg-white/5'
                   }`}
                 >
-                  <span className="material-symbols-outlined text-sm">account_balance_wallet</span>
+                  <span className="material-symbols-outlined text-sm pointer-events-none">account_balance_wallet</span>
                   Wallet Ledger
                 </button>
               </>
@@ -407,21 +448,25 @@ export const Dashboard: React.FC = () => {
             {user?.role === 'COACH' && (
               <>
                 <button
-                  onClick={() => setActiveTab('sessions')}
-                  className={`w-full py-3 px-4 rounded-xl text-left text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2.5 cursor-pointer ${
-                    activeTab === 'sessions' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  id="tab-sessions"
+                  type="button"
+                  onClick={() => handleTabChange('sessions')}
+                  className={`w-full py-3 px-4 rounded-xl text-left text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2.5 cursor-pointer select-none relative z-20 ${
+                    activeTab === 'sessions' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-gray-400 hover:text-white hover:bg-white/5'
                   }`}
                 >
-                  <span className="material-symbols-outlined text-sm">coaching</span>
+                  <span className="material-symbols-outlined text-sm pointer-events-none">coaching</span>
                   Student Sessions
                 </button>
                 <button
-                  onClick={() => setActiveTab('availability')}
-                  className={`w-full py-3 px-4 rounded-xl text-left text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2.5 cursor-pointer ${
-                    activeTab === 'availability' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  id="tab-availability"
+                  type="button"
+                  onClick={() => handleTabChange('availability')}
+                  className={`w-full py-3 px-4 rounded-xl text-left text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2.5 cursor-pointer select-none relative z-20 ${
+                    activeTab === 'availability' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-gray-400 hover:text-white hover:bg-white/5'
                   }`}
                 >
-                  <span className="material-symbols-outlined text-sm">more_time</span>
+                  <span className="material-symbols-outlined text-sm pointer-events-none">more_time</span>
                   Availability Calendar
                 </button>
               </>
@@ -431,12 +476,14 @@ export const Dashboard: React.FC = () => {
             {user?.role === 'OWNER' && (
               <>
                 <button
-                  onClick={() => setActiveTab('grounds')}
-                  className={`w-full py-3 px-4 rounded-xl text-left text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2.5 cursor-pointer ${
-                    activeTab === 'grounds' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  id="tab-grounds"
+                  type="button"
+                  onClick={() => handleTabChange('grounds')}
+                  className={`w-full py-3 px-4 rounded-xl text-left text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2.5 cursor-pointer select-none relative z-20 ${
+                    activeTab === 'grounds' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-gray-400 hover:text-white hover:bg-white/5'
                   }`}
                 >
-                  <span className="material-symbols-outlined text-sm">sports_cricket</span>
+                  <span className="material-symbols-outlined text-sm pointer-events-none">sports_cricket</span>
                   My Grounds
                 </button>
               </>
@@ -446,12 +493,14 @@ export const Dashboard: React.FC = () => {
             {user?.role === 'VENDOR' && (
               <>
                 <button
-                  onClick={() => setActiveTab('products')}
-                  className={`w-full py-3 px-4 rounded-xl text-left text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2.5 cursor-pointer ${
-                    activeTab === 'products' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  id="tab-products"
+                  type="button"
+                  onClick={() => handleTabChange('products')}
+                  className={`w-full py-3 px-4 rounded-xl text-left text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2.5 cursor-pointer select-none relative z-20 ${
+                    activeTab === 'products' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-gray-400 hover:text-white hover:bg-white/5'
                   }`}
                 >
-                  <span className="material-symbols-outlined text-sm">inventory</span>
+                  <span className="material-symbols-outlined text-sm pointer-events-none">inventory</span>
                   Products Manager
                 </button>
               </>
@@ -461,24 +510,28 @@ export const Dashboard: React.FC = () => {
             {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
               <>
                 <button
-                  onClick={() => setActiveTab('system')}
-                  className={`w-full py-3 px-4 rounded-xl text-left text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2.5 cursor-pointer ${
-                    activeTab === 'system' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  id="tab-system"
+                  type="button"
+                  onClick={() => handleTabChange('system')}
+                  className={`w-full py-3 px-4 rounded-xl text-left text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2.5 cursor-pointer select-none relative z-20 ${
+                    activeTab === 'system' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-gray-400 hover:text-white hover:bg-white/5'
                   }`}
                 >
-                  <span className="material-symbols-outlined text-sm">settings_system_daydream</span>
+                  <span className="material-symbols-outlined text-sm pointer-events-none">settings_system_daydream</span>
                   System Analytics
                 </button>
               </>
             )}
 
             <button
-              onClick={() => setActiveTab('notifications')}
-              className={`w-full py-3 px-4 rounded-xl text-left text-xs font-bold uppercase tracking-wider tracking-wide transition-all flex items-center gap-2.5 cursor-pointer ${
-                activeTab === 'notifications' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white hover:bg-white/5'
+              id="tab-notifications"
+              type="button"
+              onClick={() => handleTabChange('notifications')}
+              className={`w-full py-3 px-4 rounded-xl text-left text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2.5 cursor-pointer select-none relative z-20 ${
+                activeTab === 'notifications' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-gray-400 hover:text-white hover:bg-white/5'
               }`}
             >
-              <span className="material-symbols-outlined text-sm">notifications</span>
+              <span className="material-symbols-outlined text-sm pointer-events-none">notifications</span>
               Notifications
               {notifications.some((n) => !n.read) && (
                 <span className="w-2 h-2 rounded-full bg-orange-400 ml-auto animate-ping"></span>
@@ -487,10 +540,10 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {/* Right Content Area panel views */}
-          <div className="lg:col-span-9 bg-[#09090F]/70 border border-white/10 rounded-[28px] p-8 shadow-2xl min-h-[460px]">
+          <div className="lg:col-span-9 bg-[#09090F]/70 border border-white/10 rounded-[28px] p-8 shadow-2xl min-h-[460px] relative z-10">
             
             {activeTab === 'bookings' && (
-              <div className="space-y-6">
+              <div id="panel-bookings" className="space-y-6">
                 <h3 className="font-poppins font-black text-sm text-indigo-400 uppercase tracking-wider border-b border-white/5 pb-2">Booking History</h3>
                 
                 {bookingLoading ? (
@@ -525,7 +578,7 @@ export const Dashboard: React.FC = () => {
             )}
 
             {activeTab === 'wallet' && (
-              <div className="space-y-6">
+              <div id="panel-wallet" className="space-y-6">
                 <h3 className="font-poppins font-black text-sm text-indigo-400 uppercase tracking-wider border-b border-white/5 pb-2">Wallet & Transactions Ledger</h3>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
@@ -576,21 +629,21 @@ export const Dashboard: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => { setTopupAmount('500'); setTopupInputError(''); }}
-                          className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-indigo-600/30 text-[10px] font-semibold text-gray-300 hover:text-white border border-white/5 transition-all"
+                          className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-indigo-600/30 text-[10px] font-semibold text-gray-300 hover:text-white border border-white/5 transition-all cursor-pointer"
                         >
                           ₹500
                         </button>
                         <button
                           type="button"
                           onClick={() => { setTopupAmount('1000'); setTopupInputError(''); }}
-                          className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-indigo-600/30 text-[10px] font-semibold text-gray-300 hover:text-white border border-white/5 transition-all"
+                          className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-indigo-600/30 text-[10px] font-semibold text-gray-300 hover:text-white border border-white/5 transition-all cursor-pointer"
                         >
                           ₹1,000
                         </button>
                         <button
                           type="button"
                           onClick={() => { setTopupAmount('2000'); setTopupInputError(''); }}
-                          className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-indigo-600/30 text-[10px] font-semibold text-gray-300 hover:text-white border border-white/5 transition-all"
+                          className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-indigo-600/30 text-[10px] font-semibold text-gray-300 hover:text-white border border-white/5 transition-all cursor-pointer"
                         >
                           ₹2,000
                         </button>
@@ -600,7 +653,7 @@ export const Dashboard: React.FC = () => {
                     <button
                       type="submit"
                       disabled={topupLoading}
-                      className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-900/50 disabled:cursor-not-allowed text-white font-bold px-4 py-3 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 active:scale-[0.99]"
+                      className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-900/50 disabled:cursor-not-allowed text-white font-bold px-4 py-3 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 active:scale-[0.99] cursor-pointer"
                     >
                       {topupLoading ? (
                         <>
@@ -623,29 +676,32 @@ export const Dashboard: React.FC = () => {
                   <h4 className="font-bold text-xs uppercase tracking-wider text-gray-400">Transactions Log</h4>
                   {walletLoading ? (
                     <p className="text-xs text-indigo-400">Loading wallet receipts...</p>
-                  ) : transactions.length === 0 ? (
+                  ) : !Array.isArray(transactions) || transactions.length === 0 ? (
                     <p className="text-xs text-gray-500">No transactions recorded yet.</p>
                   ) : (
                     <div className="space-y-2">
                       {transactions.map((t) => {
-                        const isTopup = t.description.toLowerCase().includes('top-up') || t.description.toLowerCase().includes('topup');
-                        const displayDescription = isTopup && (t.description.includes('Razorpay') || t.description.includes('Online Payment'))
+                        const rawDesc = t?.description || '';
+                        const isTopup = rawDesc.toLowerCase().includes('top-up') || rawDesc.toLowerCase().includes('topup');
+                        const displayDescription = isTopup && (rawDesc.includes('Razorpay') || rawDesc.includes('Online Payment'))
                           ? 'Wallet top-up (Razorpay)'
-                          : t.description;
+                          : (rawDesc || 'Wallet Transaction');
 
-                        const dateObj = new Date(t.createdAt);
-                        const formattedDate = !isNaN(dateObj.getTime())
+                        const dateObj = t?.createdAt ? new Date(t.createdAt) : null;
+                        const formattedDate = dateObj && !isNaN(dateObj.getTime())
                           ? `${dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} • ${dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
                           : '';
 
+                        const amountNum = typeof t?.amount === 'number' ? t.amount : Number(t?.amount || 0);
+
                         return (
-                          <div key={t.id} className="p-3 bg-black/40 border border-white/5 rounded-2xl flex items-center justify-between text-xs">
+                          <div key={t?.id || Math.random()} className="p-3 bg-black/40 border border-white/5 rounded-2xl flex items-center justify-between text-xs">
                             <div>
                               <p className="font-bold text-white">{displayDescription}</p>
-                              <p className="text-[9px] text-gray-400 mt-0.5">{formattedDate}</p>
+                              {formattedDate && <p className="text-[9px] text-gray-400 mt-0.5">{formattedDate}</p>}
                             </div>
-                            <span className={`font-bold ${t.amount >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                              {t.amount >= 0 ? '+' : ''}{formatCurrency(t.amount)}
+                            <span className={`font-bold ${amountNum >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                              {amountNum >= 0 ? '+' : ''}{formatCurrency(amountNum)}
                             </span>
                           </div>
                         );
@@ -866,7 +922,7 @@ export const Dashboard: React.FC = () => {
             )}
 
             {activeTab === 'notifications' && (
-              <div className="space-y-6">
+              <div id="panel-notifications" className="space-y-6">
                 <h3 className="font-poppins font-black text-sm text-indigo-400 uppercase tracking-wider border-b border-white/5 pb-2">System Notifications</h3>
                 {notifications.length === 0 ? (
                   <p className="text-xs text-gray-500">No alerts or updates logged.</p>
