@@ -314,7 +314,7 @@ export const joinMatch = async (req: AuthenticatedRequest, res: Response, next: 
 export const updateSlotCount = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const id = req.params.id as string;
-    const { totalPlayers } = req.body;
+    const { totalPlayers, date, startTime, entryFee, skillLevel, status, sport } = req.body;
 
     const match = await prisma.match.findUnique({
       where: { id },
@@ -323,27 +323,37 @@ export const updateSlotCount = async (req: AuthenticatedRequest, res: Response, 
       throw new AppError('Match not found', HttpStatus.NOT_FOUND);
     }
 
-    const nextTotalPlayers = parseInt(totalPlayers, 10);
-    if (nextTotalPlayers < match.playersJoined) {
-      throw new AppError('Cannot reduce slots below currently joined players count', HttpStatus.BAD_REQUEST);
-    }
+    const updateData: any = {};
+    if (date !== undefined) updateData.date = String(date).trim();
+    if (startTime !== undefined) updateData.startTime = String(startTime).trim();
+    if (entryFee !== undefined) updateData.entryFee = Number(entryFee);
+    if (skillLevel !== undefined) updateData.skillLevel = String(skillLevel).trim();
+    if (status !== undefined) updateData.status = String(status).trim();
+    if (sport !== undefined) updateData.sport = String(sport).trim();
 
-    let nextStatus = 'Open';
-    const ratio = match.playersJoined / nextTotalPlayers;
-    if (match.playersJoined >= nextTotalPlayers) {
-      nextStatus = 'Match Full';
-    } else if (ratio >= 0.95) {
-      nextStatus = 'Almost Full';
-    } else if (ratio >= 0.8) {
-      nextStatus = 'Filling Fast';
+    if (totalPlayers !== undefined) {
+      const nextTotalPlayers = parseInt(String(totalPlayers), 10);
+      if (nextTotalPlayers < match.playersJoined) {
+        throw new AppError('Cannot reduce slots below currently joined players count', HttpStatus.BAD_REQUEST);
+      }
+      updateData.totalPlayers = nextTotalPlayers;
+      if (!status) {
+        let nextStatus = 'Open';
+        const ratio = match.playersJoined / nextTotalPlayers;
+        if (match.playersJoined >= nextTotalPlayers) {
+          nextStatus = 'Match Full';
+        } else if (ratio >= 0.95) {
+          nextStatus = 'Almost Full';
+        } else if (ratio >= 0.8) {
+          nextStatus = 'Filling Fast';
+        }
+        updateData.status = nextStatus;
+      }
     }
 
     const updated = await prisma.match.update({
       where: { id },
-      data: {
-        totalPlayers: nextTotalPlayers,
-        status: nextStatus,
-      },
+      data: updateData,
       include: {
         ground: true,
       },
@@ -353,7 +363,7 @@ export const updateSlotCount = async (req: AuthenticatedRequest, res: Response, 
 
     res.status(HttpStatus.OK).json({
       success: true,
-      message: 'Slots updated successfully',
+      message: 'Match updated successfully',
       data: { match: updated },
     });
   } catch (error) {
