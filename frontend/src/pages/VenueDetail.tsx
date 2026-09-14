@@ -676,13 +676,36 @@ export const VenueDetail: React.FC = () => {
     );
   }
 
-  const imagesList: string[] = Array.isArray(ground.images)
+  const rawImages = Array.isArray(ground.images)
     ? ground.images
     : typeof ground.images === 'string'
     ? JSON.parse(ground.images)
     : [];
 
-  const videosList: string[] = Array.isArray(ground.videos)
+  const isABGround =
+    ground.slug === 'ab-cricket-ground' ||
+    ground.id === '2f1230f1-5219-4c01-a3cb-19fa90896188' ||
+    (ground.name && ground.name.toLowerCase().includes('ab cricket'));
+
+  const AB_FALLBACK_IMAGES = [
+    '/venues/ab/Ab-hub-Cricket-Ground-2.jpg',
+    '/venues/ab/AB_Cricket_hub_logo.jpg',
+    '/venues/ab/1626583807641_k3FF5LqrKL3W.jpg',
+    '/venues/ab/1626583836958_9ggaKwPYBjZl.jpg',
+    '/venues/ab/1712466993141_pYOd9SDtqblb.jpg',
+    '/venues/ab/1712467019752_kHFtLZSKbTgO.jpg',
+    '/venues/ab/1712467048874_BNvZCpX11nXk.jpg',
+    '/venues/ab/1712467096971_TnkeSNVpfXS9.jpg',
+    '/venues/ab/1730546083919_JY9GXVSgW6Gh.jpg',
+  ];
+
+  const imagesList: string[] = isABGround && (rawImages.length === 0 || rawImages.some((img: string) => typeof img === 'string' && img.includes('ab cricket ground.png')))
+    ? AB_FALLBACK_IMAGES
+    : rawImages;
+
+  const videosList: string[] = isABGround
+    ? []
+    : Array.isArray(ground.videos)
     ? ground.videos
     : typeof ground.videos === 'string'
     ? JSON.parse(ground.videos)
@@ -694,7 +717,7 @@ export const VenueDetail: React.FC = () => {
     ? JSON.parse(ground.amenities)
     : [];
 
-  const heroMedia = imagesList[activeMediaIndex] || imagesList[0] || 'https://images.unsplash.com/photo-1540747737956-37872f84a62f?auto=format&fit=crop&w=600&q=80';
+  const heroMedia = imagesList[activeMediaIndex] || imagesList[0] || (isABGround ? '/venues/ab/Ab-hub-Cricket-Ground-2.jpg' : 'https://images.unsplash.com/photo-1540747737956-37872f84a62f?auto=format&fit=crop&w=600&q=80');
   const directionsUrl = ground.mapsUrl || `https://maps.google.com/?q=${ground.latitude},${ground.longitude}`;
 
   const currentSummaryPrice = calculatePrice(selectedPeriod || 'MORNING', bookingType);
@@ -727,6 +750,13 @@ export const VenueDetail: React.FC = () => {
                   className="w-full h-full object-cover"
                   alt={ground.name}
                   src={heroMedia}
+                  onError={(e) => {
+                    if (isABGround) {
+                      e.currentTarget.src = '/venues/ab/Ab-hub-Cricket-Ground-2.jpg';
+                    } else {
+                      e.currentTarget.src = 'https://images.unsplash.com/photo-1540747737956-37872f84a62f?auto=format&fit=crop&w=600&q=80';
+                    }
+                  }}
                 />
                 {ground.rating > 0 ? (
                   <div className="absolute top-4 right-4 glass-panel px-3 py-1.5 rounded-full flex items-center gap-1">
@@ -756,7 +786,14 @@ export const VenueDetail: React.FC = () => {
                         activeMediaIndex === idx ? 'border-primary shadow-md scale-105' : 'border-transparent opacity-70 hover:opacity-100'
                       }`}
                     >
-                      <img src={imgUrl} alt={`${ground.name} thumb ${idx}`} className="w-full h-full object-cover" />
+                      <img
+                        src={imgUrl}
+                        alt={`${ground.name} thumb ${idx}`}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.src = '/venues/ab/Ab-hub-Cricket-Ground-2.jpg';
+                        }}
+                      />
                     </button>
                   ))}
                 </div>

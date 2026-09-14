@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { prisma } from '../../config/db.js';
+import { prisma, syncProductionData } from '../../config/db.js';
 import { AppError } from '../../utils/appError.js';
 import { HttpStatus } from '@be11/shared';
 import { AuthenticatedRequest } from '../../middlewares/auth.js';
@@ -16,6 +16,9 @@ import { logger } from '../../config/logger.js';
 // GET /api/v1/matches
 export const getMatches = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    try {
+      await syncProductionData();
+    } catch (_) {}
     const { sport, city, search } = req.query;
     const conditions: any[] = [];
 
@@ -108,6 +111,9 @@ export const getMatches = async (req: Request, res: Response, next: NextFunction
 // GET /api/v1/matches/:id
 export const getMatchById = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    try {
+      await syncProductionData();
+    } catch (_) {}
     const id = req.params.id as string;
     const match = await prisma.match.findUnique({
       where: { id },
@@ -469,16 +475,24 @@ export const leaveMatch = async (req: AuthenticatedRequest, res: Response, next:
   }
 };
 
-// Helper to calculate authoritative match price (isolated RRR vs other grounds)
+// Helper to calculate authoritative match price (isolated RRR / Playnow / 299 promo vs other grounds)
 export const calculateMatchPrice = (match: any, bookingType: string, playerCount: number = 1, durationHours: number = 2) => {
   const isRRR =
     match.ground?.slug === 'rrr-cricket-club-kidawali-faridabad' ||
     match.groundId === '04b615ea-c1a6-4a60-9b06-926d3b3b020c' ||
     (match.ground?.name && match.ground.name.includes('RRR'));
 
+  const isPlaynow =
+    match.ground?.slug === 'playnow-cricket-ground' ||
+    match.ground?.slug === 'playnow-cricket-ground-sector-86-gurugram' ||
+    match.groundId === '8597cac9-2d50-4d71-9f16-60c1c8132ed7' ||
+    (match.ground?.name && match.ground.name.includes('Playnow'));
+
+  const isFixed299 = isRRR || isPlaynow || match.entryFee === 299 || match.date === '2026-10-03';
+
   const bType = (bookingType || 'INDIVIDUAL').toUpperCase().trim().replace('-', '_');
 
-  if (isRRR) {
+  if (isFixed299) {
     if (bType === 'INDIVIDUAL' || bType === 'SINGLE') {
       return {
         markedPrice: 373.75,
@@ -555,6 +569,10 @@ export const createPlayroomBooking = async (req: AuthenticatedRequest, res: Resp
     const effectiveBookingType = (bookingType === 'SINGLE' ? 'INDIVIDUAL' : bookingType) || 'INDIVIDUAL';
     const count = parseInt(playerCount || '1', 10);
     const duration = parseInt(durationHours || '2', 10);
+
+    if (match.date === '2026-10-03' && effectiveBookingType !== 'INDIVIDUAL') {
+      throw new AppError('This match is open for Individual Player bookings only', HttpStatus.BAD_REQUEST);
+    }
 
     // Check capacity and duplicate joining for individual/team bookings
     if (effectiveBookingType !== 'FULL_GROUND' && effectiveBookingType !== 'ENTIRE_VENUE') {
@@ -739,6 +757,10 @@ export const createMatchPaymentOrder = async (req: AuthenticatedRequest, res: Re
     const effectiveBookingType = (bookingType === 'SINGLE' ? 'INDIVIDUAL' : bookingType) || 'INDIVIDUAL';
     const count = parseInt(playerCount || '1', 10);
     const duration = parseInt(durationHours || '2', 10);
+
+    if (match.date === '2026-10-03' && effectiveBookingType !== 'INDIVIDUAL') {
+      throw new AppError('This match is open for Individual Player bookings only', HttpStatus.BAD_REQUEST);
+    }
 
     // Check capacity and duplicate joining
     if (effectiveBookingType !== 'FULL_GROUND' && effectiveBookingType !== 'ENTIRE_VENUE') {

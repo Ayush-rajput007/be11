@@ -408,7 +408,10 @@ export const Venues: React.FC = () => {
                 {displayedGrounds.map((g) => {
                   const venuePath = `/venues/${g.slug || g.id}?date=${date}`;
                   const imagesList = Array.isArray(g.images) ? g.images : typeof g.images === 'string' ? JSON.parse(g.images) : [];
-                  const heroImg = imagesList[0] || 'https://images.unsplash.com/photo-1540747737956-37872f84a62f?auto=format&fit=crop&w=600&q=80';
+                  const isAB = g.slug === 'ab-cricket-ground' || g.id === '2f1230f1-5219-4c01-a3cb-19fa90896188' || g.name?.toLowerCase().includes('ab');
+                  const heroImg = (isAB && (imagesList.length === 0 || imagesList[0]?.includes('ab cricket ground.png')))
+                    ? '/venues/ab/Ab-hub-Cricket-Ground-2.jpg'
+                    : (imagesList[0] || 'https://images.unsplash.com/photo-1540747737956-37872f84a62f?auto=format&fit=crop&w=600&q=80');
 
                   return (
                     <div
@@ -416,7 +419,14 @@ export const Venues: React.FC = () => {
                       onClick={() => navigate(venuePath)}
                       className="bg-[#F8FAFC] rounded-xl p-4 border border-outline-variant/20 hover:border-primary transition-all cursor-pointer flex gap-4 items-center"
                     >
-                      <img src={heroImg} alt={g.name} className="w-16 h-16 rounded-lg object-cover shrink-0" />
+                      <img
+                        src={heroImg}
+                        alt={g.name}
+                        className="w-16 h-16 rounded-lg object-cover shrink-0"
+                        onError={(e) => {
+                          e.currentTarget.src = isAB ? '/venues/ab/Ab-hub-Cricket-Ground-2.jpg' : 'https://images.unsplash.com/photo-1540747737956-37872f84a62f?auto=format&fit=crop&w=600&q=80';
+                        }}
+                      />
                       <div className="min-w-0 flex-1">
                         <h5 className="font-bold text-primary text-xs truncate">{g.name}</h5>
                         <p className="text-[11px] text-outline truncate">{g.location}</p>
@@ -442,7 +452,10 @@ export const Venues: React.FC = () => {
               const venuePath = `/venues/${g.slug || g.id}?date=${date}`;
               const displayPrice = g.pricingLabel || (g.pricePerHour > 0 ? `₹${g.pricePerHour}/hr` : 'Price on request');
               const imagesList = Array.isArray(g.images) ? g.images : typeof g.images === 'string' ? JSON.parse(g.images) : [];
-              const heroImg = imagesList[0] || 'https://images.unsplash.com/photo-1540747737956-37872f84a62f?auto=format&fit=crop&w=600&q=80';
+              const isAB = g.slug === 'ab-cricket-ground' || g.id === '2f1230f1-5219-4c01-a3cb-19fa90896188' || g.name?.toLowerCase().includes('ab');
+              const heroImg = (isAB && (imagesList.length === 0 || imagesList[0]?.includes('ab cricket ground.png')))
+                ? '/venues/ab/Ab-hub-Cricket-Ground-2.jpg'
+                : (imagesList[0] || 'https://images.unsplash.com/photo-1540747737956-37872f84a62f?auto=format&fit=crop&w=600&q=80');
               const amenitiesList = Array.isArray(g.amenities) ? g.amenities : typeof g.amenities === 'string' ? JSON.parse(g.amenities) : [];
               const directionsUrl = g.mapsUrl || `https://maps.google.com/?q=${g.latitude},${g.longitude}`;
 
@@ -458,6 +471,9 @@ export const Venues: React.FC = () => {
                         className="w-full h-full object-cover"
                         alt={g.name}
                         src={heroImg}
+                        onError={(e) => {
+                          e.currentTarget.src = isAB ? '/venues/ab/Ab-hub-Cricket-Ground-2.jpg' : 'https://images.unsplash.com/photo-1540747737956-37872f84a62f?auto=format&fit=crop&w=600&q=80';
+                        }}
                       />
                       {g.distanceKm !== null ? (
                         <div className="absolute top-4 left-4 bg-primary text-white text-[11px] font-bold px-3 py-1 rounded-full shadow">

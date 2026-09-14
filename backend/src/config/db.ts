@@ -54,11 +54,162 @@ export const ensureDatabaseSchema = async (): Promise<void> => {
       schemaEnsured = true;
       logger.info('✅ Database schema verified in PostgreSQL (Phone auth, WalletTopUp, Profile fields)');
     } else {
-
       schemaEnsured = true;
     }
+
+    await syncProductionData();
   } catch (err: any) {
     logger.warn('⚠️ Non-fatal schema verification notice:', err?.message || err);
+  }
+};
+
+let dataSynced = false;
+export const syncProductionData = async (): Promise<void> => {
+  if (dataSynced) return;
+  try {
+    // 1. Update AB Cricket Ground media to authentic repository assets
+    const abImages = [
+      '/venues/ab/Ab-hub-Cricket-Ground-2.jpg',
+      '/venues/ab/AB_Cricket_hub_logo.jpg',
+      '/venues/ab/1626583807641_k3FF5LqrKL3W.jpg',
+      '/venues/ab/1626583836958_9ggaKwPYBjZl.jpg',
+      '/venues/ab/1712466993141_pYOd9SDtqblb.jpg',
+      '/venues/ab/1712467019752_kHFtLZSKbTgO.jpg',
+      '/venues/ab/1712467048874_BNvZCpX11nXk.jpg',
+      '/venues/ab/1712467096971_TnkeSNVpfXS9.jpg',
+      '/venues/ab/1730546083919_JY9GXVSgW6Gh.jpg',
+    ];
+
+    const abGround = await prisma.ground.findFirst({
+      where: {
+        OR: [
+          { slug: 'ab-cricket-ground' },
+          { id: '2f1230f1-5219-4c01-a3cb-19fa90896188' },
+        ],
+      },
+    });
+
+    if (abGround) {
+      await prisma.ground.update({
+        where: { id: abGround.id },
+        data: {
+          images: abImages,
+          videos: [],
+        },
+      });
+      logger.info('✅ AB Cricket Ground media updated to authentic assets (9 images, 0 videos)');
+    }
+
+    // 2. Identify Grounds for October 3, 2026 matches
+    const playnowGround = await prisma.ground.findFirst({
+      where: {
+        OR: [
+          { slug: 'playnow-cricket-ground' },
+          { slug: 'playnow-cricket-ground-sector-86-gurugram' },
+          { id: '8597cac9-2d50-4d71-9f16-60c1c8132ed7' },
+          { name: { contains: 'Playnow', mode: 'insensitive' } },
+        ],
+      },
+    });
+
+    const rrrGround = await prisma.ground.findFirst({
+      where: {
+        OR: [
+          { slug: 'rrr-cricket-club-kidawali-faridabad' },
+          { id: '04b615ea-c1a6-4a60-9b06-926d3b3b020c' },
+          { name: { contains: 'RRR', mode: 'insensitive' } },
+        ],
+      },
+    });
+
+    // Determine official host user
+    let hostUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { id: '2080c161-0d9a-46e1-9d2b-6aed4d8b1b67' },
+          { email: 'venues@be11.in' },
+        ],
+      },
+    });
+
+    if (!hostUser) {
+      hostUser = await prisma.user.findFirst({
+        where: { role: 'ADMIN' },
+      });
+    }
+
+    const hostId = hostUser?.id || '2080c161-0d9a-46e1-9d2b-6aed4d8b1b67';
+    const hostName = hostUser
+      ? `${hostUser.firstName || ''} ${hostUser.lastName || ''}`.trim() || 'Ayush Rajput'
+      : 'Ayush Rajput';
+
+    // 3. Ensure Playnow Match for Saturday, October 3, 2026
+    if (playnowGround) {
+      const existingPlaynowMatch = await prisma.match.findFirst({
+        where: {
+          groundId: playnowGround.id,
+          date: '2026-10-03',
+        },
+      });
+
+      if (!existingPlaynowMatch) {
+        await prisma.match.create({
+          data: {
+            groundId: playnowGround.id,
+            sport: 'Cricket',
+            date: '2026-10-03',
+            startTime: '10:00 AM – 2:00 PM',
+            entryFee: 299,
+            playersJoined: 0,
+            totalPlayers: 22,
+            skillLevel: 'Intermediate',
+            hostId,
+            hostName,
+            verifiedHost: true,
+            status: 'Open',
+            teamA: JSON.stringify([]),
+            teamB: JSON.stringify([]),
+          },
+        });
+        logger.info('✅ Created Playnow match for Saturday, October 3, 2026');
+      }
+    }
+
+    // 4. Ensure RRR Match for Saturday, October 3, 2026
+    if (rrrGround) {
+      const existingRrrMatch = await prisma.match.findFirst({
+        where: {
+          groundId: rrrGround.id,
+          date: '2026-10-03',
+        },
+      });
+
+      if (!existingRrrMatch) {
+        await prisma.match.create({
+          data: {
+            groundId: rrrGround.id,
+            sport: 'Cricket',
+            date: '2026-10-03',
+            startTime: '10:00 AM – 2:00 PM',
+            entryFee: 299,
+            playersJoined: 0,
+            totalPlayers: 22,
+            skillLevel: 'Intermediate',
+            hostId,
+            hostName,
+            verifiedHost: true,
+            status: 'Open',
+            teamA: JSON.stringify([]),
+            teamB: JSON.stringify([]),
+          },
+        });
+        logger.info('✅ Created RRR match for Saturday, October 3, 2026');
+      }
+    }
+
+    dataSynced = true;
+  } catch (err: any) {
+    logger.warn('⚠️ Non-fatal syncProductionData notice:', err?.message || err);
   }
 };
 

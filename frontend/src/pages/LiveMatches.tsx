@@ -78,13 +78,19 @@ export const LiveMatches: React.FC = () => {
   const [paymentError, setPaymentError] = useState('');
   const [invoiceResult, setInvoiceResult] = useState<any | null>(null);
 
-  // Helper to determine if match is RRR
+  // Helper to determine if match has fixed ₹299 welcome promo
   const isRRRMatch = (m?: Match | null) => {
     if (!m) return false;
     return (
       m.ground?.slug === 'rrr-cricket-club-kidawali-faridabad' ||
       m.groundId === '04b615ea-c1a6-4a60-9b06-926d3b3b020c' ||
-      (m.ground?.name && m.ground.name.includes('RRR'))
+      (m.ground?.name && m.ground.name.includes('RRR')) ||
+      m.ground?.slug === 'playnow-cricket-ground' ||
+      m.ground?.slug === 'playnow-cricket-ground-sector-86-gurugram' ||
+      m.groundId === '8597cac9-2d50-4d71-9f16-60c1c8132ed7' ||
+      (m.ground?.name && m.ground.name.includes('Playnow')) ||
+      m.entryFee === 299 ||
+      m.date === '2026-10-03'
     );
   };
 

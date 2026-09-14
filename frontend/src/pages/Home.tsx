@@ -382,7 +382,10 @@ export const Home: React.FC = () => {
                 const venuePath = `/venues/${g.slug || g.id}?date=${date}`;
                 const displayPrice = g.pricingLabel || (g.pricePerHour > 0 ? `₹${g.pricePerHour}/hr` : 'Price on request');
                 const imagesList = Array.isArray(g.images) ? g.images : typeof g.images === 'string' ? JSON.parse(g.images) : [];
-                const heroImg = imagesList[0] || 'https://images.unsplash.com/photo-1540747737956-37872f84a62f?auto=format&fit=crop&w=600&q=80';
+                const isAB = g.slug === 'ab-cricket-ground' || g.id === '2f1230f1-5219-4c01-a3cb-19fa90896188' || g.name?.toLowerCase().includes('ab');
+                const heroImg = (isAB && (imagesList.length === 0 || imagesList[0]?.includes('ab cricket ground.png')))
+                  ? '/venues/ab/Ab-hub-Cricket-Ground-2.jpg'
+                  : (imagesList[0] || 'https://images.unsplash.com/photo-1540747737956-37872f84a62f?auto=format&fit=crop&w=600&q=80');
                 const amenitiesList = Array.isArray(g.amenities) ? g.amenities : typeof g.amenities === 'string' ? JSON.parse(g.amenities) : [];
 
                 return (
@@ -393,7 +396,14 @@ export const Home: React.FC = () => {
                   >
                     <div>
                       <div className="relative h-60 overflow-hidden">
-                        <img className="w-full h-full object-cover" alt={g.name} src={heroImg} />
+                        <img
+                          className="w-full h-full object-cover"
+                          alt={g.name}
+                          src={heroImg}
+                          onError={(e) => {
+                            e.currentTarget.src = isAB ? '/venues/ab/Ab-hub-Cricket-Ground-2.jpg' : 'https://images.unsplash.com/photo-1540747737956-37872f84a62f?auto=format&fit=crop&w=600&q=80';
+                          }}
+                        />
                         {g.rating > 0 ? (
                           <div className="absolute top-4 right-4 glass-panel px-3 py-1.5 rounded-full flex items-center gap-1">
                             <span

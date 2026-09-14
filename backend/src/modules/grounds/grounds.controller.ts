@@ -1,8 +1,20 @@
 import { Request, Response, NextFunction } from 'express';
-import { prisma } from '../../config/db.js';
+import { prisma, syncProductionData } from '../../config/db.js';
 import { AppError } from '../../utils/appError.js';
 import { GroundCreateSchema, HttpStatus } from '@be11/shared';
 import { AuthenticatedRequest } from '../../middlewares/auth.js';
+
+const AB_REAL_IMAGES = [
+  '/venues/ab/Ab-hub-Cricket-Ground-2.jpg',
+  '/venues/ab/AB_Cricket_hub_logo.jpg',
+  '/venues/ab/1626583807641_k3FF5LqrKL3W.jpg',
+  '/venues/ab/1626583836958_9ggaKwPYBjZl.jpg',
+  '/venues/ab/1712466993141_pYOd9SDtqblb.jpg',
+  '/venues/ab/1712467019752_kHFtLZSKbTgO.jpg',
+  '/venues/ab/1712467048874_BNvZCpX11nXk.jpg',
+  '/venues/ab/1712467096971_TnkeSNVpfXS9.jpg',
+  '/venues/ab/1730546083919_JY9GXVSgW6Gh.jpg',
+];
 
 const parseJsonField = (field: any) => {
   if (typeof field === 'string') {
@@ -16,17 +28,35 @@ const parseJsonField = (field: any) => {
 };
 
 const formatGroundResponse = (ground: any) => {
+  let images = parseJsonField(ground.images) || [];
+  let videos = parseJsonField(ground.videos) || [];
+
+  const isABGround =
+    ground.slug === 'ab-cricket-ground' ||
+    ground.id === '2f1230f1-5219-4c01-a3cb-19fa90896188' ||
+    (ground.name && ground.name.toLowerCase().includes('ab cricket'));
+
+  if (isABGround) {
+    if (!Array.isArray(images) || images.length === 0 || images.some((img: string) => typeof img === 'string' && img.includes('ab cricket ground.png'))) {
+      images = AB_REAL_IMAGES;
+    }
+    videos = [];
+  }
+
   return {
     ...ground,
     amenities: parseJsonField(ground.amenities) || [],
-    images: parseJsonField(ground.images) || [],
-    videos: parseJsonField(ground.videos) || [],
+    images,
+    videos,
     pricingRules: parseJsonField(ground.pricingRules) || null,
   };
 };
 
 export const getGrounds = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    try {
+      await syncProductionData();
+    } catch (_) {}
     const { sport, city, search } = req.query;
 
     const filter: any = { isActive: true };
@@ -90,6 +120,9 @@ export const getGrounds = async (req: Request, res: Response, next: NextFunction
 
 export const getGroundById = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    try {
+      await syncProductionData();
+    } catch (_) {}
     const { id } = req.params;
 
     // Find by ID or Slug
