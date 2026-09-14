@@ -1,7 +1,49 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useLocationStore } from '../store/locationStore.js';
+import { io } from 'socket.io-client';
+import { API_URL } from '../config/env.js';
+
+export const isOpenLiveMatch = (m: any): boolean => {
+  if (!m) return false;
+  // 1. Status check: must not be cancelled, closed, completed, full, reserved, or inactive
+  const status = (m.status || '').toLowerCase().trim();
+  const closedStatuses = [
+    'cancelled',
+    'canceled',
+    'closed',
+    'completed',
+    'match full',
+    'full',
+    'reserved',
+    'inactive',
+  ];
+  if (closedStatuses.includes(status)) {
+    return false;
+  }
+
+  // 2. Capacity check: playersJoined must be strictly less than totalPlayers
+  const joined = typeof m.playersJoined === 'number' ? m.playersJoined : 0;
+  const total = typeof m.totalPlayers === 'number' ? m.totalPlayers : 22;
+  if (total > 0 && joined >= total) {
+    return false;
+  }
+
+  // 3. Exclude test or dummy matches
+  const hostName = (m.hostName || '').toLowerCase();
+  const groundName = (m.ground?.name || '').toLowerCase();
+  if (
+    hostName.includes('dummy') ||
+    hostName.includes('test_dummy') ||
+    groundName.includes('dummy') ||
+    groundName.includes('test_dummy')
+  ) {
+    return false;
+  }
+
+  return true;
+};
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -11,25 +53,57 @@ export const Home: React.FC = () => {
     const today = new Date();
     return today.toISOString().split('T')[0];
   });
-  const [matchCounts, setMatchCounts] = useState<Record<string, number>>({});
 
+  const [matchCounts, setMatchCounts] = useState<Record<string, number> | null>(null);
+  const [matchCountsLoading, setMatchCountsLoading] = useState<boolean>(true);
+  const [matchCountsError, setMatchCountsError] = useState<boolean>(false);
+
+  const fetchCounts = useCallback(async () => {
+    setMatchCountsLoading(true);
+    setMatchCountsError(false);
+    try {
+      const res = await api.get('/matches', {
+        params: {
+          city: selectedCity,
+        },
+      });
+      const list = res.data.data?.matches || [];
+      const counts: Record<string, number> = {
+        cricket: 0,
+        football: 0,
+      };
+
+      list.forEach((m: any) => {
+        if (!isOpenLiveMatch(m)) return;
+        const sportKey = (m.sport || '').toLowerCase().trim();
+        counts[sportKey] = (counts[sportKey] || 0) + 1;
+      });
+
+      setMatchCounts(counts);
+    } catch (err) {
+      console.error('Failed to load dynamic live match counts:', err);
+      setMatchCountsError(true);
+    } finally {
+      setMatchCountsLoading(false);
+    }
+  }, [selectedCity]);
+
+  // Initial fetch and on selectedCity change
   useEffect(() => {
-    const fetchCounts = async () => {
-      try {
-        const res = await api.get('/matches');
-        const list = res.data.data.matches || [];
-        const counts: Record<string, number> = {};
-        list.forEach((m: any) => {
-          const sportKey = m.sport.toLowerCase();
-          counts[sportKey] = (counts[sportKey] || 0) + 1;
-        });
-        setMatchCounts(counts);
-      } catch (err) {
-        console.error('Failed to load dynamic match counts', err);
-      }
-    };
     fetchCounts();
-  }, []);
+  }, [fetchCounts]);
+
+  // Real-time synchronization via Socket.IO
+  useEffect(() => {
+    const socket = io(API_URL);
+    socket.on('match-update', () => {
+      fetchCounts();
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [fetchCounts]);
 
 
   // Popular grounds state
@@ -60,7 +134,95 @@ export const Home: React.FC = () => {
     navigate(`/venues?city=${selectedCity}&sport=${sport}&date=${date}`);
   };
 
+  const renderHeroMatchBadge = (sportKey: 'cricket' | 'football') => {
+    const isCricket = sportKey === 'cricket';
+    const accentColor = isCricket ? '#fe9832' : '#44af33';
 
+    if (matchCountsLoading) {
+      return (
+        <div
+          className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/45 backdrop-blur-md border border-white/10 text-xs font-semibold text-white/70 uppercase tracking-wider transition-all"
+          aria-live="polite"
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-pulse" />
+          <span>LIVE MATCHES...</span>
+        </div>
+      );
+    }
+
+    if (matchCountsError || matchCounts === null) {
+      return (
+        <div
+          className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/45 backdrop-blur-md border border-white/10 text-xs font-semibold text-white/60 uppercase tracking-wider"
+          aria-live="polite"
+        >
+          <span>— LIVE MATCHES</span>
+        </div>
+      );
+    }
+
+    const count = matchCounts[sportKey] ?? 0;
+    const label = count === 1 ? '1 LIVE MATCH' : `${count} LIVE MATCHES`;
+
+    return (
+      <div
+        className={`mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider backdrop-blur-md transition-all duration-300 ${
+          count > 0
+            ? 'bg-black/45 border border-white/20 text-white shadow-sm group-hover:border-white/40'
+            : 'bg-black/40 border border-white/10 text-white/80'
+        }`}
+      >
+        {count > 0 ? (
+          <span
+            className="w-1.5 h-1.5 rounded-full animate-pulse"
+            style={{
+              backgroundColor: accentColor,
+              boxShadow: `0 0 8px ${accentColor}`,
+            }}
+          />
+        ) : (
+          <span className="w-1.5 h-1.5 rounded-full bg-white/30" />
+        )}
+        <span>{label}</span>
+      </div>
+    );
+  };
+
+  const renderChooseGameBadge = (sportKey: 'cricket' | 'football') => {
+    if (matchCountsLoading) {
+      return (
+        <span className="absolute top-4 left-4 bg-black/50 backdrop-blur-md border border-white/10 text-white/70 text-[9px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shadow-md inline-flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-pulse" />
+          LIVE MATCHES...
+        </span>
+      );
+    }
+    if (matchCountsError || matchCounts === null) {
+      return (
+        <span className="absolute top-4 left-4 bg-black/50 backdrop-blur-md border border-white/10 text-white/60 text-[9px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shadow-md inline-flex items-center gap-1.5">
+          — LIVE MATCHES
+        </span>
+      );
+    }
+    const count = matchCounts[sportKey] ?? 0;
+    const label = count === 1 ? '1 LIVE MATCH' : `${count} LIVE MATCHES`;
+    return (
+      <span
+        className={`absolute top-4 left-4 inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full shadow-md transition-all ${
+          count > 0
+            ? 'bg-[#FF8C1A] text-white animate-pulse'
+            : 'bg-black/50 backdrop-blur-md border border-white/10 text-white/80'
+        }`}
+      >
+        <span
+          className={`w-1.5 h-1.5 rounded-full ${
+            count > 0 ? 'bg-white' : 'bg-white/40'
+          }`}
+        />
+        {label}
+      </span>
+    );
+  };
 
   return (
     <div className="pt-20">
@@ -85,8 +247,18 @@ export const Home: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-gutter max-w-4xl mx-auto mb-16 parallax-container">
             <div
+              id="hero-cricket-card"
+              role="button"
+              tabIndex={0}
+              aria-label="Cricket: Master the Crease"
               onClick={() => navigate('/live-matches?sport=cricket')}
-              className="relative group h-64 rounded-24 overflow-hidden shadow-xl reveal-item premium-card revealed cursor-pointer"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  navigate('/live-matches?sport=cricket');
+                }
+              }}
+              className="relative group h-64 rounded-24 overflow-hidden shadow-xl reveal-item premium-card revealed cursor-pointer focus:outline-none focus:ring-2 focus:ring-secondary-container"
             >
               <img
                 alt="Cricket drive"
@@ -99,12 +271,23 @@ export const Home: React.FC = () => {
                   Cricket
                 </span>
                 <h3 className="text-white font-headline-md font-bold text-xl">Master the Crease</h3>
+                {renderHeroMatchBadge('cricket')}
               </div>
             </div>
 
             <div
+              id="hero-football-card"
+              role="button"
+              tabIndex={0}
+              aria-label="Football: Control the Pitch"
               onClick={() => navigate('/live-matches?sport=football')}
-              className="relative group h-64 rounded-24 overflow-hidden shadow-xl reveal-item premium-card revealed cursor-pointer"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  navigate('/live-matches?sport=football');
+                }
+              }}
+              className="relative group h-64 rounded-24 overflow-hidden shadow-xl reveal-item premium-card revealed cursor-pointer focus:outline-none focus:ring-2 focus:ring-on-tertiary-container"
             >
               <img
                 alt="Football shoot"
@@ -120,6 +303,7 @@ export const Home: React.FC = () => {
                   Football
                 </span>
                 <h3 className="text-white font-headline-md font-bold text-xl">Control the Pitch</h3>
+                {renderHeroMatchBadge('football')}
               </div>
             </div>
           </div>
@@ -138,8 +322,11 @@ export const Home: React.FC = () => {
                     onChange={(e) => setCity(e.target.value)}
                     className="bg-transparent border-none p-0 focus:ring-0 w-full font-label-bold focus:outline-none appearance-none cursor-pointer text-sm"
                   >
-                    <option value="Mumbai">Mumbai</option>
+                    <option value="Faridabad">Faridabad</option>
+                    <option value="Gurugram">Gurugram</option>
                     <option value="Delhi">Delhi</option>
+                    <option value="Noida">Noida</option>
+                    <option value="Mumbai">Mumbai</option>
                     <option value="Pune">Pune</option>
                     <option value="Bengaluru">Bengaluru</option>
                     <option value="Hyderabad">Hyderabad</option>
@@ -215,7 +402,6 @@ export const Home: React.FC = () => {
             { key: 'cricket', label: 'Cricket', title: 'Master the Crease', desc: 'Premium pitches & scoreboard tracking.', image: 'https://images.unsplash.com/photo-1531415074968-036ba1b575da?auto=format&fit=crop&w=600&q=80' },
             { key: 'football', label: 'Football', title: 'Control the Pitch', desc: 'FIFA-grade synthetic turfs & leagues.', image: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=600&q=80' },
           ].map((s) => {
-            const count = matchCounts[s.key] || 0;
             return (
               <div
                 key={s.key}
@@ -242,11 +428,7 @@ export const Home: React.FC = () => {
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/25 to-transparent"></div>
                 
                 {/* Floating Matches Count Badge */}
-                {count > 0 && (
-                  <span className="absolute top-4 left-4 bg-[#FF8C1A] text-white text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full shadow-md animate-pulse">
-                    🔥 {count} {count === 1 ? 'Match' : 'Matches'} Today
-                  </span>
-                )}
+                {renderChooseGameBadge(s.key as 'cricket' | 'football')}
 
                 {/* Content */}
                 <div className="absolute inset-x-6 bottom-6 flex flex-col justify-end text-left space-y-1.5 z-10">

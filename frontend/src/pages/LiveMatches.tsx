@@ -409,7 +409,16 @@ export const LiveMatches: React.FC = () => {
       });
       let fetched: Match[] = res.data.data.matches || [];
 
-      // Client-side sub filters
+      // Exclude cancelled, closed, completed, and dummy matches
+      fetched = fetched.filter((m) => {
+        const status = (m.status || '').toLowerCase().trim();
+        const invalidStatuses = ['cancelled', 'canceled', 'closed', 'completed', 'inactive'];
+        if (invalidStatuses.includes(status)) return false;
+        const hostName = (m.hostName || '').toLowerCase();
+        const groundName = (m.ground?.name || '').toLowerCase();
+        if (hostName.includes('dummy') || hostName.includes('test_dummy') || groundName.includes('dummy')) return false;
+        return true;
+      });
       if (selectedPriceFilter !== 'All') {
         if (selectedPriceFilter === 'Free') fetched = fetched.filter((m) => m.entryFee === 0);
         if (selectedPriceFilter === '100') fetched = fetched.filter((m) => m.entryFee <= 100);
