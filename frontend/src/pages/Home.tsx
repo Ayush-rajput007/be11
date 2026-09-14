@@ -188,41 +188,6 @@ export const Home: React.FC = () => {
     );
   };
 
-  const renderChooseGameBadge = (sportKey: 'cricket' | 'football') => {
-    if (matchCountsLoading) {
-      return (
-        <span className="absolute top-4 left-4 bg-black/50 backdrop-blur-md border border-white/10 text-white/70 text-[9px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shadow-md inline-flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-pulse" />
-          LIVE MATCHES...
-        </span>
-      );
-    }
-    if (matchCountsError || matchCounts === null) {
-      return (
-        <span className="absolute top-4 left-4 bg-black/50 backdrop-blur-md border border-white/10 text-white/60 text-[9px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full shadow-md inline-flex items-center gap-1.5">
-          — LIVE MATCHES
-        </span>
-      );
-    }
-    const count = matchCounts[sportKey] ?? 0;
-    const label = count === 1 ? '1 LIVE MATCH' : `${count} LIVE MATCHES`;
-    return (
-      <span
-        className={`absolute top-4 left-4 inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full shadow-md transition-all ${
-          count > 0
-            ? 'bg-[#FF8C1A] text-white animate-pulse'
-            : 'bg-black/50 backdrop-blur-md border border-white/10 text-white/80'
-        }`}
-      >
-        <span
-          className={`w-1.5 h-1.5 rounded-full ${
-            count > 0 ? 'bg-white' : 'bg-white/40'
-          }`}
-        />
-        {label}
-      </span>
-    );
-  };
 
   return (
     <div className="pt-20">
@@ -387,70 +352,6 @@ export const Home: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* Choose Your Game */}
-      <section className="py-16 px-6 max-w-7xl mx-auto">
-        <div className="text-center mb-12">
-          <h2 className="text-2xl md:text-3xl font-black text-[#102A56] uppercase tracking-wider mb-2">Choose Your Game</h2>
-          <div className="w-16 h-1 bg-[#FF8C1A] mx-auto rounded-full"></div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 max-w-4xl mx-auto">
-          {[
-            { key: 'cricket', label: 'Cricket', title: 'Master the Crease', desc: 'Premium pitches & scoreboard tracking.', image: 'https://images.unsplash.com/photo-1531415074968-036ba1b575da?auto=format&fit=crop&w=600&q=80' },
-            { key: 'football', label: 'Football', title: 'Control the Pitch', desc: 'FIFA-grade synthetic turfs & leagues.', image: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=600&q=80' },
-          ].map((s) => {
-            return (
-              <div
-                key={s.key}
-                role="link"
-                tabIndex={0}
-                aria-label={`Explore live open ${s.label} matches: ${s.title}`}
-                onClick={() => navigate(`/live-matches?sport=${s.key}`)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    navigate(`/live-matches?sport=${s.key}`);
-                  }
-                }}
-                className="relative group rounded-3xl overflow-hidden h-[340px] bg-slate-950 shadow-lg cursor-pointer transform hover:-translate-y-2 hover:shadow-2xl transition-all duration-500 border border-white/5 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-              >
-                {/* Background image with zoom */}
-                <img
-                  className="absolute inset-0 w-full h-full object-cover opacity-50 group-hover:opacity-60 group-hover:scale-110 transition-transform duration-700 pointer-events-none"
-                  alt={`${s.label} category card`}
-                  src={s.image}
-                />
-                
-                {/* Gradient overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/25 to-transparent"></div>
-                
-                {/* Floating Matches Count Badge */}
-                {renderChooseGameBadge(s.key as 'cricket' | 'football')}
-
-                {/* Content */}
-                <div className="absolute inset-x-6 bottom-6 flex flex-col justify-end text-left space-y-1.5 z-10">
-                  <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest block">
-                    {s.label}
-                  </span>
-                  <h3 className="font-poppins font-black text-base text-white leading-tight transition-transform duration-300 group-hover:-translate-y-1">
-                    {s.title}
-                  </h3>
-                  <p className="text-gray-400 text-[10px] font-light leading-relaxed">
-                    {s.desc}
-                  </p>
-                  
-                  {/* Explore CTA fades in on hover */}
-                  <div className="pt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center gap-1.5 text-[#FF8C1A] text-[10px] font-bold uppercase tracking-wider">
-                    Explore Live Matches
-                    <span className="material-symbols-outlined text-sm transition-transform group-hover:translate-x-1">arrow_right_alt</span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
         </div>
       </section>
 
