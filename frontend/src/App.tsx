@@ -34,7 +34,6 @@ import { ProfileSettings } from './pages/ProfileSettings.jsx';
 import { Capture } from './pages/Capture.jsx';
 import { VerifyPhone } from './pages/VerifyPhone.js';
 import { VerifyEmail } from './pages/VerifyEmail.jsx';
-import { AdminBookings } from './pages/AdminBookings.jsx';
 import { MyBookings } from './pages/MyBookings.jsx';
 import { PrivacyPolicy } from './pages/PrivacyPolicy.jsx';
 import { TermsOfService } from './pages/TermsOfService.jsx';
@@ -181,7 +180,16 @@ const AppContent: React.FC = () => {
             path="/admin"
             element={
               <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
-                <Admin />
+                <Admin initialTab="dashboard" />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+                <Admin initialTab="dashboard" />
               </ProtectedRoute>
             }
           />
@@ -190,7 +198,70 @@ const AppContent: React.FC = () => {
             path="/admin/bookings"
             element={
               <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
-                <AdminBookings />
+                <Admin initialTab="bookings" />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/payments"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+                <Admin initialTab="payments" />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/matches"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+                <Admin initialTab="matches" />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/reports"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+                <Admin initialTab="reports" />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/venues"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+                <Admin initialTab="venues" />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/vendors"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+                <Admin initialTab="vendors" />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/ai-knowledge"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+                <Admin initialTab="ai-knowledge" />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/audit"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+                <Admin initialTab="audit" />
               </ProtectedRoute>
             }
           />
