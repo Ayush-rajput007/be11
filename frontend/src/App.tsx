@@ -9,6 +9,7 @@ import { Header } from './components/common/Header.jsx';
 import { Footer } from './components/common/Footer.jsx';
 import { ScrollToTop } from './components/common/ScrollToTop.jsx';
 import { Toss } from './pages/Toss.jsx';
+import { AiAssistant } from './components/ai/AiAssistant.js';
 
 // Pages
 import { Home } from './pages/Home.jsx';
@@ -212,6 +213,7 @@ const AppContent: React.FC = () => {
         </Routes>
       </main>
       {showFooter && <Footer />}
+      <AiAssistant />
     </div>
   );
 };

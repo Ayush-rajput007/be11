@@ -1,6 +1,11 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { z } from 'zod';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 dotenv.config();
 
 const envSchema = z.object({
@@ -37,6 +42,9 @@ const envSchema = z.object({
   TWILIO_ACCOUNT_SID: z.string().optional(),
   TWILIO_AUTH_TOKEN: z.string().optional(),
   TWILIO_PHONE_NUMBER: z.string().optional(),
+  AI_API_KEY: z.string().optional(),
+  GEMINI_API_KEY: z.string().optional(),
+  AI_MODEL: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -74,5 +82,8 @@ export const env: Env = parsed.success
       TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID || undefined,
       TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN || undefined,
       TWILIO_PHONE_NUMBER: process.env.TWILIO_PHONE_NUMBER || undefined,
+      AI_API_KEY: process.env.AI_API_KEY || undefined,
+      GEMINI_API_KEY: process.env.GEMINI_API_KEY || undefined,
+      AI_MODEL: process.env.AI_MODEL || undefined,
     };
 

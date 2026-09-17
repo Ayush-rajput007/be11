@@ -8,6 +8,7 @@ import {
   cancelAdminBooking,
   getAdminVenueAvailability,
 } from './admin.bookings.controller.js';
+import { getAdminAiKnowledge, syncAdminAiKnowledge } from './admin.ai.controller.js';
 import { authenticate, authorize } from '../../middlewares/auth.js';
 import { USER_ROLES } from '@be11/shared';
 
@@ -29,4 +30,9 @@ router.patch('/bookings/:id/confirm', confirmAdminBooking as any);
 router.patch('/bookings/:id/cancel', cancelAdminBooking as any);
 router.get('/venues/:venueId/availability', getAdminVenueAvailability as any);
 
+// AI Knowledge Management
+router.get('/ai/knowledge', getAdminAiKnowledge as any);
+router.post('/ai/knowledge/sync', syncAdminAiKnowledge as any);
+
 export default router;
+

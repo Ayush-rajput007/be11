@@ -23,7 +23,7 @@ interface VendorRequest {
 }
 
 export const Admin: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'analytics' | 'vendors'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'vendors' | 'ai-knowledge'>('analytics');
 
   // Analytics state
   const [data, setData] = useState<AdminAnalyticsDTO | null>(null);
@@ -35,6 +35,14 @@ export const Admin: React.FC = () => {
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [requestsError, setRequestsError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+
+  // AI Knowledge state
+  const [aiData, setAiData] = useState<any>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiSyncing, setAiSyncing] = useState(false);
+  const [aiSearch, setAiSearch] = useState('');
+  const [aiCategory, setAiCategory] = useState('All');
+  const [aiMessage, setAiMessage] = useState('');
 
   const fetchAnalytics = async () => {
     setAnalyticsLoading(true);
@@ -64,11 +72,39 @@ export const Admin: React.FC = () => {
     }
   };
 
+  const fetchAiKnowledge = async () => {
+    setAiLoading(true);
+    try {
+      const res = await api.get('/admin/ai/knowledge');
+      setAiData(res.data.data);
+    } catch (err: any) {
+      console.error(err);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleSyncAiKnowledge = async () => {
+    setAiSyncing(true);
+    setAiMessage('');
+    try {
+      const res = await api.post('/admin/ai/knowledge/sync');
+      setAiMessage(`Knowledge successfully re-indexed! ${res.data.data?.totalExtracted || 0} items extracted across ${res.data.data?.categories?.length || 0} categories.`);
+      fetchAiKnowledge();
+    } catch (err: any) {
+      setAiMessage(err.response?.data?.message || 'Failed to sync knowledge.');
+    } finally {
+      setAiSyncing(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'analytics') {
       fetchAnalytics();
     } else if (activeTab === 'vendors') {
       fetchVendorRequests();
+    } else if (activeTab === 'ai-knowledge') {
+      fetchAiKnowledge();
     }
   }, [activeTab]);
 
@@ -123,6 +159,15 @@ export const Admin: React.FC = () => {
             }`}
           >
             Vendor Onboarding Requests
+          </button>
+          <button
+            onClick={() => setActiveTab('ai-knowledge')}
+            className={`flex-1 md:flex-none px-6 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+              activeTab === 'ai-knowledge' ? 'bg-[#FF8C1A] text-white shadow-sm' : 'text-primary hover:bg-[#F8FAFC]'
+            }`}
+          >
+            <span className="material-symbols-outlined text-sm">smart_toy</span>
+            AI Knowledge System
           </button>
           <a
             href="/admin/bookings"
@@ -357,6 +402,144 @@ export const Admin: React.FC = () => {
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {/* TAB 3: AI KNOWLEDGE SYSTEM */}
+        {activeTab === 'ai-knowledge' && (
+          <div className="space-y-6">
+            {/* Header / Actions Card */}
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h3 className="font-poppins font-bold text-lg text-primary flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[#FF8C1A]">psychology</span>
+                  Autonomous AI Knowledge Base
+                </h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  Synchronized directly from the BE11 codebase, database schema, real venue data, live matches, and official policies.
+                </p>
+                {aiData?.summary && (
+                  <div className="flex flex-wrap items-center gap-4 mt-3 text-xs text-gray-600">
+                    <span>Indexed Items: <strong className="text-primary">{aiData.summary.totalItems}</strong></span>
+                    <span>•</span>
+                    <span>Categories: <strong className="text-primary">{aiData.summary.categories.length}</strong></span>
+                    <span>•</span>
+                    <span>Last Synced: <strong className="text-primary">{new Date(aiData.summary.lastSyncTimestamp).toLocaleString()}</strong></span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  disabled={aiSyncing}
+                  onClick={handleSyncAiKnowledge}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#FF8C1A] to-[#FF9933] text-white text-xs font-bold hover:opacity-95 active:scale-95 transition-all shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <span className={`material-symbols-outlined text-sm ${aiSyncing ? 'animate-spin' : ''}`}>sync</span>
+                  {aiSyncing ? 'Synchronizing Knowledge...' : 'Re-Sync Knowledge Now'}
+                </button>
+              </div>
+            </div>
+
+            {aiMessage && (
+              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-center gap-2">
+                <span className="material-symbols-outlined text-sm">check_circle</span>
+                {aiMessage}
+              </div>
+            )}
+
+            {/* Analytics KPI Row */}
+            {aiData?.analytics && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="p-4 rounded-2xl bg-white border border-gray-200 shadow-xs">
+                  <span className="text-[11px] text-gray-500 font-semibold uppercase">Total Queries Handled</span>
+                  <div className="text-2xl font-bold text-primary mt-1">{aiData.analytics.totalQueries}</div>
+                </div>
+                <div className="p-4 rounded-2xl bg-white border border-gray-200 shadow-xs">
+                  <span className="text-[11px] text-gray-500 font-semibold uppercase">Human Escalation Rate</span>
+                  <div className="text-2xl font-bold text-[#FF8C1A] mt-1">{aiData.analytics.escalationRate}</div>
+                </div>
+                <div className="p-4 rounded-2xl bg-white border border-gray-200 shadow-xs">
+                  <span className="text-[11px] text-gray-500 font-semibold uppercase">Average Response Time</span>
+                  <div className="text-2xl font-bold text-emerald-600 mt-1">{aiData.analytics.averageLatencyMs} ms</div>
+                </div>
+                <div className="p-4 rounded-2xl bg-white border border-gray-200 shadow-xs">
+                  <span className="text-[11px] text-gray-500 font-semibold uppercase">Support Escalations</span>
+                  <div className="text-2xl font-bold text-primary mt-1">{aiData.analytics.escalatedQueries}</div>
+                </div>
+              </div>
+            )}
+
+            {/* Knowledge Items Filter & Search */}
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 space-y-4">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                <input
+                  type="text"
+                  value={aiSearch}
+                  onChange={(e) => setAiSearch(e.target.value)}
+                  placeholder="Search indexed knowledge items..."
+                  className="w-full sm:w-80 text-xs px-3.5 py-2.5 rounded-xl border border-gray-200 bg-[#f8fafc] text-gray-800 placeholder-gray-400 focus:outline-none focus:border-[#FF8C1A]"
+                />
+
+                <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+                  <button
+                    type="button"
+                    onClick={() => setAiCategory('All')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer transition-all ${
+                      aiCategory === 'All' ? 'bg-[#001a49] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    All Categories
+                  </button>
+                  {aiData?.summary?.categories?.map((cat: string) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setAiCategory(cat)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer transition-all ${
+                        aiCategory === cat ? 'bg-[#001a49] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Items Grid */}
+              {aiLoading ? (
+                <div className="text-center py-12 text-gray-400 text-xs">Loading indexed knowledge...</div>
+              ) : (
+                <div className="grid sm:grid-cols-2 gap-3.5 pt-2">
+                  {aiData?.items
+                    ?.filter((item: any) => {
+                      const matchCat = aiCategory === 'All' || item.category === aiCategory;
+                      const matchSearch =
+                        !aiSearch ||
+                        item.title.toLowerCase().includes(aiSearch.toLowerCase()) ||
+                        item.content.toLowerCase().includes(aiSearch.toLowerCase());
+                      return matchCat && matchSearch;
+                    })
+                    ?.map((item: any) => (
+                      <div key={item.id} className="p-4 rounded-2xl border border-gray-200 bg-[#f8fafc]/60 hover:bg-white transition-all space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-md bg-[#FF8C1A]/10 text-[#FF8C1A]">
+                            {item.category}
+                          </span>
+                          <span className="text-[10px] text-gray-400 font-mono">v{item.version}</span>
+                        </div>
+                        <h4 className="text-xs font-bold text-primary">{item.title}</h4>
+                        <p className="text-[11px] text-gray-600 line-clamp-3 leading-relaxed">{item.content}</p>
+                        <div className="pt-2 border-t border-gray-200/60 flex items-center justify-between text-[10px] text-gray-400">
+                          <span>Source: {item.source}</span>
+                          <span className="text-emerald-600 font-medium">Active</span>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

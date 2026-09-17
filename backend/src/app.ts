@@ -26,6 +26,8 @@ import shopRouter from './modules/shop/shop.routes.js';
 import tournamentsRouter from './modules/tournaments/tournaments.routes.js';
 import matchesRouter from './modules/matches/matches.routes.js';
 import coachesRouter from './modules/coaches/coaches.routes.js';
+import aiRouter from './modules/ai/ai.routes.js';
+import { syncAiKnowledge } from './modules/ai/knowledge/knowledge.sync.js';
 
 import http from 'http';
 import { createRequire } from 'module';
@@ -137,6 +139,12 @@ app.use('/api/v1/shop', shopRouter);
 app.use('/api/v1/tournaments', tournamentsRouter);
 app.use('/api/v1/matches', matchesRouter);
 app.use('/api/v1/coaches', coachesRouter);
+app.use('/api/v1/ai', aiRouter);
+
+// Initialize autonomous AI knowledge extraction & indexing
+syncAiKnowledge().catch((err) => {
+  logger.warn('⚠️ Non-fatal startup AI knowledge sync notice:', err?.message || err);
+});
 
 app.all('*', (req, res, next) => {
   next(new AppError(`Cannot find ${req.method} ${req.originalUrl} on this server`, HttpStatus.NOT_FOUND));
