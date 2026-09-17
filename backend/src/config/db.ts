@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 import { logger } from './logger.js';
 
 export const prisma = new PrismaClient();
@@ -223,6 +224,54 @@ export const syncProductionData = async (): Promise<void> => {
         logger.info('✅ Created RRR match for Saturday, October 3, 2026');
       }
     }
+
+    // 5. Ensure Official Admin Accounts Exist
+    const adminEmail = (process.env.ADMIN_EMAIL || 'admin@be11.com').trim().toLowerCase();
+    const adminPassword = process.env.ADMIN_PASSWORD || 'Admin@123';
+    const adminHash = await bcrypt.hash(adminPassword, 10);
+
+    await prisma.user.upsert({
+      where: { email: adminEmail },
+      update: {
+        passwordHash: adminHash,
+        role: 'ADMIN',
+        emailVerified: true,
+      },
+      create: {
+        email: adminEmail,
+        passwordHash: adminHash,
+        firstName: process.env.ADMIN_FIRST_NAME || 'System',
+        lastName: process.env.ADMIN_LAST_NAME || 'Administrator',
+        phone: process.env.ADMIN_PHONE || '+919876543212',
+        role: 'ADMIN',
+        walletBalance: 0.0,
+        emailVerified: true,
+      },
+    });
+
+    const superAdminEmail = (process.env.SUPERADMIN_EMAIL || 'superadmin@be11.com').trim().toLowerCase();
+    const superAdminPassword = process.env.SUPERADMIN_PASSWORD || 'SuperAdmin@123';
+    const superAdminHash = await bcrypt.hash(superAdminPassword, 10);
+
+    await prisma.user.upsert({
+      where: { email: superAdminEmail },
+      update: {
+        passwordHash: superAdminHash,
+        role: 'SUPER_ADMIN',
+        emailVerified: true,
+      },
+      create: {
+        email: superAdminEmail,
+        passwordHash: superAdminHash,
+        firstName: 'Super',
+        lastName: 'Admin',
+        phone: '+919876543211',
+        role: 'SUPER_ADMIN',
+        walletBalance: 0.0,
+        emailVerified: true,
+      },
+    });
+    logger.info('✅ Official Admin accounts verified and synchronized.');
 
     dataSynced = true;
   } catch (err: any) {
