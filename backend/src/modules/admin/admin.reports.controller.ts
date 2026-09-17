@@ -55,7 +55,7 @@ export const getAdminReports = async (req: AuthenticatedRequest, res: Response, 
     const pendingRevenue = pendingBookings.reduce((sum, b) => sum + (b.totalPrice || 0), 0);
     const cancelledVolume = cancelledBookings.reduce((sum, b) => sum + (b.totalPrice || 0), 0);
 
-    const totalWalletTopupRevenue = totalTopups.reduce((sum, t) => sum + (t.amount || 0), 0);
+    const totalWalletDepositsLoaded = totalTopups.reduce((sum, t) => sum + (t.amount || 0), 0);
 
     // 3. Daily Revenue Timeline (Last 14 Days)
     const dailyTimeline: Record<string, { date: string; revenue: number; bookingsCount: number }> = {};
@@ -139,13 +139,15 @@ export const getAdminReports = async (req: AuthenticatedRequest, res: Response, 
           totalRevenue,
           pendingRevenue,
           cancelledVolume,
-          totalWalletTopupRevenue,
+          totalWalletDepositsLoaded,
+          totalWalletTopupRevenue: totalWalletDepositsLoaded,
           totalBookingsCount: allBookings.length,
           confirmedBookingsCount: confirmedBookings.length,
           pendingBookingsCount: pendingBookings.length,
           cancelledBookingsCount: cancelledBookings.length,
           conversionRate: allBookings.length > 0 ? `${((confirmedBookings.length / allBookings.length) * 100).toFixed(1)}%` : '0%',
           totalUsers,
+          accountingNote: 'Revenue reflects confirmed booking receipts. User wallet top-ups are customer deposits.',
         },
         charts: {
           dailyRevenue: dailyRevenueChart,

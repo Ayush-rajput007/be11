@@ -47,12 +47,29 @@ export const ensureDatabaseSchema = async (): Promise<void> => {
         'ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "favoriteFootballClub" TEXT',
         'ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "favoriteFootballPlayer" TEXT',
         'ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "preferredFoot" TEXT',
+        `CREATE TABLE IF NOT EXISTS "AuditLog" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "adminId" TEXT NOT NULL,
+          "adminName" TEXT,
+          "adminEmail" TEXT,
+          "action" TEXT NOT NULL,
+          "targetEntity" TEXT NOT NULL,
+          "targetId" TEXT,
+          "details" TEXT,
+          "metadata" JSONB,
+          "ip" TEXT,
+          "timestamp" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )`,
+        'CREATE INDEX IF NOT EXISTS "AuditLog_action_idx" ON "AuditLog"("action")',
+        'CREATE INDEX IF NOT EXISTS "AuditLog_targetEntity_idx" ON "AuditLog"("targetEntity")',
+        'CREATE INDEX IF NOT EXISTS "AuditLog_adminId_idx" ON "AuditLog"("adminId")',
+        'CREATE INDEX IF NOT EXISTS "AuditLog_timestamp_idx" ON "AuditLog"("timestamp")',
       ];
       for (const q of queries) {
         await prisma.$executeRawUnsafe(q);
       }
       schemaEnsured = true;
-      logger.info('✅ Database schema verified in PostgreSQL (Phone auth, WalletTopUp, Profile fields)');
+      logger.info('✅ Database schema verified in PostgreSQL (Phone auth, WalletTopUp, Profile fields, AuditLog)');
     } else {
       schemaEnsured = true;
     }

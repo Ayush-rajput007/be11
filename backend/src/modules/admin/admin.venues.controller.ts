@@ -75,7 +75,7 @@ export const getAdminVenues = async (req: AuthenticatedRequest, res: Response, n
 export const getAdminAuditLogs = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const { action, limit = '50', search } = req.query;
-    const logs = adminAuditService.getLogs({
+    const logs = await adminAuditService.getLogs({
       action: action as string,
       limit: parseInt(limit as string, 10) || 50,
       search: search as string,

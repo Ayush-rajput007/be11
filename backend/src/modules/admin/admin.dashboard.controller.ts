@@ -166,7 +166,7 @@ export const getAdminDashboard = async (req: AuthenticatedRequest, res: Response
     }).sort((a, b) => b.revenue - a.revenue);
 
     // Recent system activity
-    const auditLogs = adminAuditService.getLogs({ limit: 8 });
+    const auditLogs = await adminAuditService.getLogs({ limit: 8 });
 
     res.status(HttpStatus.OK).json({
       success: true,
@@ -184,6 +184,8 @@ export const getAdminDashboard = async (req: AuthenticatedRequest, res: Response
           successful: paidWalletTopups + confirmedBookings,
           failed: failedWalletTopups,
           refunded: refundedWalletTopups + cancelledBookings,
+          bookingPaymentsCount: confirmedBookings,
+          walletTopupsCount: paidWalletTopups,
         },
         revenue: {
           total: totalRevenue,
@@ -191,6 +193,7 @@ export const getAdminDashboard = async (req: AuthenticatedRequest, res: Response
           thisWeek: thisWeekRevenue,
           thisMonth: thisMonthRevenue,
           byVenue: venueBreakdown,
+          accountingModel: 'REALIZED_BOOKINGS_ONLY',
         },
         users: {
           total: totalUsers,

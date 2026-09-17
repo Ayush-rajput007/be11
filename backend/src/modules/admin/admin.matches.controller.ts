@@ -280,13 +280,15 @@ export const createAdminMatch = async (req: AuthenticatedRequest, res: Response,
     });
 
     // 6. Record Audit Log
-    adminAuditService.recordAction({
+    await adminAuditService.recordAction({
       adminId: adminUserId,
       adminName: hostName,
+      adminEmail: req.user?.email,
       action: 'MATCH_CREATED',
       targetEntity: 'Match',
       targetId: newMatch.id,
       details: `Created live match at ${ground.name} on ${date} (${startTime}) with fee ₹${parsedFee} and capacity ${parsedCapacity}`,
+      metadata: { entryFee: parsedFee, totalPlayers: parsedCapacity, groundId: ground.id },
     });
 
     // 7. Broadcast Socket.IO update
@@ -375,13 +377,15 @@ export const cancelAdminMatch = async (req: AuthenticatedRequest, res: Response,
       return cancelled;
     });
 
-    adminAuditService.recordAction({
+    await adminAuditService.recordAction({
       adminId: adminUserId,
       adminName: req.user?.email || 'Admin',
+      adminEmail: req.user?.email,
       action: 'MATCH_CANCELLED',
       targetEntity: 'Match',
       targetId: id,
       details: `Cancelled match at ${match.ground?.name} (${match.date}). Reason: ${reason}`,
+      metadata: { reason, groundId: match.groundId, date: match.date },
     });
 
     try {

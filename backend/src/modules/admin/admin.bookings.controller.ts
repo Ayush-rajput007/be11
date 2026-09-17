@@ -3,6 +3,7 @@ import { prisma } from '../../config/db.js';
 import { HttpStatus } from '@be11/shared';
 import { AppError } from '../../utils/appError.js';
 import { AuthenticatedRequest } from '../../middlewares/auth.js';
+import { adminAuditService } from './admin.audit.service.js';
 
 /**
  * Helper to compute date range strings in YYYY-MM-DD
@@ -389,6 +390,17 @@ export const confirmAdminBooking = async (req: AuthenticatedRequest, res: Respon
       return confirmed;
     });
 
+    await adminAuditService.recordAction({
+      adminId: adminUserId,
+      adminName: req.user?.email || 'Admin',
+      adminEmail: req.user?.email,
+      action: 'BOOKING_CONFIRMED',
+      targetEntity: 'Booking',
+      targetId: id,
+      details: `Confirmed booking #${id.substring(0, 8)} for ${updatedBooking.ground?.name} (${updatedBooking.date} - ${updatedBooking.matchPeriod || updatedBooking.startTime}) for ₹${updatedBooking.totalPrice}`,
+      metadata: { totalPrice: updatedBooking.totalPrice, customerId: updatedBooking.customerId },
+    });
+
     res.status(HttpStatus.OK).json({
       success: true,
       message: 'Booking successfully confirmed',
@@ -483,6 +495,17 @@ export const cancelAdminBooking = async (req: AuthenticatedRequest, res: Respons
       });
 
       return cancelled;
+    });
+
+    await adminAuditService.recordAction({
+      adminId: adminUserId,
+      adminName: req.user?.email || 'Admin',
+      adminEmail: req.user?.email,
+      action: 'BOOKING_CANCELLED',
+      targetEntity: 'Booking',
+      targetId: id,
+      details: `Cancelled booking #${id.substring(0, 8)} for ${updatedBooking.ground?.name}. Reason: ${reason}`,
+      metadata: { totalPrice: updatedBooking.totalPrice, customerId: updatedBooking.customerId, reason },
     });
 
     res.status(HttpStatus.OK).json({
