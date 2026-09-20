@@ -1,12 +1,36 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { FileText, CheckCircle2, AlertTriangle, ArrowLeft, Mail, ShieldCheck } from 'lucide-react';
+import { SEO } from '../components/common/SEO.js';
 
 export const TermsOfService: React.FC = () => {
   const lastUpdated = 'September 8, 2026';
 
   return (
     <div className="min-h-screen bg-[#f7f9fb] text-[#191c1e]">
+      <SEO
+        title="Terms of Service | BE11 Sports Platform"
+        description="Review the terms, venue reservation rules, booking policies, and user agreements for the BE11 sports platform."
+        canonical="/terms"
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            {
+              '@type': 'ListItem',
+              position: 1,
+              name: 'Home',
+              item: 'https://be11.in/',
+            },
+            {
+              '@type': 'ListItem',
+              position: 2,
+              name: 'Terms of Service',
+              item: 'https://be11.in/terms',
+            },
+          ],
+        }}
+      />
       {/* Hero / Header Section */}
       <div className="bg-gradient-to-br from-[#001a49] via-[#0a2e6e] to-[#102A56] text-white py-16 px-4 sm:px-6 lg:px-8 border-b border-[#0a2e6e]/50">
         <div className="max-w-4xl mx-auto">

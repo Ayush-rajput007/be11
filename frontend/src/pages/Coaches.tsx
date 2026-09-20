@@ -3,6 +3,7 @@ import { api } from '../lib/api.js';
 import { useAuthStore } from '../store/authStore.js';
 import { formatCurrency } from '@be11/shared';
 import { useNavigate } from 'react-router-dom';
+import { SEO } from '../components/common/SEO.js';
 
 interface Coach {
   id: string;
@@ -233,6 +234,29 @@ export const Coaches: React.FC = () => {
 
   return (
     <div className="pt-16 min-h-screen bg-surface-container-low pb-20 text-left font-body-md">
+      <SEO
+        title="Sports Coaches in Faridabad | Cricket & Football Coaching | BE11"
+        description="Hire certified cricket coaches, fitness trainers, and football instructors in Faridabad. Book personalized training sessions and sports camps with BE11."
+        canonical="/coaches"
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            {
+              '@type': 'ListItem',
+              position: 1,
+              name: 'Home',
+              item: 'https://be11.in/',
+            },
+            {
+              '@type': 'ListItem',
+              position: 2,
+              name: 'Coaches',
+              item: 'https://be11.in/coaches',
+            },
+          ],
+        }}
+      />
       {/* 1. Large Academy Style Hero Banner */}
       <section className="relative h-[65vh] flex flex-col justify-center items-center overflow-hidden px-container-padding text-center bg-gradient-to-tr from-[#001a49] via-[#0A2E6E] to-[#138808]/40">
         <div className="absolute inset-0 z-0">

@@ -3,6 +3,7 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore.js';
 import { api } from '../lib/api.js';
 import { env } from '../config/env.js';
+import { SEO } from '../components/common/SEO.js';
 
 export const Login: React.FC = () => {
   const { login } = useAuthStore();
@@ -166,6 +167,7 @@ export const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen pt-20 pb-16 bg-[#000c1e] text-white flex items-center justify-center relative font-poppins overflow-hidden">
+      <SEO title="Sign In | BE11" noindex={true} />
       {/* Subtle brand ambiance glows */}
       <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] rounded-full bg-[#0a2e6e]/20 blur-[140px] pointer-events-none"></div>
       <div className="absolute bottom-1/4 right-1/4 w-[450px] h-[450px] rounded-full bg-[#f97316]/10 blur-[140px] pointer-events-none"></div>

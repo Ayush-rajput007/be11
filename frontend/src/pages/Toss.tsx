@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { SEO } from '../components/common/SEO.js';
 
 export const Toss: React.FC = () => {
   const [phase, setPhase] = useState<'idle' | 'flipping' | 'settled'>('idle');
@@ -141,6 +142,29 @@ export const Toss: React.FC = () => {
         ))}
       </div>
 
+      <SEO
+        title="Digital Match Toss | Coin Flip for Cricket & Football | BE11"
+        description="Fair digital 3D coin toss tool for sports match captains and referees. Flip the coin for cricket, football, and match lobbies on BE11."
+        canonical="/toss"
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            {
+              '@type': 'ListItem',
+              position: 1,
+              name: 'Home',
+              item: 'https://be11.in/',
+            },
+            {
+              '@type': 'ListItem',
+              position: 2,
+              name: 'Match Toss',
+              item: 'https://be11.in/toss',
+            },
+          ],
+        }}
+      />
       <div className="max-w-4xl mx-auto px-6 z-10 relative text-center w-full flex-grow flex flex-col justify-start pt-4 sm:pt-6 py-4">
         
         {/* Page Hero */}

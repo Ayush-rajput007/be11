@@ -3,6 +3,7 @@ import { api } from '../lib/api.js';
 import { useAuthStore } from '../store/authStore.js';
 import { formatCurrency } from '@be11/shared';
 import { useNavigate } from 'react-router-dom';
+import { SEO } from '../components/common/SEO.js';
 
 interface Enrollment {
   id: string;
@@ -97,6 +98,7 @@ export const MyTraining: React.FC = () => {
 
   return (
     <div className="pt-24 min-h-screen bg-surface-container-low pb-16 text-left font-body-md">
+      <SEO title="My Training Log | BE11" noindex={true} />
       <div className="max-w-7xl mx-auto px-container-padding space-y-10">
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">

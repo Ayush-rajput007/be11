@@ -3,6 +3,7 @@ import { api } from '../lib/api.js';
 import { useAuthStore } from '../store/authStore.js';
 import { formatCurrency } from '@be11/shared';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { SEO } from '../components/common/SEO.js';
 
 interface Product {
   id: string;
@@ -492,6 +493,57 @@ export const Shop: React.FC = () => {
 
       return (
         <div className="space-y-12">
+          <SEO
+            title={`${p.name} | Sports Store | BE11`}
+            description={`Buy ${p.name} online at ₹${p.price} on BE11 Sports Store. High quality ${p.category} cricket & sports equipment.`}
+            canonical={`/store/product/${p.id}`}
+            ogImage={p.image}
+            ogType="product"
+            jsonLd={[
+              {
+                '@context': 'https://schema.org',
+                '@type': 'Product',
+                name: p.name,
+                image: p.image,
+                description: p.description,
+                brand: {
+                  '@type': 'Brand',
+                  name: p.brand || 'BE11',
+                },
+                offers: {
+                  '@type': 'Offer',
+                  url: `https://be11.in/store/product/${p.id}`,
+                  priceCurrency: 'INR',
+                  price: String(p.price),
+                  availability: p.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+                },
+              },
+              {
+                '@context': 'https://schema.org',
+                '@type': 'BreadcrumbList',
+                itemListElement: [
+                  {
+                    '@type': 'ListItem',
+                    position: 1,
+                    name: 'Home',
+                    item: 'https://be11.in/',
+                  },
+                  {
+                    '@type': 'ListItem',
+                    position: 2,
+                    name: 'Store',
+                    item: 'https://be11.in/store',
+                  },
+                  {
+                    '@type': 'ListItem',
+                    position: 3,
+                    name: p.name,
+                    item: `https://be11.in/store/product/${p.id}`,
+                  },
+                ],
+              },
+            ]}
+          />
           {/* Breadcrumbs */}
           <div className="flex gap-2 text-xs text-outline font-semibold">
             <Link to="/store" className="hover:text-primary">Store</Link>
@@ -1996,6 +2048,31 @@ export const Shop: React.FC = () => {
 
   return (
     <div className="pt-24 min-h-screen bg-[#F8FAFC] pb-24 text-left font-body-md text-primary">
+      {!location.pathname.startsWith('/store/product/') && (
+        <SEO
+          title="Sports Store | Cricket & Football Equipment | BE11"
+          description="Shop premium cricket bats, match balls, batting pads, footballs, and sports gear with fast delivery across India on BE11."
+          canonical="/store"
+          jsonLd={{
+            '@context': 'https://schema.org',
+            '@type': 'BreadcrumbList',
+            itemListElement: [
+              {
+                '@type': 'ListItem',
+                position: 1,
+                name: 'Home',
+                item: 'https://be11.in/',
+              },
+              {
+                '@type': 'ListItem',
+                position: 2,
+                name: 'Store',
+                item: 'https://be11.in/store',
+              },
+            ],
+          }}
+        />
+      )}
       {/* Indian flag accent top aura line */}
       <div className="h-[3.5px] w-full bg-gradient-to-r from-[#FF9933] via-[#F8FAFC] to-[#138808] fixed top-20 z-50"></div>
 

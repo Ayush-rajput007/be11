@@ -10,6 +10,7 @@ import { AdminReportsView } from '../components/admin/AdminReportsView.js';
 import { AdminVenuesView } from '../components/admin/AdminVenuesView.js';
 import { AdminAuditView } from '../components/admin/AdminAuditView.js';
 import { AdminBookings } from './AdminBookings.js';
+import { SEO } from '../components/common/SEO.js';
 
 interface VendorRequest {
   id: string;
@@ -147,12 +148,14 @@ export const Admin: React.FC<AdminProps> = ({ initialTab = 'dashboard' }) => {
   };
 
   return (
-    <AdminLayout
-      activeTab={activeTab}
-      onTabChange={handleTabChange}
-      lastUpdated={lastUpdated}
-      onRefresh={handleManualRefresh}
-    >
+    <>
+      <SEO title="Admin Console | BE11" noindex={true} />
+      <AdminLayout
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        lastUpdated={lastUpdated}
+        onRefresh={handleManualRefresh}
+      >
       {/* Tab: Dashboard */}
       {activeTab === 'dashboard' && (
         <AdminDashboardView key={refreshKey} onNavigateTab={handleTabChange} />
@@ -459,6 +462,7 @@ export const Admin: React.FC<AdminProps> = ({ initialTab = 'dashboard' }) => {
         </div>
       )}
     </AdminLayout>
+    </>
   );
 };
 

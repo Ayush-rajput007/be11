@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useAuthStore } from '../store/authStore.js';
 import { formatCurrency } from '@be11/shared';
+import { SEO } from '../components/common/SEO.js';
 
 interface AvailabilitySlot {
   id: string;
@@ -158,6 +159,48 @@ export const CoachProfile: React.FC = () => {
 
   return (
     <div className="pt-20 min-h-screen bg-surface-container-low pb-16 text-left font-body-md">
+      <SEO
+        title={`${coach.name} | Sports Coach in ${coach.city || 'Faridabad'} | BE11`}
+        description={`${coach.name} – verified coach in ${coach.sports.join(', ')} with ${coach.experienceYears} years experience. Book training sessions on BE11.`}
+        canonical={`/coaches/${coach.id || id}`}
+        jsonLd={[
+          {
+            '@context': 'https://schema.org',
+            '@type': 'Person',
+            name: coach.name,
+            jobTitle: 'Sports Coach',
+            description: coach.about,
+            worksFor: {
+              '@type': 'SportsOrganization',
+              name: coach.academyName || 'BE11 Sports Academy',
+            },
+          },
+          {
+            '@context': 'https://schema.org',
+            '@type': 'BreadcrumbList',
+            itemListElement: [
+              {
+                '@type': 'ListItem',
+                position: 1,
+                name: 'Home',
+                item: 'https://be11.in/',
+              },
+              {
+                '@type': 'ListItem',
+                position: 2,
+                name: 'Coaches',
+                item: 'https://be11.in/coaches',
+              },
+              {
+                '@type': 'ListItem',
+                position: 3,
+                name: coach.name,
+                item: `https://be11.in/coaches/${coach.id || id}`,
+              },
+            ],
+          },
+        ]}
+      />
       {/* Banner */}
       <div className="bg-[#001a49] text-white py-12 relative overflow-hidden">
         <div className="absolute inset-0 z-0 bg-cover bg-center opacity-10" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1540747737956-37872404a821?auto=format&fit=crop&w=1200&q=80')" }}></div>

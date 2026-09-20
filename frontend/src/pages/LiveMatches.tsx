@@ -6,6 +6,7 @@ import { useLocationStore } from '../store/locationStore.js';
 import { io } from 'socket.io-client';
 import { API_URL } from '../config/env.js';
 import { loadRazorpaySdk } from '../lib/razorpay.js';
+import { SEO } from '../components/common/SEO.js';
 
 interface Ground {
   id: string;
@@ -628,6 +629,29 @@ export const LiveMatches: React.FC = () => {
       <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-indigo-600/5 blur-[120px] pointer-events-none"></div>
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full bg-orange-500/5 blur-[120px] pointer-events-none"></div>
 
+      <SEO
+        title="Live Cricket Matches in Faridabad | Join a Match | BE11"
+        description="Find and participate in live cricket matches in Faridabad. Join active match lobbies, view match periods, and play competitive cricket on BE11."
+        canonical="/live-matches"
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            {
+              '@type': 'ListItem',
+              position: 1,
+              name: 'Home',
+              item: 'https://be11.in/',
+            },
+            {
+              '@type': 'ListItem',
+              position: 2,
+              name: 'Live Matches',
+              item: 'https://be11.in/live-matches',
+            },
+          ],
+        }}
+      />
       <div className="max-w-7xl mx-auto px-6 z-10 relative space-y-6">
         
         {/* Breadcrumb Navigation */}

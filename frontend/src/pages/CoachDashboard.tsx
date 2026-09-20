@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../lib/api.js';
 import { formatCurrency } from '@be11/shared';
+import { SEO } from '../components/common/SEO.js';
 
 interface Student {
   id: string;
@@ -205,6 +206,7 @@ export const CoachDashboard: React.FC = () => {
 
   return (
     <div className="pt-24 min-h-screen bg-surface-container-low pb-16 text-left font-body-md">
+      <SEO title="Coach Workspace | BE11" noindex={true} />
       <div className="max-w-7xl mx-auto px-container-padding">
         {/* Banner */}
         <div className="mb-8">

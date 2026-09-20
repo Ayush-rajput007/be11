@@ -19,6 +19,7 @@ import {
   Eye, 
   MapPin
 } from 'lucide-react';
+import { SEO } from '../components/common/SEO.js';
 
 export const Capture: React.FC = () => {
   // Custom states for simulated interactive dashboard
@@ -77,7 +78,29 @@ export const Capture: React.FC = () => {
 
   return (
     <div className="pt-20 bg-surface text-on-surface overflow-hidden font-body-lg">
-      
+      <SEO
+        title="Sports Add-Ons & BE11 Capture | HD Match Recording | BE11"
+        description="Capture high-definition cricket match video recordings, automated boundary highlights, and unforgettable sports moments with BE11 Capture."
+        canonical="/add-ons"
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            {
+              '@type': 'ListItem',
+              position: 1,
+              name: 'Home',
+              item: 'https://be11.in/',
+            },
+            {
+              '@type': 'ListItem',
+              position: 2,
+              name: 'Add-Ons',
+              item: 'https://be11.in/add-ons',
+            },
+          ],
+        }}
+      />
       {/* 1. HERO SECTION */}
       <section className="relative min-h-[90vh] flex flex-col justify-center py-12 md:py-20 lg:py-24 bg-gradient-to-b from-[#001a49]/5 via-surface to-surface">
         

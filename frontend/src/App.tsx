@@ -108,6 +108,7 @@ const AppContent: React.FC = () => {
           <Route path="/become-vendor" element={<BecomeVendor />} />
           <Route path="/toss" element={<Toss />} />
           <Route path="/capture" element={<Capture />} />
+          <Route path="/add-ons" element={<Capture />} />
           
           <Route path="/live-matches" element={<LiveMatches />} />
           <Route path="/host-match" element={<Navigate to="/live-matches" replace state={{ permissionDenied: true }} />} />
@@ -298,8 +299,7 @@ export const App: React.FC = () => {
     const checkSession = async () => {
       const token = localStorage.getItem('be11_token');
       if (!token) {
-        // Aesthetic delay for smooth splash transition
-        setTimeout(() => setCheckingSession(false), 800);
+        setCheckingSession(false);
         return;
       }
 
@@ -310,7 +310,7 @@ export const App: React.FC = () => {
         console.error('Session validation failed:', err);
         logout();
       } finally {
-        setTimeout(() => setCheckingSession(false), 800);
+        setCheckingSession(false);
       }
     };
     checkSession();

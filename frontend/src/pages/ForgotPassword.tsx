@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
+import { SEO } from '../components/common/SEO.js';
 
 export const ForgotPassword: React.FC = () => {
   const navigate = useNavigate();
@@ -77,6 +78,7 @@ export const ForgotPassword: React.FC = () => {
 
   return (
     <div className="min-h-screen pt-24 pb-16 bg-[#001026] text-white flex items-center justify-center relative font-poppins overflow-hidden">
+      <SEO title="Reset Password | BE11" noindex={true} />
       <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-blue-600/10 blur-[120px] pointer-events-none"></div>
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full bg-orange-500/10 blur-[120px] pointer-events-none"></div>
       

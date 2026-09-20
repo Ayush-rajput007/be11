@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuthStore } from '../store/authStore.js';
 import { api } from '../lib/api.js';
+import { SEO } from '../components/common/SEO.js';
 
 export const BecomeVendor: React.FC = () => {
   const { isAuthenticated, user } = useAuthStore();
@@ -146,7 +147,30 @@ export const BecomeVendor: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] pb-24 text-left font-body-md text-primary">
+    <div className="pt-20 bg-surface min-h-screen text-left">
+      <SEO
+        title="Become a Partner & Ground Vendor | List Your Sports Venue | BE11"
+        description="Partner with BE11 to list sports venues, manage turf bookings, sell athletic merchandise, and grow sports revenue in Faridabad and India."
+        canonical="/become-vendor"
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            {
+              '@type': 'ListItem',
+              position: 1,
+              name: 'Home',
+              item: 'https://be11.in/',
+            },
+            {
+              '@type': 'ListItem',
+              position: 2,
+              name: 'Become Vendor',
+              item: 'https://be11.in/become-vendor',
+            },
+          ],
+        }}
+      />
       {/* Tricolor aura bar */}
       <div className="h-[3px] w-full bg-gradient-to-r from-[#FF9933] via-[#F8FAFC] to-[#138808] fixed top-20 z-50"></div>
 

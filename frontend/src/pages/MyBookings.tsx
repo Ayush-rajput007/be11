@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { BookingDTO, formatCurrency } from '@be11/shared';
+import { SEO } from '../components/common/SEO.js';
 
 export const MyBookings: React.FC = () => {
   const navigate = useNavigate();
@@ -39,6 +40,7 @@ export const MyBookings: React.FC = () => {
 
   return (
     <div className="pt-24 pb-20 min-h-screen bg-surface-container-low text-left font-poppins">
+      <SEO title="My Bookings | BE11" noindex={true} />
       <div className="max-w-5xl mx-auto px-container-padding">
         
         {/* Header */}

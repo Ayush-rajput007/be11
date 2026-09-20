@@ -6,6 +6,7 @@ import { BookingDTO, WalletTransactionDTO, NotificationDTO, formatCurrency } fro
 import { io } from 'socket.io-client';
 import { API_URL } from '../config/env.js';
 import { loadRazorpaySdk } from '../lib/razorpay.js';
+import { SEO } from '../components/common/SEO.js';
 
 export const Dashboard: React.FC = () => {
   const { user, login, token, updateWalletBalance } = useAuthStore();
@@ -419,6 +420,7 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="pt-24 pb-16 min-h-screen bg-[#050508] text-white text-left font-poppins relative">
+      <SEO title="User Dashboard | BE11" noindex={true} />
       <div className="absolute top-10 left-10 w-96 h-96 rounded-full bg-indigo-600/5 blur-[120px] pointer-events-none"></div>
 
       <div className="max-w-7xl mx-auto px-6 space-y-6 z-10 relative">

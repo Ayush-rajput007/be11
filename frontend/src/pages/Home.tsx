@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useLocationStore } from '../store/locationStore.js';
+import { SEO } from '../components/common/SEO.js';
 
 export const isOpenLiveMatch = (m: any): boolean => {
   if (!m) return false;
@@ -176,6 +177,35 @@ export const Home: React.FC = () => {
 
   return (
     <div className="pt-20">
+      <SEO
+        title="BE11 – Sports Venue Booking, Live Matches & Cricket in Faridabad"
+        description="Book top cricket grounds, join live matches, hire certified sports coaches, custom design jerseys, and shop sports gear in Faridabad on BE11."
+        canonical="/"
+        jsonLd={[
+          {
+            '@context': 'https://schema.org',
+            '@type': 'SportsActivityLocation',
+            name: 'BE11 Sports Faridabad',
+            url: 'https://be11.in',
+            logo: 'https://be11.in/be11_logo.png',
+            image: 'https://be11.in/be11_logo.png',
+            description: 'Premier sports platform for booking cricket grounds, joining live matches, certified coaches, and custom sportswear in Faridabad.',
+            address: {
+              '@type': 'PostalAddress',
+              addressLocality: 'Faridabad',
+              addressRegion: 'Haryana',
+              addressCountry: 'IN',
+            },
+            geo: {
+              '@type': 'GeoCoordinates',
+              latitude: '28.4089',
+              longitude: '77.3178',
+            },
+            areaServed: ['Faridabad', 'Delhi NCR', 'Haryana'],
+            sport: ['Cricket', 'Football'],
+          },
+        ]}
+      />
       {/* Hero Section */}
       <section className="relative min-h-[90vh] flex flex-col items-center justify-center overflow-hidden">
         {/* Abstract Background Effects */}

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, useLocation, Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useAuthStore } from '../store/authStore.js';
+import { SEO } from '../components/common/SEO.js';
 
 export const VerifyEmail: React.FC = () => {
   const { login } = useAuthStore();
@@ -131,6 +132,7 @@ export const VerifyEmail: React.FC = () => {
 
   return (
     <div className="min-h-screen pt-24 pb-16 bg-[#040408] text-white flex items-center justify-center relative font-poppins overflow-hidden">
+      <SEO title="Verify Email | BE11" noindex={true} />
       {/* Background glow filters */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-indigo-600/10 blur-[120px] pointer-events-none"></div>
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full bg-orange-500/5 blur-[120px] pointer-events-none"></div>

@@ -13,6 +13,7 @@ import {
   PREFERRED_FEET,
 } from '@be11/shared';
 import { SearchableSelect } from '../components/common/SearchableSelect.js';
+import { SEO } from '../components/common/SEO.js';
 
 interface AuthSession {
   id: string;
@@ -199,6 +200,7 @@ export const ProfileSettings: React.FC = () => {
 
   return (
     <div className="pt-24 pb-16 min-h-screen bg-[#050508] text-white text-left font-poppins relative">
+      <SEO title="Account Settings | BE11" noindex={true} />
       <div className="absolute top-10 left-10 w-96 h-96 rounded-full bg-indigo-600/5 blur-[120px] pointer-events-none"></div>
 
       <div className="max-w-4xl mx-auto px-6 z-10 relative space-y-8">

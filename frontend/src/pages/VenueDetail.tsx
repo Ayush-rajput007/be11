@@ -4,6 +4,7 @@ import { api } from '../lib/api.js';
 import { useAuthStore } from '../store/authStore.js';
 import { GroundDTO, ReviewDTO, formatCurrency, normalizePhone } from '@be11/shared';
 import { loadRazorpaySdk } from '../lib/razorpay.js';
+import { SEO } from '../components/common/SEO.js';
 
 type WizardStep = 'PERIOD' | 'DETAILS' | 'TYPE' | 'SUMMARY' | 'SUCCESS';
 type BookingTypeChoice = 'SINGLE_TEAM_OF_11' | 'WHOLE_GROUND' | 'INDIVIDUAL' | 'HALF_TEAM' | 'ENTIRE_VENUE';
@@ -721,10 +722,79 @@ export const VenueDetail: React.FC = () => {
   const directionsUrl = ground.mapsUrl || `https://maps.google.com/?q=${ground.latitude},${ground.longitude}`;
 
   const currentSummaryPrice = calculatePrice(selectedPeriod || 'MORNING', bookingType);
+  const venueCanonical = `/venues/${ground.slug || id}`;
+  const venueJsonLd = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'SportsActivityLocation',
+      name: ground.name,
+      description: ground.description || `Cricket ground and sports venue booking in Faridabad`,
+      url: `https://be11.in${venueCanonical}`,
+      image: heroMedia.startsWith('http') ? heroMedia : `https://be11.in${heroMedia}`,
+      telephone: ground.ownerPhone || '+919711669718',
+      address: {
+        '@type': 'PostalAddress',
+        streetAddress: ground.address || ground.location || 'Faridabad',
+        addressLocality: 'Faridabad',
+        addressRegion: 'Haryana',
+        addressCountry: 'IN',
+      },
+      ...(ground.latitude && ground.longitude
+        ? {
+            geo: {
+              '@type': 'GeoCoordinates',
+              latitude: String(ground.latitude),
+              longitude: String(ground.longitude),
+            },
+          }
+        : {}),
+      priceRange: '₹299 - ₹6250',
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        {
+          '@type': 'ListItem',
+          position: 1,
+          name: 'Home',
+          item: 'https://be11.in/',
+        },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          name: 'Venues',
+          item: 'https://be11.in/venues',
+        },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: ground.name,
+          item: `https://be11.in${venueCanonical}`,
+        },
+      ],
+    },
+  ];
 
   return (
     <div className="pt-24 pb-16 min-h-screen bg-surface-container-low text-left font-poppins">
+      <SEO
+        title={`${ground.name} | Cricket Ground Booking in Faridabad | BE11`}
+        description={`${ground.name} located at ${ground.address || ground.location || 'Faridabad'}. Book match periods, compare slot availability, and check ground facilities on BE11.`}
+        canonical={venueCanonical}
+        ogImage={heroMedia}
+        jsonLd={venueJsonLd}
+      />
       <div className="max-w-7xl mx-auto px-container-padding">
+        {/* Breadcrumb Navigation */}
+        <nav className="text-xs text-on-surface-variant mb-4 flex items-center gap-1.5" aria-label="Breadcrumb">
+          <a href="/" className="hover:text-primary transition-colors">Home</a>
+          <span>/</span>
+          <a href="/venues" className="hover:text-primary transition-colors">Venues</a>
+          <span>/</span>
+          <span className="text-primary font-semibold truncate max-w-xs">{ground.name}</span>
+        </nav>
+
         {error && (
           <div className="bg-error-container text-on-error-container p-4 rounded-xl text-sm font-semibold mb-6 flex items-center gap-2">
             <span className="material-symbols-outlined text-base">error</span>

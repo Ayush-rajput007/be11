@@ -3,6 +3,7 @@ import { api } from '../lib/api.js';
 import { useAuthStore } from '../store/authStore.js';
 import { formatCurrency } from '@be11/shared';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { SEO } from '../components/common/SEO.js';
 
 interface Product {
   id: string;
@@ -189,6 +190,29 @@ export const KitBuilder: React.FC = () => {
 
   return (
     <div className="pt-24 min-h-screen bg-surface-container-low pb-16 text-left font-body-md">
+      <SEO
+        title="Custom Sports Kit Builder | Cricket Kits & Equipment | BE11"
+        description="Build your customized cricket gear kit or choose expert-curated match bundles with bats, balls, gloves, and pads on BE11."
+        canonical="/kit-builder"
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            {
+              '@type': 'ListItem',
+              position: 1,
+              name: 'Home',
+              item: 'https://be11.in/',
+            },
+            {
+              '@type': 'ListItem',
+              position: 2,
+              name: 'Kit Builder',
+              item: 'https://be11.in/kit-builder',
+            },
+          ],
+        }}
+      />
       <div className="max-w-7xl mx-auto px-container-padding">
         {/* Headers */}
         <div className="mb-8">

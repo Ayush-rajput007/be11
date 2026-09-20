@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
-
 import { isValidIndianMobile, canonicalPhone } from '@be11/shared';
+import { SEO } from '../components/common/SEO.js';
 
 export const Signup: React.FC = () => {
   const navigate = useNavigate();
@@ -96,6 +96,7 @@ export const Signup: React.FC = () => {
 
   return (
     <div className="min-h-screen pt-24 pb-16 bg-[#000c1e] text-white flex items-center justify-center relative font-poppins overflow-hidden">
+      <SEO title="Sign Up | BE11" noindex={true} />
       {/* Visual background glows */}
       <div className="absolute top-1/4 right-1/4 w-[450px] h-[450px] rounded-full bg-[#0a2e6e]/20 blur-[140px] pointer-events-none"></div>
       <div className="absolute bottom-1/4 left-1/4 w-[450px] h-[450px] rounded-full bg-[#f97316]/10 blur-[140px] pointer-events-none"></div>

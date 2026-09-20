@@ -1,12 +1,36 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Shield, Lock, Eye, Server, Mail, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { SEO } from '../components/common/SEO.js';
 
 export const PrivacyPolicy: React.FC = () => {
   const lastUpdated = 'September 8, 2026';
 
   return (
     <div className="min-h-screen bg-[#f7f9fb] text-[#191c1e]">
+      <SEO
+        title="Privacy Policy | BE11 Sports Platform"
+        description="Read the official BE11 Privacy Policy. Understand how BE11 handles data privacy, security, payments, and personal information."
+        canonical="/privacy"
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            {
+              '@type': 'ListItem',
+              position: 1,
+              name: 'Home',
+              item: 'https://be11.in/',
+            },
+            {
+              '@type': 'ListItem',
+              position: 2,
+              name: 'Privacy Policy',
+              item: 'https://be11.in/privacy',
+            },
+          ],
+        }}
+      />
       {/* Hero / Header Section */}
       <div className="bg-gradient-to-br from-[#001a49] via-[#0a2e6e] to-[#102A56] text-white py-16 px-4 sm:px-6 lg:px-8 border-b border-[#0a2e6e]/50">
         <div className="max-w-4xl mx-auto">

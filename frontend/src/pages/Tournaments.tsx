@@ -3,6 +3,7 @@ import { api } from '../lib/api.js';
 import { useAuthStore } from '../store/authStore.js';
 import { useLocationStore } from '../store/locationStore.js';
 import { formatCurrency } from '@be11/shared';
+import { SEO } from '../components/common/SEO.js';
 
 interface Match {
   id: string;
@@ -268,6 +269,29 @@ export const Tournaments: React.FC = () => {
 
   return (
     <div className="pt-24 min-h-screen bg-surface-container-low pb-24 text-left">
+      <SEO
+        title="Sports Tournaments in Faridabad | Cricket & Football Leagues | BE11"
+        description="Join verified cricket tournaments and sports leagues in Faridabad. Register your team, view match schedules, live scorecards, and standings on BE11."
+        canonical="/tournaments"
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            {
+              '@type': 'ListItem',
+              position: 1,
+              name: 'Home',
+              item: 'https://be11.in/',
+            },
+            {
+              '@type': 'ListItem',
+              position: 2,
+              name: 'Tournaments',
+              item: 'https://be11.in/tournaments',
+            },
+          ],
+        }}
+      />
       <div className="max-w-7xl mx-auto px-container-padding">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl text-xs font-semibold mb-6">

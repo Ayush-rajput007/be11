@@ -4,6 +4,7 @@ import { api } from '../lib/api.js';
 import { useLocationStore } from '../store/locationStore.js';
 import { GroundDTO } from '@be11/shared';
 import { calculateHaversineDistance, Coordinates } from '../utils/geo.js';
+import { SEO } from '../components/common/SEO.js';
 
 export const Venues: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -198,11 +199,49 @@ export const Venues: React.FC = () => {
 
   return (
     <div className="pt-24 min-h-screen bg-surface-container-low pb-16">
+      <SEO
+        title="Sports Grounds & Cricket Venues in Faridabad | BE11"
+        description="Discover and book premium cricket grounds and sports venues in Faridabad. Compare slot availability, match periods, and book online with BE11."
+        canonical="/venues"
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            {
+              '@type': 'ListItem',
+              position: 1,
+              name: 'Home',
+              item: 'https://be11.in/',
+            },
+            {
+              '@type': 'ListItem',
+              position: 2,
+              name: 'Venues',
+              item: 'https://be11.in/venues',
+            },
+          ],
+        }}
+      />
       <div className="max-w-7xl mx-auto px-container-padding">
+        {/* Page Title & Breadcrumb */}
+        <div className="mb-6 text-left">
+          <nav className="text-xs text-on-surface-variant mb-2 flex items-center gap-1.5" aria-label="Breadcrumb">
+            <a href="/" className="hover:text-primary transition-colors">Home</a>
+            <span>/</span>
+            <span className="text-primary font-semibold">Venues</span>
+          </nav>
+          <h1 className="font-poppins font-black text-2xl md:text-3xl text-primary tracking-tight">
+            Sports Grounds & Cricket Venues in Faridabad
+          </h1>
+          <p className="text-sm text-on-surface-variant mt-1">
+            Browse verified grounds, check slot availability, and book match periods instantly.
+          </p>
+        </div>
+
         {/* Search header filter panel */}
         <div className="bg-white rounded-24 p-6 shadow-sm border border-outline-variant/30 mb-8 text-left">
           <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-2">
-            <h2 className="font-poppins font-bold text-xl text-primary">Search Approved Sports Venues</h2>
+            <h2 className="font-poppins font-bold text-lg text-primary">Search Approved Sports Venues</h2>
             <div className="flex items-center gap-3">
               <button
                 type="button"
