@@ -200,7 +200,7 @@ export const Home: React.FC = () => {
               id="hero-cricket-card"
               role="button"
               tabIndex={0}
-              aria-label="Cricket: Master the Crease"
+              aria-label="Cricket: Be in the Team 11"
               onClick={() => navigate('/live-matches?sport=cricket')}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
@@ -220,7 +220,7 @@ export const Home: React.FC = () => {
                 <span className="bg-secondary-container text-on-secondary px-3 py-1 rounded-full text-label-sm mb-2 inline-block">
                   Cricket
                 </span>
-                <h3 className="text-white font-headline-md font-bold text-xl">Master the Crease</h3>
+                <h3 className="text-white font-headline-md font-bold text-xl">Be in the Team 11</h3>
                 {renderHeroMatchBadge('cricket')}
               </div>
             </div>
