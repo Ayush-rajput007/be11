@@ -5,6 +5,7 @@ import { useLocationStore } from '../store/locationStore.js';
 import { GroundDTO } from '@be11/shared';
 import { calculateHaversineDistance, Coordinates } from '../utils/geo.js';
 import { SEO } from '../components/common/SEO.js';
+import { FAQSection } from '../components/common/FAQSection.js';
 
 export const Venues: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -203,6 +204,20 @@ export const Venues: React.FC = () => {
         title="Sports Grounds & Cricket Venues in Faridabad | BE11"
         description="Discover and book premium cricket grounds and sports venues in Faridabad. Compare slot availability, match periods, and book online with BE11."
         canonical="/venues"
+        faqJsonLd={[
+          {
+            question: 'Which cricket grounds are available for booking on BE11 in Faridabad?',
+            answer: 'BE11 provides verified cricket venues in Faridabad including RRR Cricket Club Kidawali Faridabad, Playnow Cricket Ground (Sector 59), and AB Cricket Ground (NIT Faridabad).',
+          },
+          {
+            question: 'How do match period bookings work on BE11?',
+            answer: 'Instead of hourly reservations, BE11 grounds operate on structured 3.5 to 4.5 hour match periods (Morning, Afternoon, Evening, Day-Night, and Floodlit Night) designed specifically for complete cricket matches.',
+          },
+          {
+            question: 'What booking types can I choose from on BE11?',
+            answer: 'Depending on the venue, you can choose Entire Venue (full ground for 2 teams / 22 players), Half Team (single squad of 11 players), or Individual Player Slots.',
+          },
+        ]}
         jsonLd={{
           '@context': 'https://schema.org',
           '@type': 'BreadcrumbList',
@@ -584,6 +599,27 @@ export const Venues: React.FC = () => {
             })}
           </div>
         )}
+
+        {/* Ground Booking Guide & FAQs */}
+        <FAQSection
+          className="mt-12"
+          title="Faridabad Ground Booking Guide & FAQs"
+          subtitle="Everything you need to know about reserving cricket grounds, pricing models, and match slots in Faridabad."
+          items={[
+            {
+              question: 'Which cricket grounds are available for booking on BE11 in Faridabad?',
+              answer: 'BE11 provides verified cricket venues in Faridabad including RRR Cricket Club Kidawali Faridabad, Playnow Cricket Ground (Sector 59), and AB Cricket Ground (NIT Faridabad).',
+            },
+            {
+              question: 'How do match period bookings work on BE11?',
+              answer: 'Instead of hourly reservations, BE11 grounds operate on structured 3.5 to 4.5 hour match periods (Morning, Afternoon, Evening, Day-Night, and Floodlit Night) designed specifically for complete cricket matches.',
+            },
+            {
+              question: 'What booking types can I choose from on BE11?',
+              answer: 'Depending on the venue, you can choose Entire Venue (full ground for 2 teams / 22 players), Half Team (single squad of 11 players), or Individual Player Slots.',
+            },
+          ]}
+        />
       </div>
     </div>
   );

@@ -4,6 +4,8 @@ import { useAuthStore } from '../store/authStore.js';
 import { useLocationStore } from '../store/locationStore.js';
 import { formatCurrency } from '@be11/shared';
 import { SEO } from '../components/common/SEO.js';
+import { FAQSection } from '../components/common/FAQSection.js';
+import { AEO_KNOWLEDGE } from '../config/aeoKnowledge.js';
 
 interface Match {
   id: string;
@@ -273,6 +275,7 @@ export const Tournaments: React.FC = () => {
         title="Sports Tournaments in Faridabad | Cricket & Football Leagues | BE11"
         description="Join verified cricket tournaments and sports leagues in Faridabad. Register your team, view match schedules, live scorecards, and standings on BE11."
         canonical="/tournaments"
+        faqJsonLd={AEO_KNOWLEDGE.services['tournaments'].faqs}
         jsonLd={{
           '@context': 'https://schema.org',
           '@type': 'BreadcrumbList',
@@ -559,6 +562,14 @@ export const Tournaments: React.FC = () => {
             })}
           </div>
         )}
+
+        {/* Tournament Hosting FAQ Section */}
+        <FAQSection
+          className="mt-12 bg-white rounded-24 p-6 border border-outline-variant/30"
+          title="Tournament Hosting & Fixtures — FAQs"
+          subtitle="Direct answers regarding tournament hosting, entry fees, prize pools, and ground coordination."
+          items={AEO_KNOWLEDGE.services['tournaments'].faqs}
+        />
       </div>
 
       {/* Tournament Details Drawer Modal */}

@@ -1,0 +1,54 @@
+# BE11 — Sports Platform Knowledge & LLM Discovery Index
+
+> BE11 (https://be11.in) is India's sports ground reservation and athletic match management platform, operating in Faridabad, Haryana and the Delhi NCR region.
+
+## Platform Summary
+- **Organization**: BE11
+- **Primary Domain**: https://be11.in
+- **Operating Region**: Faridabad, Haryana, India (Delhi NCR)
+- **Primary Sports**: Cricket, Football
+- **Support Channels**: WhatsApp (+91 87001 90843), Email (support@be11.in)
+
+## Canonical Public URLs
+- Homepage: https://be11.in/
+- Venues Directory: https://be11.in/venues
+- Live Matches: https://be11.in/live-matches
+- Certified Coaches: https://be11.in/coaches
+- Sports Store: https://be11.in/store
+- 3D Jersey Builder: https://be11.in/jersey-builder
+- Cricket Kit Builder: https://be11.in/kit-builder
+- BE11 Capture (Match Recording): https://be11.in/capture
+- 3D Match Toss: https://be11.in/toss
+- Tournaments Portal: https://be11.in/tournaments
+- Vendor Onboarding: https://be11.in/become-vendor
+- Privacy Policy: https://be11.in/privacy
+- Terms of Service: https://be11.in/terms
+
+## Verified Venues
+- **RRR Cricket Club Kidawali Faridabad** (`/venues/rrr-cricket-club-kidawali-faridabad`)
+  - Location: Kidawali, Pusta Road, Greater Faridabad, Haryana
+  - Pitch: Natural Turf
+  - Match Periods: Morning (06:00–10:00 AM), Afternoon (10:00 AM–02:00 PM), Evening (02:00–06:00 PM)
+  - Pricing: Individual ₹299, Half Team (11 players) ₹2,600, Entire Venue ₹5,000 (with automatic promo code BE11 WELCOMES)
+- **Playnow Cricket Ground** (`/venues/playnow-cricket-ground`)
+  - Location: Sector 59, Faridabad, Haryana
+  - Pitch: Maintained Turf
+  - Match Periods: Weekday Morning/Afternoon (₹5,000 whole / ₹2,500 team), Weekday Night (₹10,000 whole / ₹5,000 team), Weekend Morning (₹10,000 whole / ₹5,000 team), Weekend Afternoon (₹5,000 whole / ₹2,500 team), Weekend Day-Night (₹10,000 whole / ₹5,000 team), Weekend Night (₹11,000 whole / ₹5,500 team)
+- **AB Cricket Ground** (`/venues/ab-cricket-ground`)
+  - Location: New Industrial Town, near Aravalli Golf Course precinct, Faridabad, Haryana
+  - Pitch: Turf Pitch
+  - Match Packages: Standard Day Package ₹3,500 (includes umpires, scorers, match balls, nets); Extended Day / Floodlit Night Package ₹6,500
+
+## Booking Workflow
+1. Select verified venue from `/venues`.
+2. Select desired match date on the calendar.
+3. Choose match period (Morning, Afternoon, Evening, Day-Night, or Night).
+4. Choose booking type (Entire Venue, Half Team, or Individual Slot).
+5. Enter player contact details (Name, 10-digit Indian Mobile, Email).
+6. Complete instant secure checkout via BE11 Wallet or Razorpay gateway.
+7. Receive instantaneous confirmation in `/my-bookings`.
+
+## Customer Support
+- WhatsApp: https://wa.me/918700190843 (+91 87001 90843)
+- Email: support@be11.in
+- Support Desk: Available 24x7 for booking queries, ground rescheduling, and custom apparel inquiries.

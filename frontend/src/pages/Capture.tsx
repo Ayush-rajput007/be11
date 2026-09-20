@@ -20,6 +20,8 @@ import {
   MapPin
 } from 'lucide-react';
 import { SEO } from '../components/common/SEO.js';
+import { FAQSection } from '../components/common/FAQSection.js';
+import { AEO_KNOWLEDGE } from '../config/aeoKnowledge.js';
 
 export const Capture: React.FC = () => {
   // Custom states for simulated interactive dashboard
@@ -82,6 +84,7 @@ export const Capture: React.FC = () => {
         title="Sports Add-Ons & BE11 Capture | HD Match Recording | BE11"
         description="Capture high-definition cricket match video recordings, automated boundary highlights, and unforgettable sports moments with BE11 Capture."
         canonical="/add-ons"
+        faqJsonLd={AEO_KNOWLEDGE.services['capture'].faqs}
         jsonLd={{
           '@context': 'https://schema.org',
           '@type': 'BreadcrumbList',
@@ -1386,6 +1389,16 @@ export const Capture: React.FC = () => {
           </div>
         </div>
       </section>
+
+      {/* AEO Match Recording FAQ Section */}
+      <div className="max-w-7xl mx-auto px-container-padding py-12">
+        <FAQSection
+          className="bg-zinc-900/40 rounded-24 p-6 border border-zinc-800"
+          title="BE11 Capture — Match Recording FAQs"
+          subtitle="Direct answers regarding video recording setup, multicam cameras, download links, and replay highlights."
+          items={AEO_KNOWLEDGE.services['capture'].faqs}
+        />
+      </div>
 
     </div>
   );

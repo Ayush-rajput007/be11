@@ -4,6 +4,8 @@ import { useAuthStore } from '../store/authStore.js';
 import { formatCurrency } from '@be11/shared';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { SEO } from '../components/common/SEO.js';
+import { FAQSection } from '../components/common/FAQSection.js';
+import { AEO_KNOWLEDGE } from '../config/aeoKnowledge.js';
 
 interface Product {
   id: string;
@@ -2013,6 +2015,14 @@ export const Shop: React.FC = () => {
           </div>
         </section>
 
+        {/* AEO Store FAQs */}
+        <FAQSection
+          className="mt-8 bg-white rounded-3xl p-6 border border-outline-variant/30"
+          title="BE11 Sports Store — FAQs"
+          subtitle="Direct answers regarding sports equipment authenticity, deliveries, payment methods, and warranties."
+          items={AEO_KNOWLEDGE.services['store'].faqs}
+        />
+
         {/* 13. E-COMMERCE FOOTER */}
         <footer className="pt-12 border-t text-xs text-outline space-y-8 text-left">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
@@ -2033,8 +2043,9 @@ export const Shop: React.FC = () => {
             </div>
             <div className="space-y-2">
               <h5 className="font-bold text-primary text-xs uppercase tracking-wider">Support info</h5>
-              <p>📍 Mumbai, Maharashtra, India</p>
-              <p>✉️ support@be11.com</p>
+              <p>📍 Faridabad, Haryana, India</p>
+              <p>✉️ support@be11.in</p>
+              <p>📱 WhatsApp: +91 87001 90843</p>
             </div>
           </div>
           <div className="pt-6 border-t text-center text-[10px]">
@@ -2053,6 +2064,7 @@ export const Shop: React.FC = () => {
           title="Sports Store | Cricket & Football Equipment | BE11"
           description="Shop premium cricket bats, match balls, batting pads, footballs, and sports gear with fast delivery across India on BE11."
           canonical="/store"
+          faqJsonLd={AEO_KNOWLEDGE.services['store'].faqs}
           jsonLd={{
             '@context': 'https://schema.org',
             '@type': 'BreadcrumbList',

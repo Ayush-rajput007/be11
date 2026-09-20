@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { SEO } from '../components/common/SEO.js';
+import { AEO_KNOWLEDGE } from '../config/aeoKnowledge.js';
 
 export const Toss: React.FC = () => {
   const [phase, setPhase] = useState<'idle' | 'flipping' | 'settled'>('idle');
@@ -146,6 +147,7 @@ export const Toss: React.FC = () => {
         title="Digital Match Toss | Coin Flip for Cricket & Football | BE11"
         description="Fair digital 3D coin toss tool for sports match captains and referees. Flip the coin for cricket, football, and match lobbies on BE11."
         canonical="/toss"
+        faqJsonLd={AEO_KNOWLEDGE.services['toss'].faqs}
         jsonLd={{
           '@context': 'https://schema.org',
           '@type': 'BreadcrumbList',

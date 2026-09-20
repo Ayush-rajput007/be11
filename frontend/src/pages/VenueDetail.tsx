@@ -5,6 +5,8 @@ import { useAuthStore } from '../store/authStore.js';
 import { GroundDTO, ReviewDTO, formatCurrency, normalizePhone } from '@be11/shared';
 import { loadRazorpaySdk } from '../lib/razorpay.js';
 import { SEO } from '../components/common/SEO.js';
+import { FAQSection } from '../components/common/FAQSection.js';
+import { AEO_KNOWLEDGE } from '../config/aeoKnowledge.js';
 
 type WizardStep = 'PERIOD' | 'DETAILS' | 'TYPE' | 'SUMMARY' | 'SUCCESS';
 type BookingTypeChoice = 'SINGLE_TEAM_OF_11' | 'WHOLE_GROUND' | 'INDIVIDUAL' | 'HALF_TEAM' | 'ENTIRE_VENUE';
@@ -776,6 +778,18 @@ export const VenueDetail: React.FC = () => {
     },
   ];
 
+  const venueAEO = (ground.slug && AEO_KNOWLEDGE.venues[ground.slug]) || undefined;
+  const venueFaqs = venueAEO?.faqs || [
+    {
+      question: `How do I book ${ground.name} on BE11?`,
+      answer: `Select a match date, choose an available match period or package, select your booking type (Entire Ground or Half Team), and complete payment via UPI, card, or BE11 Wallet.`,
+    },
+    {
+      question: `Where is ${ground.name} located?`,
+      answer: `${ground.name} is located at ${ground.address || ground.location || 'Faridabad, Haryana'}.`,
+    },
+  ];
+
   return (
     <div className="pt-24 pb-16 min-h-screen bg-surface-container-low text-left font-poppins">
       <SEO
@@ -784,6 +798,7 @@ export const VenueDetail: React.FC = () => {
         canonical={venueCanonical}
         ogImage={heroMedia}
         jsonLd={venueJsonLd}
+        faqJsonLd={venueFaqs}
       />
       <div className="max-w-7xl mx-auto px-container-padding">
         {/* Breadcrumb Navigation */}
@@ -2265,6 +2280,14 @@ export const VenueDetail: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Venue AEO Direct Answers & FAQs */}
+        <FAQSection
+          className="mt-12 bg-white rounded-24 p-6 sm:p-8 border border-outline-variant/30"
+          title={`${ground.name} — Booking & Venue FAQs`}
+          subtitle={`Verified answers regarding match slots, pricing rules, amenities, and policies at ${ground.name}.`}
+          items={venueFaqs}
+        />
       </div>
     </div>
   );

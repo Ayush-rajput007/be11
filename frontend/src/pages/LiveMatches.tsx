@@ -7,6 +7,8 @@ import { io } from 'socket.io-client';
 import { API_URL } from '../config/env.js';
 import { loadRazorpaySdk } from '../lib/razorpay.js';
 import { SEO } from '../components/common/SEO.js';
+import { FAQSection } from '../components/common/FAQSection.js';
+import { AEO_KNOWLEDGE } from '../config/aeoKnowledge.js';
 
 interface Ground {
   id: string;
@@ -633,6 +635,7 @@ export const LiveMatches: React.FC = () => {
         title="Live Cricket Matches in Faridabad | Join a Match | BE11"
         description="Find and participate in live cricket matches in Faridabad. Join active match lobbies, view match periods, and play competitive cricket on BE11."
         canonical="/live-matches"
+        faqJsonLd={AEO_KNOWLEDGE.services['live-matches'].faqs}
         jsonLd={{
           '@context': 'https://schema.org',
           '@type': 'BreadcrumbList',
@@ -1798,6 +1801,14 @@ export const LiveMatches: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Live Matches Direct Answer FAQ Section */}
+        <FAQSection
+          className="mt-12 bg-zinc-900/40 rounded-24 p-6 border border-zinc-800"
+          title="Live Matches — Guide & FAQs"
+          subtitle="Everything you need to know about joining open lobbies, slot booking, and competitive match participation."
+          items={AEO_KNOWLEDGE.services['live-matches'].faqs}
+        />
 
       </div>
     </div>

@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useLocationStore } from '../store/locationStore.js';
 import { SEO } from '../components/common/SEO.js';
+import { FAQSection } from '../components/common/FAQSection.js';
+import { AEO_KNOWLEDGE } from '../config/aeoKnowledge.js';
 
 export const isOpenLiveMatch = (m: any): boolean => {
   if (!m) return false;
@@ -181,6 +183,7 @@ export const Home: React.FC = () => {
         title="BE11 – Sports Venue Booking, Live Matches & Cricket in Faridabad"
         description="Book top cricket grounds, join live matches, hire certified sports coaches, custom design jerseys, and shop sports gear in Faridabad on BE11."
         canonical="/"
+        faqJsonLd={AEO_KNOWLEDGE.globalFaqs}
         jsonLd={[
           {
             '@context': 'https://schema.org',
@@ -668,6 +671,13 @@ export const Home: React.FC = () => {
           </div>
         </div>
       </section>
+
+      {/* AEO Direct Answer & FAQ Section */}
+      <FAQSection
+        title="Frequently Asked Questions About BE11"
+        subtitle="Authoritative answers regarding sports ground booking, match lobbies, custom jerseys, and support in Faridabad."
+        items={AEO_KNOWLEDGE.globalFaqs}
+      />
 
     </div>
   );

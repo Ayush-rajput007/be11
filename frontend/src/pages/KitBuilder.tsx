@@ -4,6 +4,8 @@ import { useAuthStore } from '../store/authStore.js';
 import { formatCurrency } from '@be11/shared';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { SEO } from '../components/common/SEO.js';
+import { FAQSection } from '../components/common/FAQSection.js';
+import { AEO_KNOWLEDGE } from '../config/aeoKnowledge.js';
 
 interface Product {
   id: string;
@@ -194,6 +196,7 @@ export const KitBuilder: React.FC = () => {
         title="Custom Sports Kit Builder | Cricket Kits & Equipment | BE11"
         description="Build your customized cricket gear kit or choose expert-curated match bundles with bats, balls, gloves, and pads on BE11."
         canonical="/kit-builder"
+        faqJsonLd={AEO_KNOWLEDGE.services['kit-builder'].faqs}
         jsonLd={{
           '@context': 'https://schema.org',
           '@type': 'BreadcrumbList',
@@ -420,6 +423,14 @@ export const KitBuilder: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* Cricket Kit Builder FAQ Section */}
+        <FAQSection
+          className="mt-12 bg-white rounded-24 p-6 border border-outline-variant/30"
+          title="Cricket Kit Builder — FAQs"
+          subtitle="Direct answers regarding custom gear configuration, English vs Kashmir willow bats, and bundle discounts."
+          items={AEO_KNOWLEDGE.services['kit-builder'].faqs}
+        />
       </div>
     </div>
   );

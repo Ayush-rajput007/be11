@@ -1,0 +1,132 @@
+# BE11 Full Knowledge Base & Production Facts Reference
+
+## 1. Organization & Core Identity
+BE11 (https://be11.in) is India's sports ground reservation and athletic match management platform, headquartered in Faridabad, Haryana, India. It serves sports enthusiasts, teams, and tournament organizers across Haryana and the Delhi NCR region.
+
+Key positioning:
+- Sports ground and pitch reservations (Cricket, Football)
+- Live Match lobby system for individual players and teams
+- 3D Interactive Team Jersey Builder (sublimated custom kits)
+- Modular Cricket Kit Builder (equipment bundles)
+- Verified sports coaches directory
+- Sports equipment retail store
+- BE11 Capture automated HD match recording
+- BE11 Toss 3D coin flip simulator
+- Tournament hosting and fixture coordination
+- Vendor and sports ground partner onboarding
+
+Official Contacts:
+- WhatsApp Support: +91 87001 90843 (https://wa.me/918700190843)
+- Email Support: support@be11.in
+- Working Hours: 24x7 Customer Support Assistance
+
+---
+
+## 2. Venues & Pricing Directory
+
+### Venue 1: RRR Cricket Club Kidawali Faridabad
+- Canonical URL: https://be11.in/venues/rrr-cricket-club-kidawali-faridabad
+- Sport: Cricket
+- Address: Kidawali, Pusta Road, Near Greater Faridabad, Faridabad, Haryana 121002
+- Pitch: Natural Turf Pitch
+- Coordinates: 28.466611, 77.397333
+- Amenities: Natural turf pitch, practice nets, evening floodlights, player pavilion, vehicle parking, drinking water.
+- Match Periods (Daily 4-hour windows):
+  1. Morning: 06:00 AM – 10:00 AM
+  2. Afternoon: 10:00 AM – 02:00 PM
+  3. Evening: 02:00 PM – 06:00 PM
+- Booking Tiers & Pricing (with 25% promo code BE11 WELCOMES):
+  - Individual Player Slot: ₹299 (Discounted from ₹373.75)
+  - Half Team (Single Team of 11): ₹2,600 (Discounted from ₹3,250)
+  - Entire Venue (Whole Ground for 2 teams): ₹5,000 (Discounted from ₹6,250)
+- Venue Management Contact: Rishi (+91 97116 69718)
+
+### Venue 2: Playnow Cricket Ground
+- Canonical URL: https://be11.in/venues/playnow-cricket-ground
+- Sport: Cricket
+- Address: Sector 59, Faridabad, Haryana 121004
+- Pitch: Maintained Turf Pitch
+- Coordinates: 28.3421, 77.3245
+- Amenities: Turf pitch, high-lux floodlight towers, covered dugouts, spectator pavilion, dedicated parking, washrooms.
+- Pricing Model (Structured match periods; no hourly slots):
+  - Weekday Morning (07:00 – 11:30 AM): ₹5,000 Entire Ground / ₹2,500 Team of 11
+  - Weekday Afternoon (12:00 – 04:30 PM): ₹5,000 Entire Ground / ₹2,500 Team of 11
+  - Weekday Night (08:00 – 11:30 PM): ₹10,000 Entire Ground / ₹5,000 Team of 11
+  - Weekend Morning (07:00 – 11:30 AM): ₹10,000 Entire Ground / ₹5,000 Team of 11
+  - Weekend Afternoon (12:00 – 04:30 PM): ₹5,000 Entire Ground / ₹2,500 Team of 11
+  - Weekend Day-Night (04:30 – 08:00 PM, Weekends Only): ₹10,000 Entire Ground / ₹5,000 Team of 11
+  - Weekend Night (08:00 – 11:30 PM): ₹11,000 Entire Ground / ₹5,500 Team of 11
+- Venue Management Contact: Aanurag Jain (+91 95992 80399)
+
+### Venue 3: AB Cricket Ground
+- Canonical URL: https://be11.in/venues/ab-cricket-ground
+- Sport: Cricket
+- Address: New Industrial Town, Near Aravalli Golf Course precinct, Faridabad, Haryana 121001
+- Pitch: Turf Pitch
+- Coordinates: 28.441139, 77.377944 (Plus Code: 97PW+V69)
+- Amenities: Umpires, digital scorers, match balls, practice nets, floodlights, cafeteria, pavilion, washrooms, parking.
+- Match Packages:
+  - Standard Match Package (Morning 07:00-11:30 AM or Afternoon 12:00-04:30 PM): ₹3,500 (Includes pitch prep, umpires, scorers, match balls, practice nets, drinking water, dugout).
+  - Extended Day / Floodlit Night Match Package (06:00-10:30 PM): ₹6,500 (Includes floodlights, pavilion, sight screen, cafeteria access).
+- Venue Management Contact: Rajesh Bajaj (+91 95402 28222)
+
+---
+
+## 3. Services & Features
+
+### Live Matches (/live-matches)
+- Open Match Lobbies allow individual players to join competitive matches without assembling two 11-player squads.
+- Standard lobby has 22 player slots (11 per team).
+- Transparent real-time slot counter connected to database.
+- Entry fee per slot (e.g. ₹299 per player).
+
+### 3D Custom Jersey Builder (/jersey-builder)
+- Real-time 3D web preview with 360-degree rotation.
+- Customizable base patterns, colors, collar styles, sleeves, player names, squad numbers, and sponsor logos.
+- Full squad roster ordering with individual player sizing (S to XXL).
+- Sublimated printing on moisture-wicking breathable sports polyester fabric.
+
+### Cricket Kit Builder (/kit-builder)
+- Modular bundle configurator for cricket gear.
+- Presets: Beginner, Intermediate, and Pro.
+- Authentic equipment from verified sports manufacturers.
+
+### Certified Coaches Directory (/coaches)
+- Verified profiles of bowling specialists, batting coaches, and fitness trainers in Faridabad.
+- Direct booking for 1-on-1 coaching sessions and academy camps.
+
+### Sports Retail Store (/store)
+- Direct delivery of English/Kashmir willow bats, match leather balls, batting pads, gloves, helmets, footballs, and athletic accessories across India.
+- Prices in INR (₹) with secure online checkout.
+
+### BE11 Capture (/capture)
+- Multi-angle HD match video recording service for cricket and football fixtures.
+- Automated highlight reels (boundaries, wickets, key moments).
+
+### BE11 Toss (/toss)
+- Free 3D physics-based coin toss simulator for team captains.
+
+### Tournament Hosting (/tournaments)
+- Tournament portal for leagues, corporate tournaments, and youth cups.
+- Ground scheduling, umpire assignment, and team registration management.
+
+### Become a Vendor (/become-vendor)
+- Ground owner, sports merchant, and coach onboarding portal.
+
+---
+
+## 4. Ground Booking Workflow
+1. Select venue from https://be11.in/venues.
+2. Select match date on the interactive calendar.
+3. Choose match period or package.
+4. Select booking type (Entire Venue, Half Team, or Individual).
+5. Enter contact info (Name, 10-digit Indian Mobile, Email).
+6. Complete payment via BE11 Wallet or Razorpay.
+7. Booking is confirmed instantly and visible under /my-bookings.
+
+---
+
+## 5. Policies
+- Cancellation: Bookings cancelled 4+ hours before slot time receive 100% refund in BE11 Wallet.
+- Weather: Matches disrupted by rain or wet ground conditions are rescheduled with the ground administrator.
+- Security: User passwords encrypted with Bcrypt. Secure JWT authentication. No personal data sold to third parties.

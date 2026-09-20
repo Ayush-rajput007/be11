@@ -9,6 +9,7 @@ export interface SEOProps {
   ogType?: 'website' | 'article' | 'product' | 'profile';
   noindex?: boolean;
   jsonLd?: Record<string, any> | Record<string, any>[];
+  faqJsonLd?: Array<{ question: string; answer: string }>;
 }
 
 const DEFAULT_TITLE = 'BE11 – Sports Venue Booking, Live Matches & Cricket in Faridabad';
@@ -42,18 +43,46 @@ function updateCanonical(url: string) {
   link.setAttribute('href', url);
 }
 
-function updateStructuredData(jsonLd?: Record<string, any> | Record<string, any>[]) {
+function updateStructuredData(
+  jsonLd?: Record<string, any> | Record<string, any>[],
+  faqJsonLd?: Array<{ question: string; answer: string }>
+) {
   const existingScript = document.getElementById('be11-dynamic-jsonld');
   if (existingScript) {
     existingScript.remove();
   }
 
-  if (!jsonLd) return;
+  const items: Record<string, any>[] = [];
+
+  if (jsonLd) {
+    if (Array.isArray(jsonLd)) {
+      items.push(...jsonLd);
+    } else {
+      items.push(jsonLd);
+    }
+  }
+
+  if (faqJsonLd && faqJsonLd.length > 0) {
+    items.push({
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      'mainEntity': faqJsonLd.map((faq) => ({
+        '@type': 'Question',
+        'name': faq.question,
+        'acceptedAnswer': {
+          '@type': 'Answer',
+          'text': faq.answer,
+        },
+      })),
+    });
+  }
+
+  if (items.length === 0) return;
 
   const script = document.createElement('script');
   script.id = 'be11-dynamic-jsonld';
   script.type = 'application/ld+json';
-  script.textContent = JSON.stringify(jsonLd);
+  script.textContent = JSON.stringify(items.length === 1 ? items[0] : items);
   document.head.appendChild(script);
 }
 
@@ -65,6 +94,7 @@ export const SEO: React.FC<SEOProps> = ({
   ogType = 'website',
   noindex = false,
   jsonLd,
+  faqJsonLd,
 }) => {
   const location = useLocation();
 
@@ -109,8 +139,8 @@ export const SEO: React.FC<SEOProps> = ({
     updateMetaTag('name', 'twitter:image', finalOgImage);
     updateMetaTag('name', 'twitter:site', '@be11sports');
 
-    // 7. Structured Data (JSON-LD)
-    updateStructuredData(jsonLd);
+    // 7. Structured Data (JSON-LD + FAQPage)
+    updateStructuredData(jsonLd, faqJsonLd);
 
     return () => {
       const script = document.getElementById('be11-dynamic-jsonld');
@@ -118,7 +148,7 @@ export const SEO: React.FC<SEOProps> = ({
         script.remove();
       }
     };
-  }, [title, description, canonical, ogImage, ogType, noindex, jsonLd, location.pathname]);
+  }, [title, description, canonical, ogImage, ogType, noindex, jsonLd, faqJsonLd, location.pathname]);
 
   return null;
 };

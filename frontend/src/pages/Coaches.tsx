@@ -4,6 +4,8 @@ import { useAuthStore } from '../store/authStore.js';
 import { formatCurrency } from '@be11/shared';
 import { useNavigate } from 'react-router-dom';
 import { SEO } from '../components/common/SEO.js';
+import { FAQSection } from '../components/common/FAQSection.js';
+import { AEO_KNOWLEDGE } from '../config/aeoKnowledge.js';
 
 interface Coach {
   id: string;
@@ -238,6 +240,7 @@ export const Coaches: React.FC = () => {
         title="Sports Coaches in Faridabad | Cricket & Football Coaching | BE11"
         description="Hire certified cricket coaches, fitness trainers, and football instructors in Faridabad. Book personalized training sessions and sports camps with BE11."
         canonical="/coaches"
+        faqJsonLd={AEO_KNOWLEDGE.services['coaches'].faqs}
         jsonLd={{
           '@context': 'https://schema.org',
           '@type': 'BreadcrumbList',
@@ -868,6 +871,16 @@ export const Coaches: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* AEO Certified Coaches FAQ Section */}
+      <div className="max-w-7xl mx-auto px-container-padding pb-12">
+        <FAQSection
+          className="bg-white rounded-24 p-6 border border-outline-variant/30"
+          title="Certified Coaches & Academies — FAQs"
+          subtitle="Direct answers regarding sports trainer verification, private sessions, fees, and training camp enrollments."
+          items={AEO_KNOWLEDGE.services['coaches'].faqs}
+        />
+      </div>
     </div>
   );
 };

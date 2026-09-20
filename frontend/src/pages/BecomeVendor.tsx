@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuthStore } from '../store/authStore.js';
 import { api } from '../lib/api.js';
 import { SEO } from '../components/common/SEO.js';
+import { AEO_KNOWLEDGE } from '../config/aeoKnowledge.js';
 
 export const BecomeVendor: React.FC = () => {
   const { isAuthenticated, user } = useAuthStore();
@@ -152,6 +153,7 @@ export const BecomeVendor: React.FC = () => {
         title="Become a Partner & Ground Vendor | List Your Sports Venue | BE11"
         description="Partner with BE11 to list sports venues, manage turf bookings, sell athletic merchandise, and grow sports revenue in Faridabad and India."
         canonical="/become-vendor"
+        faqJsonLd={AEO_KNOWLEDGE.services['become-vendor'].faqs}
         jsonLd={{
           '@context': 'https://schema.org',
           '@type': 'BreadcrumbList',

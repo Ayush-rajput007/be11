@@ -3,6 +3,7 @@ import Canvas from './canvas';
 import Customizer from './pages/Customizer';
 import Home from './pages/Home';
 import { SEO } from '../../components/common/SEO.js';
+import { AEO_KNOWLEDGE } from '../../config/aeoKnowledge.js';
 import './index.css';
 
 export const JerseyBuilder = () => {
@@ -12,6 +13,7 @@ export const JerseyBuilder = () => {
         title="Custom Cricket Jersey Builder | 3D Team Kit Customizer | BE11"
         description="Design custom sublimated cricket jerseys and team sports kits online with 3D live preview, custom names, numbers, and sponsor logos on BE11."
         canonical="/jersey-builder"
+        faqJsonLd={AEO_KNOWLEDGE.services['jersey-builder'].faqs}
         jsonLd={{
           '@context': 'https://schema.org',
           '@type': 'BreadcrumbList',
