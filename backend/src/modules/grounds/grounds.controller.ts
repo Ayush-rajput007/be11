@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { prisma, syncProductionData } from '../../config/db.js';
+import { prisma } from '../../config/db.js';
 import { AppError } from '../../utils/appError.js';
 import { GroundCreateSchema, HttpStatus } from '@be11/shared';
 import { AuthenticatedRequest } from '../../middlewares/auth.js';
@@ -54,9 +54,6 @@ const formatGroundResponse = (ground: any) => {
 
 export const getGrounds = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    try {
-      await syncProductionData();
-    } catch (_) {}
     const { sport, city, search } = req.query;
 
     const filter: any = { isActive: true };
@@ -120,9 +117,6 @@ export const getGrounds = async (req: Request, res: Response, next: NextFunction
 
 export const getGroundById = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    try {
-      await syncProductionData();
-    } catch (_) {}
     const { id } = req.params;
 
     // Find by ID or Slug

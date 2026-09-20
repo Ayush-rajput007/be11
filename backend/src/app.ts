@@ -113,14 +113,6 @@ app.all('/socket.io*', (req, res, next) => {
   }
 });
 
-// Ensure database schema migrations are applied on first request
-app.use('/api', async (_req, _res, next) => {
-  try {
-    await ensureDatabaseSchema();
-  } catch (_) {}
-  next();
-});
-
 // Apply rate limiter to general api endpoints
 app.use('/api', rateLimiter);
 
@@ -141,10 +133,12 @@ app.use('/api/v1/matches', matchesRouter);
 app.use('/api/v1/coaches', coachesRouter);
 app.use('/api/v1/ai', aiRouter);
 
-// Initialize autonomous AI knowledge extraction & indexing
-syncAiKnowledge().catch((err) => {
-  logger.warn('⚠️ Non-fatal startup AI knowledge sync notice:', err?.message || err);
-});
+// Initialize autonomous AI knowledge extraction & indexing for standalone server
+if (!process.env.VERCEL) {
+  syncAiKnowledge().catch((err) => {
+    logger.warn('⚠️ Non-fatal startup AI knowledge sync notice:', err?.message || err);
+  });
+}
 
 app.all('*', (req, res, next) => {
   next(new AppError(`Cannot find ${req.method} ${req.originalUrl} on this server`, HttpStatus.NOT_FOUND));

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../lib/api.js';
 import { useLocation, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore.js';
@@ -456,28 +456,71 @@ export const LiveMatches: React.FC = () => {
     fetchMatches();
   }, [selectedSport, selectedCity, searchQuery, selectedPriceFilter, selectedSkillFilter, sortBy]);
 
-  // Socket setup for matches
+  // Maintain fresh refs for socket event handlers without recreating the socket instance
+  const selectedCityRef = useRef(selectedCity);
+  selectedCityRef.current = selectedCity;
+  const selectedMatchRef = useRef(selectedMatch);
+  selectedMatchRef.current = selectedMatch;
+
+  // Optimized Socket setup for matches with tab-visibility awareness & reconnect bounds
   useEffect(() => {
-    const socket = io(API_URL);
-    socket.on('match-update', ({ matchId, action, data }) => {
-      setMatches((prev) => {
-        if (action === 'CREATED') {
-          if (data.ground?.city === selectedCity) {
-            return [data, ...prev];
-          }
-          return prev;
-        }
-        return prev.map((m) => (m.id === matchId ? data : m));
+    let socket: any = null;
+
+    const connectSocket = () => {
+      if (socket && socket.connected) return;
+      socket = io(API_URL, {
+        reconnectionAttempts: 5,
+        reconnectionDelay: 2000,
+        reconnectionDelayMax: 10000,
+        timeout: 10000,
+        transports: ['websocket', 'polling'],
       });
-      if (selectedMatch && selectedMatch.id === matchId) {
-        setSelectedMatch(data);
+
+      socket.on('match-update', ({ matchId, action, data }: any) => {
+        setMatches((prev) => {
+          if (action === 'CREATED') {
+            if (data?.ground?.city === selectedCityRef.current) {
+              return [data, ...prev];
+            }
+            return prev;
+          }
+          return prev.map((m) => (m.id === matchId ? data : m));
+        });
+
+        if (selectedMatchRef.current && selectedMatchRef.current.id === matchId) {
+          setSelectedMatch(data);
+        }
+      });
+    };
+
+    const disconnectSocket = () => {
+      if (socket) {
+        socket.disconnect();
+        socket = null;
       }
-    });
+    };
+
+    // Connect initially if page is visible
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+      connectSocket();
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        connectSocket();
+        fetchMatches();
+      } else {
+        disconnectSocket();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      socket.disconnect();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      disconnectSocket();
     };
-  }, [selectedCity, selectedMatch]);
+  }, []);
 
   const loadHostGrounds = async () => {
     try {

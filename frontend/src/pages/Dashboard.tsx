@@ -205,18 +205,53 @@ export const Dashboard: React.FC = () => {
     if (activeTab === 'system') fetchAdminMetrics();
   }, [activeTab, user?.id]);
 
-  // Socket Connection for Notifications
+  // Socket Connection for Notifications with tab-visibility awareness
   useEffect(() => {
     if (!user) return;
-    const socket = io(API_URL);
-    socket.emit('register-user', user.id);
-    socket.on('notification', (newNotif: NotificationDTO) => {
-      setNotifications((prev) => [newNotif, ...prev]);
-    });
-    return () => {
-      socket.disconnect();
+    let socket: any = null;
+
+    const connectSocket = () => {
+      if (socket && socket.connected) return;
+      socket = io(API_URL, {
+        reconnectionAttempts: 5,
+        reconnectionDelay: 2000,
+        reconnectionDelayMax: 10000,
+        timeout: 10000,
+        transports: ['websocket', 'polling'],
+      });
+      socket.emit('register-user', user.id);
+      socket.on('notification', (newNotif: NotificationDTO) => {
+        setNotifications((prev) => [newNotif, ...prev]);
+      });
     };
-  }, [user]);
+
+    const disconnectSocket = () => {
+      if (socket) {
+        socket.disconnect();
+        socket = null;
+      }
+    };
+
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+      connectSocket();
+    }
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        connectSocket();
+        if (activeTab === 'notifications') fetchNotifications();
+      } else {
+        disconnectSocket();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      disconnectSocket();
+    };
+  }, [user, activeTab]);
 
   const handleTopup = async (e: React.FormEvent) => {
     e.preventDefault();

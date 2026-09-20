@@ -5,10 +5,13 @@ import { HttpStatus } from '@be11/shared';
 import { Server as SocketServer } from 'socket.io';
 
 let ioInstance: SocketServer | null = null;
+let isListenerAttached = false;
 const userSocketsMap = new Map<string, string>(); // userId -> socketId
 
 export const setIoInstance = (io: SocketServer) => {
   ioInstance = io;
+  if (isListenerAttached) return;
+  isListenerAttached = true;
 
   io.on('connection', (socket) => {
     // Listen for register-user event to map userId to socket connection

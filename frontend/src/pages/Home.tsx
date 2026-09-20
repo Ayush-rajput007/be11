@@ -2,8 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useLocationStore } from '../store/locationStore.js';
-import { io } from 'socket.io-client';
-import { API_URL } from '../config/env.js';
 
 export const isOpenLiveMatch = (m: any): boolean => {
   if (!m) return false;
@@ -92,19 +90,6 @@ export const Home: React.FC = () => {
   useEffect(() => {
     fetchCounts();
   }, [fetchCounts]);
-
-  // Real-time synchronization via Socket.IO
-  useEffect(() => {
-    const socket = io(API_URL);
-    socket.on('match-update', () => {
-      fetchCounts();
-    });
-
-    return () => {
-      socket.disconnect();
-    };
-  }, [fetchCounts]);
-
 
   // Popular grounds state
   const [popularGrounds, setPopularGrounds] = useState<any[]>([]);

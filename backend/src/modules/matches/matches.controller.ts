@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { prisma, syncProductionData } from '../../config/db.js';
+import { prisma } from '../../config/db.js';
 import { AppError } from '../../utils/appError.js';
 import { HttpStatus } from '@be11/shared';
 import { AuthenticatedRequest } from '../../middlewares/auth.js';
@@ -16,9 +16,6 @@ import { logger } from '../../config/logger.js';
 // GET /api/v1/matches
 export const getMatches = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    try {
-      await syncProductionData();
-    } catch (_) {}
     const { sport, city, search } = req.query;
     const conditions: any[] = [];
 
@@ -111,9 +108,6 @@ export const getMatches = async (req: Request, res: Response, next: NextFunction
 // GET /api/v1/matches/:id
 export const getMatchById = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    try {
-      await syncProductionData();
-    } catch (_) {}
     const id = req.params.id as string;
     const match = await prisma.match.findUnique({
       where: { id },

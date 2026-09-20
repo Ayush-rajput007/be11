@@ -25,6 +25,8 @@ export const getAdminReports = async (req: AuthenticatedRequest, res: Response, 
           bookingType: true,
           createdAt: true,
         },
+        orderBy: { createdAt: 'desc' },
+        take: 5000,
       }),
       prisma.ground.findMany({
         where: { isActive: true },
@@ -43,6 +45,8 @@ export const getAdminReports = async (req: AuthenticatedRequest, res: Response, 
       prisma.walletTopUp.findMany({
         where: { status: 'PAID' },
         select: { amount: true, createdAt: true },
+        orderBy: { createdAt: 'desc' },
+        take: 5000,
       }),
     ]);
 
