@@ -12,8 +12,8 @@ export interface SEOProps {
   faqJsonLd?: Array<{ question: string; answer: string }>;
 }
 
-const DEFAULT_TITLE = 'BE11 – Sports Venue Booking, Live Matches & Cricket in Faridabad';
-const DEFAULT_DESCRIPTION = 'BE11 is a sports platform for booking cricket grounds, joining live matches, finding certified coaches, shopping sports gear, and designing custom jerseys in Faridabad.';
+const DEFAULT_TITLE = 'BE11 Sports | Cricket Grounds, Live Matches & Sports';
+const DEFAULT_DESCRIPTION = 'BE11 is a sports platform for booking cricket grounds, joining live matches, exploring sports gear, creating custom jerseys and discovering sports experiences in Faridabad.';
 const BASE_URL = 'https://be11.in';
 const DEFAULT_OG_IMAGE = `${BASE_URL}/be11_logo.png`;
 

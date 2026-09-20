@@ -180,8 +180,8 @@ export const Home: React.FC = () => {
   return (
     <div className="pt-20">
       <SEO
-        title="BE11 – Sports Venue Booking, Live Matches & Cricket in Faridabad"
-        description="Book top cricket grounds, join live matches, hire certified sports coaches, custom design jerseys, and shop sports gear in Faridabad on BE11."
+        title="BE11 Sports | Cricket Grounds, Live Matches & Sports"
+        description="BE11 is a sports platform for booking cricket grounds, joining live matches, exploring sports gear, creating custom jerseys and discovering sports experiences in Faridabad."
         canonical="/"
         faqJsonLd={AEO_KNOWLEDGE.globalFaqs}
         jsonLd={[
@@ -227,6 +227,11 @@ export const Home: React.FC = () => {
             <br />
             <span className="text-on-tertiary-container text-glow-green reveal-item inline-block revealed">REPEAT.</span>
           </h1>
+
+          {/* Homepage Direct Platform Answer Introduction */}
+          <p className="text-on-surface-variant text-sm md:text-base max-w-2xl mx-auto mb-10 font-medium leading-relaxed reveal-item revealed">
+            BE11 is a sports platform for booking sports venues, joining live matches, shopping sports gear, creating custom jerseys and discovering sports experiences.
+          </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-gutter max-w-4xl mx-auto mb-16 parallax-container">
             <div

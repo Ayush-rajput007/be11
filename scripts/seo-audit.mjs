@@ -81,22 +81,45 @@ if (fs.existsSync(sitemapPath)) {
   });
 }
 
-// 3. Audit index.html
-console.log('\n3. Auditing frontend/index.html baseline SEO & structured data...');
+// 3. Audit index.html & Favicons
+console.log('\n3. Auditing frontend/index.html baseline SEO, favicons & structured data...');
 const indexPath = path.join(ROOT, 'frontend', 'index.html');
 assert(fs.existsSync(indexPath), 'index.html exists');
 
 if (fs.existsSync(indexPath)) {
   const indexHtml = fs.readFileSync(indexPath, 'utf8');
-  assert(indexHtml.includes('<title>BE11 – Sports Venue Booking, Live Matches & Cricket in Faridabad</title>'), 'index.html has brand & local title tag');
+  assert(indexHtml.includes('<title>BE11 Sports | Cricket Grounds, Live Matches & Sports</title>'), 'index.html has brand & informative title tag');
   assert(indexHtml.includes('<meta name="description"'), 'index.html has meta description');
   assert(indexHtml.includes('<link rel="canonical" href="https://be11.in/" />'), 'index.html has canonical tag');
+  assert(indexHtml.includes('href="/favicon.ico"'), 'index.html references /favicon.ico');
+  assert(indexHtml.includes('href="/favicon-32x32.png"'), 'index.html references /favicon-32x32.png');
+  assert(indexHtml.includes('href="/favicon-16x16.png"'), 'index.html references /favicon-16x16.png');
+  assert(indexHtml.includes('href="/apple-touch-icon.png"'), 'index.html references /apple-touch-icon.png');
+  assert(indexHtml.includes('href="/manifest.webmanifest"'), 'index.html references /manifest.webmanifest');
   assert(indexHtml.includes('<meta property="og:title"'), 'index.html has og:title');
   assert(indexHtml.includes('<meta property="og:image"'), 'index.html has og:image');
   assert(indexHtml.includes('<meta name="twitter:card"'), 'index.html has twitter:card');
   assert(indexHtml.includes('"@type": "Organization"'), 'index.html has Organization structured data');
   assert(indexHtml.includes('"@type": "WebSite"'), 'index.html has WebSite structured data');
 }
+
+// 3.1 Audit Favicon Assets
+console.log('\n3.1 Auditing official BE11 favicon assets in frontend/public...');
+const publicDir = path.join(ROOT, 'frontend', 'public');
+const faviconFiles = [
+  'favicon.ico',
+  'favicon-16x16.png',
+  'favicon-32x32.png',
+  'favicon-48x48.png',
+  'apple-touch-icon.png',
+  'icon-192.png',
+  'icon-512.png',
+  'manifest.webmanifest',
+];
+faviconFiles.forEach((file) => {
+  const fPath = path.join(publicDir, file);
+  assert(fs.existsSync(fPath) && fs.statSync(fPath).size > 0, `Favicon asset exists and is non-empty: ${file}`);
+});
 
 // 4. Audit Frontend Pages for SEO components
 console.log('\n4. Auditing React Page components for SEO integration...');
