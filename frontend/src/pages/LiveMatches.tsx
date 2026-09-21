@@ -1804,9 +1804,9 @@ export const LiveMatches: React.FC = () => {
 
         {/* Live Matches Direct Answer FAQ Section */}
         <FAQSection
-          className="mt-12 bg-zinc-900/40 rounded-24 p-6 border border-zinc-800"
-          title="Live Matches — Guide & FAQs"
-          subtitle="Everything you need to know about joining open lobbies, slot booking, and competitive match participation."
+          className="mt-8"
+          theme="dark"
+          title="Frequently Asked Questions"
           items={AEO_KNOWLEDGE.services['live-matches'].faqs}
         />
 

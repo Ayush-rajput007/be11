@@ -2281,11 +2281,10 @@ export const VenueDetail: React.FC = () => {
           </div>
         </div>
 
-        {/* Venue AEO Direct Answers & FAQs */}
+        {/* Venue FAQs */}
         <FAQSection
-          className="mt-12 bg-white rounded-24 p-6 sm:p-8 border border-outline-variant/30"
-          title={`${ground.name} — Booking & Venue FAQs`}
-          subtitle={`Verified answers regarding match slots, pricing rules, amenities, and policies at ${ground.name}.`}
+          className="mt-8"
+          title="Frequently Asked Questions"
           items={venueFaqs}
         />
       </div>

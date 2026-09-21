@@ -1390,12 +1390,11 @@ export const Capture: React.FC = () => {
         </div>
       </section>
 
-      {/* AEO Match Recording FAQ Section */}
-      <div className="max-w-7xl mx-auto px-container-padding py-12">
+      {/* Match Recording FAQs */}
+      <div className="max-w-7xl mx-auto px-container-padding py-8">
         <FAQSection
-          className="bg-zinc-900/40 rounded-24 p-6 border border-zinc-800"
-          title="BE11 Capture — Match Recording FAQs"
-          subtitle="Direct answers regarding video recording setup, multicam cameras, download links, and replay highlights."
+          theme="dark"
+          title="Frequently Asked Questions"
           items={AEO_KNOWLEDGE.services['capture'].faqs}
         />
       </div>

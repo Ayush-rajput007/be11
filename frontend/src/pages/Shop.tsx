@@ -2015,11 +2015,10 @@ export const Shop: React.FC = () => {
           </div>
         </section>
 
-        {/* AEO Store FAQs */}
+        {/* Store FAQs */}
         <FAQSection
-          className="mt-8 bg-white rounded-3xl p-6 border border-outline-variant/30"
-          title="BE11 Sports Store — FAQs"
-          subtitle="Direct answers regarding sports equipment authenticity, deliveries, payment methods, and warranties."
+          className="mt-8"
+          title="Frequently Asked Questions"
           items={AEO_KNOWLEDGE.services['store'].faqs}
         />
 

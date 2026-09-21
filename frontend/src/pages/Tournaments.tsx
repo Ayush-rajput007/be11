@@ -563,11 +563,10 @@ export const Tournaments: React.FC = () => {
           </div>
         )}
 
-        {/* Tournament Hosting FAQ Section */}
+        {/* Tournament FAQs */}
         <FAQSection
-          className="mt-12 bg-white rounded-24 p-6 border border-outline-variant/30"
-          title="Tournament Hosting & Fixtures — FAQs"
-          subtitle="Direct answers regarding tournament hosting, entry fees, prize pools, and ground coordination."
+          className="mt-8"
+          title="Frequently Asked Questions"
           items={AEO_KNOWLEDGE.services['tournaments'].faqs}
         />
       </div>

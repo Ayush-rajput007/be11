@@ -679,8 +679,7 @@ export const Home: React.FC = () => {
 
       {/* AEO Direct Answer & FAQ Section */}
       <FAQSection
-        title="Frequently Asked Questions About BE11"
-        subtitle="Authoritative answers regarding sports ground booking, match lobbies, custom jerseys, and support in Faridabad."
+        title="Frequently Asked Questions"
         items={AEO_KNOWLEDGE.globalFaqs}
       />
 

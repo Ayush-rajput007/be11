@@ -424,11 +424,10 @@ export const KitBuilder: React.FC = () => {
           </div>
         </div>
 
-        {/* Cricket Kit Builder FAQ Section */}
+        {/* Kit Builder FAQs */}
         <FAQSection
-          className="mt-12 bg-white rounded-24 p-6 border border-outline-variant/30"
-          title="Cricket Kit Builder — FAQs"
-          subtitle="Direct answers regarding custom gear configuration, English vs Kashmir willow bats, and bundle discounts."
+          className="mt-8"
+          title="Frequently Asked Questions"
           items={AEO_KNOWLEDGE.services['kit-builder'].faqs}
         />
       </div>

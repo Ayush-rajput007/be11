@@ -872,12 +872,10 @@ export const Coaches: React.FC = () => {
         </div>
       )}
 
-      {/* AEO Certified Coaches FAQ Section */}
+      {/* Coaches FAQs */}
       <div className="max-w-7xl mx-auto px-container-padding pb-12">
         <FAQSection
-          className="bg-white rounded-24 p-6 border border-outline-variant/30"
-          title="Certified Coaches & Academies — FAQs"
-          subtitle="Direct answers regarding sports trainer verification, private sessions, fees, and training camp enrollments."
+          title="Frequently Asked Questions"
           items={AEO_KNOWLEDGE.services['coaches'].faqs}
         />
       </div>

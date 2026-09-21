@@ -600,11 +600,10 @@ export const Venues: React.FC = () => {
           </div>
         )}
 
-        {/* Ground Booking Guide & FAQs */}
+        {/* Ground Booking FAQs */}
         <FAQSection
-          className="mt-12"
-          title="Faridabad Ground Booking Guide & FAQs"
-          subtitle="Everything you need to know about reserving cricket grounds, pricing models, and match slots in Faridabad."
+          className="mt-8"
+          title="Frequently Asked Questions"
           items={[
             {
               question: 'Which cricket grounds are available for booking on BE11 in Faridabad?',
