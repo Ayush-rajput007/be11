@@ -416,7 +416,7 @@ export const LiveMatches: React.FC = () => {
           search: searchQuery || undefined,
         },
       });
-      let fetched: Match[] = res.data.data.matches || [];
+      let fetched: Match[] = res.data?.data?.matches || res.data?.matches || [];
 
       // Exclude cancelled, closed, completed, and dummy matches
       fetched = fetched.filter((m) => {
@@ -434,7 +434,7 @@ export const LiveMatches: React.FC = () => {
         if (selectedPriceFilter === '300') fetched = fetched.filter((m) => m.entryFee <= 300);
       }
       if (selectedSkillFilter !== 'All') {
-        fetched = fetched.filter((m) => m.skillLevel.toLowerCase() === selectedSkillFilter.toLowerCase());
+        fetched = fetched.filter((m) => (m.skillLevel || '').toLowerCase() === selectedSkillFilter.toLowerCase());
       }
 
       // Client-side sorting
