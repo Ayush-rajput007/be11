@@ -8,13 +8,19 @@ export const api = axios.create({
   },
 });
 
-// Automatically inject JWT token
+// Automatically inject JWT token & Visitor ID
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('be11_token');
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    const visitorId = localStorage.getItem('be11_visitor_id');
+    if (visitorId && config.headers) {
+      config.headers['x-visitor-id'] = visitorId;
+    }
+
     return config;
   },
   (error) => {

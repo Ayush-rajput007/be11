@@ -72,6 +72,9 @@ model User {
   addresses         Address[]
   productReviews    ProductReview[]
   refreshTokens     RefreshToken[]
+  visitors          Visitor[]           @relation("UserVisitors")
+  visitorSessions   VisitorSession[]    @relation("UserVisitorSessions")
+  pageViews         PageView[]          @relation("UserPageViews")
 }
 
 model Ground {
@@ -630,5 +633,68 @@ model AuditLog {
   @@index([targetEntity])
   @@index([adminId])
   @@index([timestamp])
+}
+
+model Visitor {
+  id                   String           @id @default(uuid())
+  visitorId            String           @unique
+  userId               String?
+  user                 User?            @relation("UserVisitors", fields: [userId], references: [id], onDelete: SetNull)
+  firstSeenAt          DateTime         @default(now())
+  firstAuthenticatedAt DateTime?
+  lastSeenAt           DateTime         @default(now())
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  sessions             VisitorSession[]
+  pageViews            PageView[]
+
+  @@index([userId])
+  @@index([firstSeenAt])
+  @@index([firstAuthenticatedAt])
+  @@index([lastSeenAt])
+}
+
+model VisitorSession {
+  id          String     @id @default(uuid())
+  visitorId   String
+  visitor     Visitor    @relation(fields: [visitorId], references: [visitorId], onDelete: Cascade)
+  userId      String?
+  user        User?      @relation("UserVisitorSessions", fields: [userId], references: [id], onDelete: SetNull)
+  startedAt   DateTime   @default(now())
+  lastSeenAt  DateTime   @default(now())
+  endedAt     DateTime?
+  entryPage   String?
+  exitPage    String?
+  userAgent   String?
+  deviceType  String?
+  referrer    String?
+  createdAt   DateTime   @default(now())
+
+  pageViews   PageView[]
+
+  @@index([visitorId])
+  @@index([userId])
+  @@index([startedAt])
+  @@index([lastSeenAt])
+}
+
+model PageView {
+  id        String          @id @default(uuid())
+  visitorId String
+  visitor   Visitor         @relation(fields: [visitorId], references: [visitorId], onDelete: Cascade)
+  sessionId String?
+  session   VisitorSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  userId    String?
+  user      User?           @relation("UserPageViews", fields: [userId], references: [id], onDelete: SetNull)
+  path      String
+  referrer  String?
+  createdAt DateTime        @default(now())
+
+  @@index([visitorId])
+  @@index([sessionId])
+  @@index([userId])
+  @@index([path])
+  @@index([createdAt])
 }
 

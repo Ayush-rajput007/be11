@@ -8,6 +8,7 @@ import { api } from './lib/api.js';
 import { Header } from './components/common/Header.jsx';
 import { Footer } from './components/common/Footer.jsx';
 import { ScrollToTop } from './components/common/ScrollToTop.jsx';
+import { AnalyticsTracker } from './components/common/AnalyticsTracker.js';
 import { Toss } from './pages/Toss.jsx';
 import { AiAssistant } from './components/ai/AiAssistant.js';
 
@@ -196,6 +197,15 @@ const AppContent: React.FC = () => {
           />
 
           <Route
+            path="/admin/analytics"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+                <Admin initialTab="analytics" />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
             path="/admin/bookings"
             element={
               <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
@@ -335,6 +345,7 @@ export const App: React.FC = () => {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <ScrollToTop />
+        <AnalyticsTracker />
         <AppContent />
       </BrowserRouter>
     </QueryClientProvider>

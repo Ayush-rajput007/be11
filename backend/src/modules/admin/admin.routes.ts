@@ -26,6 +26,13 @@ import {
 } from './admin.reports.controller.js';
 import { getAdminVenues, getAdminAuditLogs } from './admin.venues.controller.js';
 import { getAdminAiKnowledge, syncAdminAiKnowledge } from './admin.ai.controller.js';
+import {
+  getAdminOverview,
+  getAdminVisitors,
+  getAdminPageViews,
+  getAdminTrends,
+  getAdminTopPages,
+} from '../analytics/analytics.controller.js';
 import { authenticate, authorize } from '../../middlewares/auth.js';
 import { USER_ROLES } from '@be11/shared';
 
@@ -70,6 +77,13 @@ router.get('/audit', getAdminAuditLogs as any);
 // 8. AI Knowledge Management
 router.get('/ai/knowledge', getAdminAiKnowledge as any);
 router.post('/ai/knowledge/sync', syncAdminAiKnowledge as any);
+
+// 9. Dedicated Anonymous Visitor Analytics System
+router.get('/analytics/overview', getAdminOverview as any);
+router.get('/analytics/visitors', getAdminVisitors as any);
+router.get('/analytics/pageviews', getAdminPageViews as any);
+router.get('/analytics/trends', getAdminTrends as any);
+router.get('/analytics/top-pages', getAdminTopPages as any);
 
 // Legacy metrics endpoints
 router.get('/analytics', getAdminAnalytics as any);

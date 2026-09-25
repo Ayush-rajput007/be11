@@ -114,6 +114,15 @@ export const PrivacyPolicy: React.FC = () => {
                   When reserving a ground, we record your selected venue, sport, date, time slot, match format, total booking price, and confirmation status.
                 </p>
               </div>
+
+              <div className="p-4 rounded-2xl bg-[#f7f9fb] border border-gray-100 space-y-2 sm:col-span-2">
+                <div className="font-semibold text-sm text-[#102A56] flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-[#FF8C1A]" /> First-Party Anonymous Visitor Analytics
+                </div>
+                <p className="text-xs text-[#6B7280] leading-relaxed">
+                  To improve platform reliability and understand page traffic trends, we use a first-party cookie (<code className="bg-gray-200 px-1 py-0.5 rounded text-[11px]">be11_visitor_id</code>) to track anonymous browsing sessions and page views. We do not use third-party advertising trackers, cross-site trackers, or invasive browser fingerprinting.
+                </p>
+              </div>
             </div>
           </section>
 

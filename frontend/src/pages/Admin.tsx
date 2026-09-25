@@ -4,6 +4,7 @@ import { api } from '../lib/api.js';
 import { formatCurrency } from '@be11/shared';
 import { AdminLayout, AdminTab } from '../components/admin/AdminLayout.js';
 import { AdminDashboardView } from '../components/admin/AdminDashboardView.js';
+import { AdminAnalyticsView } from '../components/admin/AdminAnalyticsView.js';
 import { AdminPaymentsView } from '../components/admin/AdminPaymentsView.js';
 import { AdminMatchesView } from '../components/admin/AdminMatchesView.js';
 import { AdminReportsView } from '../components/admin/AdminReportsView.js';
@@ -159,6 +160,11 @@ export const Admin: React.FC<AdminProps> = ({ initialTab = 'dashboard' }) => {
       {/* Tab: Dashboard */}
       {activeTab === 'dashboard' && (
         <AdminDashboardView key={refreshKey} onNavigateTab={handleTabChange} />
+      )}
+
+      {/* Tab: Dedicated Visitor Analytics */}
+      {activeTab === 'analytics' && (
+        <AdminAnalyticsView key={refreshKey} />
       )}
 
       {/* Tab: Bookings */}

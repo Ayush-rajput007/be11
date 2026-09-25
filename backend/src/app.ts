@@ -27,6 +27,7 @@ import tournamentsRouter from './modules/tournaments/tournaments.routes.js';
 import matchesRouter from './modules/matches/matches.routes.js';
 import coachesRouter from './modules/coaches/coaches.routes.js';
 import aiRouter from './modules/ai/ai.routes.js';
+import analyticsRouter from './modules/analytics/analytics.routes.js';
 import { syncAiKnowledge } from './modules/ai/knowledge/knowledge.sync.js';
 
 import http from 'http';
@@ -132,6 +133,8 @@ app.use('/api/v1/tournaments', tournamentsRouter);
 app.use('/api/v1/matches', matchesRouter);
 app.use('/api/v1/coaches', coachesRouter);
 app.use('/api/v1/ai', aiRouter);
+app.use('/api/v1/analytics', analyticsRouter);
+app.use('/api/analytics', analyticsRouter);
 
 // Initialize autonomous AI knowledge extraction & indexing for standalone server
 if (!process.env.VERCEL) {

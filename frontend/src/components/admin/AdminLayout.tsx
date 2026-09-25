@@ -4,6 +4,7 @@ import { useAuthStore } from '../../store/authStore.js';
 
 export type AdminTab =
   | 'dashboard'
+  | 'analytics'
   | 'bookings'
   | 'payments'
   | 'matches'
@@ -36,6 +37,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
 
   const navItems: { id: AdminTab; label: string; icon: string; badge?: string }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
+    { id: 'analytics', label: 'Visitor Analytics', icon: 'query_stats' },
     { id: 'bookings', label: 'Venue Bookings', icon: 'calendar_month' },
     { id: 'payments', label: 'Payments Ledger', icon: 'payments' },
     { id: 'matches', label: 'Live Matches', icon: 'sports_cricket' },

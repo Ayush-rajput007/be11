@@ -18,6 +18,26 @@ import { AuthenticatedRequest, TokenPayload } from '../../middlewares/auth.js';
 import { sendVerificationEmail, sendPasswordResetEmail } from '../../services/mail.service.js';
 import { sendPhoneOtpSms } from '../../services/sms.service.js';
 import { formatUserProfile, buildProfileResponse, validateAndSanitizeSportsProfile } from '../users/profile.helper.js';
+import { AnalyticsService } from '../analytics/analytics.service.js';
+
+// Helper: extract anonymous visitorId from cookies, body, or custom headers
+const getVisitorIdFromReq = (req: Request): string | undefined => {
+  const cookieHeader = req.headers.cookie;
+  let cookieVisitorId: string | undefined = undefined;
+  if (cookieHeader) {
+    const cookies = cookieHeader.split(';').reduce((acc: any, cookie: string) => {
+      const parts = cookie.split('=');
+      acc[parts[0].trim()] = (parts[1] || '').trim();
+      return acc;
+    }, {});
+    cookieVisitorId = cookies['be11_visitor_id'];
+  }
+  return (
+    (req.body && req.body.visitorId) ||
+    (req.headers['x-visitor-id'] as string) ||
+    cookieVisitorId
+  );
+};
 
 
 // Helper: parse custom refresh cookie manually to avoid dependencies
@@ -151,6 +171,14 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
       console.warn('Initial signup email dispatch delayed:', mailErr);
     }
 
+    // Link anonymous visitor history to newly registered user
+    const visitorId = getVisitorIdFromReq(req);
+    if (visitorId && user?.id) {
+      AnalyticsService.linkVisitorToUser(visitorId, user.id).catch((err) => {
+        console.warn('Non-fatal visitor linking notice:', err);
+      });
+    }
+
     res.status(HttpStatus.CREATED).json({
       success: true,
       message: 'Account created successfully. Please check your email to verify your account.',
@@ -237,6 +265,14 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
 
     const { accessToken, refreshTokenString } = await generateTokens(user.id, user.role, user.email, req);
     setRefreshTokenCookie(res, refreshTokenString);
+
+    // Link anonymous visitor history to user
+    const visitorId = getVisitorIdFromReq(req);
+    if (visitorId && user?.id) {
+      AnalyticsService.linkVisitorToUser(visitorId, user.id).catch((err) => {
+        console.warn('Non-fatal visitor linking notice:', err);
+      });
+    }
 
     res.status(HttpStatus.OK).json({
       success: true,
@@ -658,6 +694,14 @@ export const verifyPhoneOtp = async (req: Request, res: Response, next: NextFunc
       token = tokens.accessToken;
     }
 
+    // Link anonymous visitor history to user
+    const visitorId = getVisitorIdFromReq(req);
+    if (visitorId && updatedUser?.id) {
+      AnalyticsService.linkVisitorToUser(visitorId, updatedUser.id).catch((err) => {
+        console.warn('Non-fatal visitor linking notice:', err);
+      });
+    }
+
     res.status(HttpStatus.OK).json({
       success: true,
       message: 'Phone number verified successfully.',
@@ -927,6 +971,14 @@ export const googleAuth = async (req: Request, res: Response, next: NextFunction
     const { accessToken, refreshTokenString } = await generateTokens(user.id, user.role, user.email, req);
     setRefreshTokenCookie(res, refreshTokenString);
 
+    // Link anonymous visitor history to user
+    const visitorId = getVisitorIdFromReq(req);
+    if (visitorId && user?.id) {
+      AnalyticsService.linkVisitorToUser(visitorId, user.id).catch((err) => {
+        console.warn('Non-fatal visitor linking notice:', err);
+      });
+    }
+
     res.status(HttpStatus.OK).json({
       success: true,
       message: 'Logged in via Google successfully',
@@ -1056,6 +1108,14 @@ export const verifyEmail = async (req: Request, res: Response, next: NextFunctio
     // Authenticate user and issue tokens directly
     const { accessToken, refreshTokenString } = await generateTokens(user.id, user.role, user.email, req);
     setRefreshTokenCookie(res, refreshTokenString);
+
+    // Link anonymous visitor history to user
+    const visitorId = getVisitorIdFromReq(req);
+    if (visitorId && user?.id) {
+      AnalyticsService.linkVisitorToUser(visitorId, user.id).catch((err) => {
+        console.warn('Non-fatal visitor linking notice:', err);
+      });
+    }
 
     res.status(HttpStatus.OK).json({
       success: true,
