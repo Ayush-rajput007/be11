@@ -140,8 +140,11 @@ export interface AdminBookingStatsDTO {
   totalBookings: number;
   pendingBookings: number;
   confirmedBookings: number;
+  completedBookings?: number;
   cancelledBookings: number;
   todayBookings: number;
+  upcomingBookings?: number;
+  refundedBookings?: number;
   totalRevenue: number;
 }
 

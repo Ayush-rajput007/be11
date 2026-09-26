@@ -7,7 +7,6 @@ import { adminAuditService } from './admin.audit.service.js';
 export const getAdminVenues = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const grounds = await prisma.ground.findMany({
-      where: { isActive: true },
       include: {
         bookings: {
           select: {
@@ -26,7 +25,7 @@ export const getAdminVenues = async (req: AuthenticatedRequest, res: Response, n
     });
 
     const venueList = grounds.map((g) => {
-      const confirmed = g.bookings.filter((b) => b.status === 'CONFIRMED');
+      const confirmed = g.bookings.filter((b) => b.status === 'CONFIRMED' || b.status === 'COMPLETED');
       const pending = g.bookings.filter((b) => b.status === 'PENDING');
       const cancelled = g.bookings.filter((b) => b.status === 'CANCELLED');
       const totalRevenue = confirmed.reduce((sum, b) => sum + (b.totalPrice || 0), 0);
@@ -47,6 +46,7 @@ export const getAdminVenues = async (req: AuthenticatedRequest, res: Response, n
         amenities: g.amenities,
         rating: g.rating,
         reviewsCount: g.reviewsCount,
+        isActive: g.isActive,
         stats: {
           totalBookings: g.bookings.length,
           confirmedBookings: confirmed.length,
@@ -66,6 +66,49 @@ export const getAdminVenues = async (req: AuthenticatedRequest, res: Response, n
         venues: venueList,
         total: venueList.length,
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const toggleAdminVenueStatus = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string;
+    const adminUserId = req.user?.userId;
+
+    const ground = await prisma.ground.findUnique({
+      where: { id },
+    });
+
+    if (!ground) {
+      return res.status(HttpStatus.NOT_FOUND).json({
+        success: false,
+        message: 'Venue not found',
+      });
+    }
+
+    const newStatus = !ground.isActive;
+    const updated = await prisma.ground.update({
+      where: { id },
+      data: { isActive: newStatus },
+    });
+
+    await adminAuditService.recordAction({
+      adminId: adminUserId || 'system',
+      adminName: req.user?.email || 'Admin',
+      adminEmail: req.user?.email,
+      action: 'VENUE_STATUS_TOGGLED',
+      targetEntity: 'Ground',
+      targetId: id,
+      details: `Venue ${ground.name} status changed to ${newStatus ? 'ACTIVE' : 'INACTIVE'}`,
+      metadata: { previousStatus: ground.isActive, newStatus },
+    });
+
+    res.status(HttpStatus.OK).json({
+      success: true,
+      message: `Venue ${ground.name} is now ${newStatus ? 'active' : 'inactive'}`,
+      data: { venue: updated },
     });
   } catch (error) {
     next(error);

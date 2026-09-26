@@ -51,6 +51,7 @@ export const getAdminBookings = async (req: AuthenticatedRequest, res: Response,
       page = '1',
       limit = '10',
       status,
+      paymentStatus,
       venueId,
       date,
       datePreset,
@@ -59,6 +60,7 @@ export const getAdminBookings = async (req: AuthenticatedRequest, res: Response,
       bookingType,
       matchPeriod,
       search,
+      sort = 'desc',
     } = req.query;
 
     const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
@@ -67,9 +69,14 @@ export const getAdminBookings = async (req: AuthenticatedRequest, res: Response,
 
     const where: any = {};
 
-    // Filter by status
+    // Filter by booking status
     if (status && typeof status === 'string' && status.toUpperCase() !== 'ALL') {
       where.status = status.toUpperCase();
+    }
+
+    // Filter by payment status
+    if (paymentStatus && typeof paymentStatus === 'string' && paymentStatus.toUpperCase() !== 'ALL') {
+      where.paymentStatus = paymentStatus.toUpperCase();
     }
 
     // Filter by Venue ID or Slug
@@ -141,6 +148,8 @@ export const getAdminBookings = async (req: AuthenticatedRequest, res: Response,
       ];
     }
 
+    const sortOrder = typeof sort === 'string' && sort.toLowerCase() === 'asc' ? 'asc' : 'desc';
+
     const [total, bookings] = await Promise.all([
       prisma.booking.count({ where }),
       prisma.booking.findMany({
@@ -183,7 +192,7 @@ export const getAdminBookings = async (req: AuthenticatedRequest, res: Response,
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: sortOrder },
         skip: skipNum,
         take: takeNum,
       }),
@@ -216,18 +225,30 @@ export const getAdminBookingStats = async (req: AuthenticatedRequest, res: Respo
   try {
     const { todayStr } = getDatePresets();
 
-    const [totalBookings, pendingBookings, confirmedBookings, cancelledBookings, todayBookings, revenueAgg] =
-      await Promise.all([
-        prisma.booking.count(),
-        prisma.booking.count({ where: { status: 'PENDING' } }),
-        prisma.booking.count({ where: { status: 'CONFIRMED' } }),
-        prisma.booking.count({ where: { status: 'CANCELLED' } }),
-        prisma.booking.count({ where: { date: todayStr } }),
-        prisma.booking.aggregate({
-          where: { status: 'CONFIRMED' },
-          _sum: { totalPrice: true },
-        }),
-      ]);
+    const [
+      totalBookings,
+      pendingBookings,
+      confirmedBookings,
+      completedBookings,
+      cancelledBookings,
+      todayBookings,
+      upcomingBookings,
+      refundedBookings,
+      revenueAgg,
+    ] = await Promise.all([
+      prisma.booking.count(),
+      prisma.booking.count({ where: { status: 'PENDING' } }),
+      prisma.booking.count({ where: { status: 'CONFIRMED' } }),
+      prisma.booking.count({ where: { status: 'COMPLETED' } }),
+      prisma.booking.count({ where: { status: 'CANCELLED' } }),
+      prisma.booking.count({ where: { date: todayStr } }),
+      prisma.booking.count({ where: { date: { gte: todayStr }, status: { in: ['CONFIRMED', 'PENDING'] } } }),
+      prisma.booking.count({ where: { paymentStatus: 'REFUNDED' } }),
+      prisma.booking.aggregate({
+        where: { status: { in: ['CONFIRMED', 'COMPLETED'] } },
+        _sum: { totalPrice: true },
+      }),
+    ]);
 
     const totalRevenue = revenueAgg._sum.totalPrice || 0;
 
@@ -239,8 +260,11 @@ export const getAdminBookingStats = async (req: AuthenticatedRequest, res: Respo
           totalBookings,
           pendingBookings,
           confirmedBookings,
+          completedBookings,
           cancelledBookings,
           todayBookings,
+          upcomingBookings,
+          refundedBookings,
           totalRevenue,
         },
       },
@@ -332,6 +356,10 @@ export const confirmAdminBooking = async (req: AuthenticatedRequest, res: Respon
 
       if (booking.status === 'CONFIRMED') {
         throw new AppError('Booking is already confirmed', HttpStatus.BAD_REQUEST);
+      }
+
+      if (booking.status === 'COMPLETED') {
+        throw new AppError('Cannot confirm an already completed booking', HttpStatus.BAD_REQUEST);
       }
 
       if (booking.status === 'CANCELLED') {
@@ -444,6 +472,10 @@ export const cancelAdminBooking = async (req: AuthenticatedRequest, res: Respons
         throw new AppError('Booking is already cancelled', HttpStatus.BAD_REQUEST);
       }
 
+      if (booking.status === 'COMPLETED') {
+        throw new AppError('Cannot cancel an already completed booking', HttpStatus.BAD_REQUEST);
+      }
+
       let paymentStatus = booking.paymentStatus;
 
       // If booking was paid from customer wallet, issue refund
@@ -511,6 +543,91 @@ export const cancelAdminBooking = async (req: AuthenticatedRequest, res: Respons
     res.status(HttpStatus.OK).json({
       success: true,
       message: 'Booking successfully cancelled',
+      data: { booking: updatedBooking },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * 6. Complete Booking (Transactional state change from CONFIRMED -> COMPLETED)
+ */
+export const completeAdminBooking = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string;
+    const adminUserId = req.user?.userId;
+
+    if (!adminUserId) {
+      throw new AppError('Unauthorized', HttpStatus.UNAUTHORIZED);
+    }
+
+    const updatedBooking = await prisma.$transaction(async (tx) => {
+      const rawBooking = await tx.booking.findUnique({
+        where: { id },
+        include: { ground: true },
+      });
+
+      if (!rawBooking) {
+        throw new AppError('Booking not found', HttpStatus.NOT_FOUND);
+      }
+
+      const booking = rawBooking as any;
+
+      if (booking.status === 'COMPLETED') {
+        throw new AppError('Booking is already marked completed', HttpStatus.BAD_REQUEST);
+      }
+
+      if (booking.status === 'CANCELLED') {
+        throw new AppError('Cannot complete a cancelled booking', HttpStatus.BAD_REQUEST);
+      }
+
+      if (booking.status === 'PENDING') {
+        throw new AppError('Booking must be confirmed before marking as completed', HttpStatus.BAD_REQUEST);
+      }
+
+      const completed = await tx.booking.update({
+        where: { id },
+        data: {
+          status: 'COMPLETED',
+        },
+        include: {
+          ground: true,
+          customer: {
+            select: { id: true, firstName: true, lastName: true, email: true, phone: true },
+          },
+          confirmedBy: {
+            select: { id: true, firstName: true, lastName: true, email: true },
+          },
+        },
+      });
+
+      // Customer notification
+      await tx.notification.create({
+        data: {
+          userId: booking.customerId,
+          title: 'Booking Completed',
+          message: `Your booking for ${booking.ground?.name} on ${booking.date} (${booking.matchPeriod || booking.startTime}) has been marked completed. Thank you for playing with BE11!`,
+        },
+      });
+
+      return completed;
+    });
+
+    await adminAuditService.recordAction({
+      adminId: adminUserId,
+      adminName: req.user?.email || 'Admin',
+      adminEmail: req.user?.email,
+      action: 'BOOKING_COMPLETED',
+      targetEntity: 'Booking',
+      targetId: id,
+      details: `Completed booking #${id.substring(0, 8)} for ${updatedBooking.ground?.name} (${updatedBooking.date} - ${updatedBooking.matchPeriod || updatedBooking.startTime})`,
+      metadata: { totalPrice: updatedBooking.totalPrice, customerId: updatedBooking.customerId },
+    });
+
+    res.status(HttpStatus.OK).json({
+      success: true,
+      message: 'Booking successfully marked completed',
       data: { booking: updatedBooking },
     });
   } catch (error) {

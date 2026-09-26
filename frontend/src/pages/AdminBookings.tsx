@@ -28,6 +28,8 @@ export const AdminBookings: React.FC = () => {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedVenue, setSelectedVenue] = useState('ALL');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
+  const [selectedPaymentStatus, setSelectedPaymentStatus] = useState('ALL');
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [selectedDatePreset, setSelectedDatePreset] = useState('ALL');
   const [selectedBookingType, setSelectedBookingType] = useState('ALL');
   const [selectedMatchPeriod, setSelectedMatchPeriod] = useState('ALL');
@@ -38,6 +40,7 @@ export const AdminBookings: React.FC = () => {
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [completeModalOpen, setCompleteModalOpen] = useState(false);
   const [cancellationReason, setCancellationReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -82,12 +85,17 @@ export const AdminBookings: React.FC = () => {
       const params: any = {
         page,
         limit,
+        sort: sortOrder,
       };
 
       if (viewTab === 'pending') {
         params.status = 'PENDING';
       } else if (selectedStatus !== 'ALL') {
         params.status = selectedStatus;
+      }
+
+      if (selectedPaymentStatus !== 'ALL') {
+        params.paymentStatus = selectedPaymentStatus;
       }
 
       if (selectedVenue !== 'ALL') params.venueId = selectedVenue;
@@ -140,6 +148,8 @@ export const AdminBookings: React.FC = () => {
     viewTab,
     page,
     selectedStatus,
+    selectedPaymentStatus,
+    sortOrder,
     selectedVenue,
     selectedBookingType,
     selectedMatchPeriod,
@@ -169,6 +179,26 @@ export const AdminBookings: React.FC = () => {
     } catch (err: any) {
       console.error('Confirm error:', err);
       setError(err.response?.data?.message || 'Failed to confirm booking.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle Complete Booking Action
+  const handleCompleteSubmit = async () => {
+    if (!selectedBooking) return;
+    setActionLoading(true);
+    setError('');
+    try {
+      await api.patch(`/admin/bookings/${selectedBooking.id}/complete`);
+      setSuccessToast(`Booking ${selectedBooking.id.slice(0, 8)} successfully marked as completed!`);
+      setCompleteModalOpen(false);
+      setDetailsModalOpen(false);
+      fetchStats();
+      fetchBookings();
+    } catch (err: any) {
+      console.error('Complete error:', err);
+      setError(err.response?.data?.message || 'Failed to complete booking.');
     } finally {
       setActionLoading(false);
     }
@@ -204,6 +234,8 @@ export const AdminBookings: React.FC = () => {
     setDebouncedSearch('');
     setSelectedVenue('ALL');
     setSelectedStatus('ALL');
+    setSelectedPaymentStatus('ALL');
+    setSortOrder('desc');
     setSelectedDatePreset('ALL');
     setSelectedBookingType('ALL');
     setSelectedMatchPeriod('ALL');
@@ -317,6 +349,17 @@ export const AdminBookings: React.FC = () => {
             <span className="text-[10px] text-emerald-700/80 mt-1 block">Active reservations</span>
           </div>
 
+          {/* Completed */}
+          <div className="bg-white rounded-24 p-5 shadow-sm border border-blue-200 bg-blue-50/20">
+            <span className="text-[10px] font-black uppercase text-blue-700 tracking-wider block mb-1">
+              Completed
+            </span>
+            <h3 className="font-poppins font-black text-2xl text-blue-600">
+              {statsLoading ? '...' : stats?.completedBookings || 0}
+            </h3>
+            <span className="text-[10px] text-blue-700/80 mt-1 block">Successfully concluded</span>
+          </div>
+
           {/* Cancelled */}
           <div className="bg-white rounded-24 p-5 shadow-sm border border-red-200 bg-red-50/20">
             <span className="text-[10px] font-black uppercase text-red-700 tracking-wider block mb-1">
@@ -328,17 +371,6 @@ export const AdminBookings: React.FC = () => {
             <span className="text-[10px] text-red-700/80 mt-1 block">Preserved in history</span>
           </div>
 
-          {/* Today's Bookings */}
-          <div className="bg-white rounded-24 p-5 shadow-sm border border-outline-variant/30">
-            <span className="text-[10px] font-black uppercase text-outline tracking-wider block mb-1">
-              Today's Bookings
-            </span>
-            <h3 className="font-poppins font-black text-2xl text-[#0a2e6e]">
-              {statsLoading ? '...' : stats?.todayBookings || 0}
-            </h3>
-            <span className="text-[10px] text-slate-400 mt-1 block">Scheduled for today</span>
-          </div>
-
           {/* Confirmed Revenue */}
           <div className="bg-white rounded-24 p-5 shadow-sm border border-outline-variant/30">
             <span className="text-[10px] font-black uppercase text-outline tracking-wider block mb-1">
@@ -347,7 +379,7 @@ export const AdminBookings: React.FC = () => {
             <h3 className="font-poppins font-black text-xl text-[#ea580c] truncate">
               {statsLoading ? '...' : formatCurrency(stats?.totalRevenue || 0)}
             </h3>
-            <span className="text-[10px] text-slate-400 mt-1 block">Confirmed match revenue</span>
+            <span className="text-[10px] text-slate-400 mt-1 block">Realized match revenue</span>
           </div>
         </div>
 
@@ -432,7 +464,7 @@ export const AdminBookings: React.FC = () => {
               </div>
 
               {/* Multi-criteria filter dropdowns */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-1">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 pt-1">
                 {/* Venue filter */}
                 <div>
                   <label className="text-[10px] font-black uppercase text-outline tracking-wider block mb-1">
@@ -457,7 +489,7 @@ export const AdminBookings: React.FC = () => {
                 {viewTab === 'all' && (
                   <div>
                     <label className="text-[10px] font-black uppercase text-outline tracking-wider block mb-1">
-                      Status
+                      Booking Status
                     </label>
                     <select
                       value={selectedStatus}
@@ -470,10 +502,50 @@ export const AdminBookings: React.FC = () => {
                       <option value="ALL">All Statuses</option>
                       <option value="PENDING">Pending</option>
                       <option value="CONFIRMED">Confirmed</option>
+                      <option value="COMPLETED">Completed</option>
                       <option value="CANCELLED">Cancelled</option>
                     </select>
                   </div>
                 )}
+
+                {/* Payment Status filter */}
+                <div>
+                  <label className="text-[10px] font-black uppercase text-outline tracking-wider block mb-1">
+                    Payment Status
+                  </label>
+                  <select
+                    value={selectedPaymentStatus}
+                    onChange={(e) => {
+                      setSelectedPaymentStatus(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-2.5 py-2 text-xs font-semibold text-primary focus:outline-none"
+                  >
+                    <option value="ALL">All Payments</option>
+                    <option value="PAID">Paid</option>
+                    <option value="PENDING">Pending</option>
+                    <option value="REFUNDED">Refunded</option>
+                    <option value="FAILED">Failed</option>
+                  </select>
+                </div>
+
+                {/* Sort Order filter */}
+                <div>
+                  <label className="text-[10px] font-black uppercase text-outline tracking-wider block mb-1">
+                    Sort Order
+                  </label>
+                  <select
+                    value={sortOrder}
+                    onChange={(e) => {
+                      setSortOrder(e.target.value as 'desc' | 'asc');
+                      setPage(1);
+                    }}
+                    className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-2.5 py-2 text-xs font-semibold text-primary focus:outline-none"
+                  >
+                    <option value="desc">Newest First</option>
+                    <option value="asc">Oldest First</option>
+                  </select>
+                </div>
 
                 {/* Date preset filter */}
                 <div>
@@ -659,6 +731,8 @@ export const AdminBookings: React.FC = () => {
                                   <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                                     b.status === 'CONFIRMED'
                                       ? 'bg-emerald-100 text-emerald-800'
+                                      : b.status === 'COMPLETED'
+                                      ? 'bg-blue-100 text-blue-800'
                                       : b.status === 'PENDING'
                                       ? 'bg-amber-100 text-amber-800 animate-pulse'
                                       : b.status === 'CANCELLED'
@@ -704,7 +778,19 @@ export const AdminBookings: React.FC = () => {
                                     </button>
                                   )}
 
-                                  {b.status !== 'CANCELLED' && (
+                                  {b.status === 'CONFIRMED' && (
+                                    <button
+                                      onClick={() => {
+                                        setSelectedBooking(b);
+                                        setCompleteModalOpen(true);
+                                      }}
+                                      className="px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] cursor-pointer transition-all shadow-xs"
+                                    >
+                                      Complete
+                                    </button>
+                                  )}
+
+                                  {b.status !== 'CANCELLED' && b.status !== 'COMPLETED' && (
                                     <button
                                       onClick={() => {
                                         setSelectedBooking(b);
@@ -1154,7 +1240,20 @@ export const AdminBookings: React.FC = () => {
                     </button>
                   )}
 
-                  {selectedBooking.status !== 'CANCELLED' && (
+                  {selectedBooking.status === 'CONFIRMED' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDetailsModalOpen(false);
+                        setCompleteModalOpen(true);
+                      }}
+                      className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase cursor-pointer shadow-sm"
+                    >
+                      Mark Completed
+                    </button>
+                  )}
+
+                  {selectedBooking.status !== 'CANCELLED' && selectedBooking.status !== 'COMPLETED' && (
                     <button
                       type="button"
                       onClick={() => {
@@ -1216,7 +1315,49 @@ export const AdminBookings: React.FC = () => {
           </div>
         )}
 
-        {/* MODAL 3: CANCEL BOOKING DIALOG */}
+        {/* MODAL 3: COMPLETE BOOKING DIALOG */}
+        {completeModalOpen && selectedBooking && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-24 max-w-md w-full p-6 shadow-2xl border border-slate-200 text-left space-y-4 animate-fade-in">
+              <div className="flex items-center gap-3 text-blue-600">
+                <span className="material-symbols-outlined text-3xl">task_alt</span>
+                <h3 className="font-poppins font-black text-xl text-primary">MARK AS COMPLETED?</h3>
+              </div>
+
+              <div className="bg-[#F8FAFC] p-4 rounded-xl border border-slate-200 space-y-1.5 text-xs">
+                <div><span className="text-slate-500">Venue:</span> <strong>{selectedBooking.ground?.name}</strong></div>
+                <div><span className="text-slate-500">Date:</span> <strong>{selectedBooking.date}</strong> ({selectedBooking.matchPeriod})</div>
+                <div><span className="text-slate-500">Customer:</span> <strong>{selectedBooking.customerName || selectedBooking.customer?.firstName}</strong></div>
+                <div><span className="text-slate-500">Amount:</span> <strong className="text-[#ea580c]">{formatCurrency(selectedBooking.totalPrice)}</strong></div>
+              </div>
+
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Confirm that the match session has successfully concluded. The booking state will transition to COMPLETED in the permanent operations ledger.
+              </p>
+
+              <div className="pt-2 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setCompleteModalOpen(false)}
+                  disabled={actionLoading}
+                  className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs uppercase hover:bg-slate-50 cursor-pointer"
+                >
+                  Go Back
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCompleteSubmit}
+                  disabled={actionLoading}
+                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider cursor-pointer shadow-md flex items-center gap-2"
+                >
+                  {actionLoading ? 'Updating...' : 'MARK COMPLETED'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL 4: CANCEL BOOKING DIALOG */}
         {cancelModalOpen && selectedBooking && (
           <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
             <form onSubmit={handleCancelSubmit} className="bg-white rounded-24 max-w-md w-full p-6 shadow-2xl border border-slate-200 text-left space-y-4 animate-fade-in">

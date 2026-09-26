@@ -103,8 +103,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
       {/* ─── Top KPI Metric Cards Grid ─────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 sm:gap-4">
-        {/* Total Bookings */}
-        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-2">
+        {/* Total Bookings & Upcoming */}
+        <div
+          onClick={() => navigateTab('bookings')}
+          className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-2 cursor-pointer hover:border-blue-400 transition-all"
+        >
           <div className="flex items-center justify-between">
             <span className="text-[11px] text-slate-500 font-bold uppercase">Total Bookings</span>
             <span className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
@@ -113,15 +116,18 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           </div>
           <div className="text-2xl font-poppins font-black text-slate-900">{b.total || 0}</div>
           <div className="text-[10px] text-slate-500 flex items-center justify-between">
-            <span className="text-emerald-600 font-semibold">{b.confirmed || 0} confirmed</span>
-            <span className="text-amber-600 font-semibold">{b.pending || 0} pending</span>
+            <span className="text-blue-600 font-semibold">{b.today || 0} today</span>
+            <span className="text-emerald-600 font-semibold">{b.upcoming || 0} upcoming</span>
           </div>
         </div>
 
-        {/* Total Revenue */}
-        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-2">
+        {/* Realized Revenue */}
+        <div
+          onClick={() => navigateTab('reports')}
+          className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-2 cursor-pointer hover:border-emerald-400 transition-all"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] text-slate-500 font-bold uppercase">Confirmed Revenue</span>
+            <span className="text-[11px] text-slate-500 font-bold uppercase">Realized Revenue</span>
             <span className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
               <span className="material-symbols-outlined text-lg">currency_rupee</span>
             </span>
@@ -135,7 +141,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           </div>
         </div>
 
-        {/* Pending Action Required */}
+        {/* Pending Requests & Confirmation */}
         <div
           onClick={() => navigateTab('bookings')}
           className="bg-white p-5 rounded-3xl border border-amber-200 bg-amber-50/20 shadow-xs space-y-2 cursor-pointer hover:border-amber-300 transition-all"
@@ -147,12 +153,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             </span>
           </div>
           <div className="text-2xl font-poppins font-black text-amber-600">{b.pending || 0}</div>
-          <div className="text-[10px] text-amber-700 font-semibold">
-            {b.pending > 0 ? 'Requires admin confirmation' : 'All reservations up to date'}
+          <div className="text-[10px] text-amber-700 font-semibold flex items-center justify-between">
+            <span>{b.confirmed || 0} confirmed</span>
+            <span className="text-blue-700">{b.completed || 0} done</span>
           </div>
         </div>
 
-        {/* Live Matches */}
+        {/* Live Matches & Schedule */}
         <div
           onClick={() => navigateTab('matches')}
           className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-2 cursor-pointer hover:border-[#FF8C1A] transition-all"
@@ -165,38 +172,42 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           </div>
           <div className="text-2xl font-poppins font-black text-slate-900">{m.active || 0}</div>
           <div className="text-[10px] text-slate-500">
-            <span>Total scheduled: {m.total || 0}</span>
+            <span>Total scheduled: {m.total || 0} matches</span>
           </div>
         </div>
 
-        {/* Total Payments */}
+        {/* Payments Ledger & Refunds */}
         <div
           onClick={() => navigateTab('payments')}
-          className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-2 cursor-pointer hover:border-blue-400 transition-all"
+          className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-2 cursor-pointer hover:border-indigo-400 transition-all"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] text-slate-500 font-bold uppercase">Settled Payments</span>
+            <span className="text-[11px] text-slate-500 font-bold uppercase">Payments &amp; Refunds</span>
             <span className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
               <span className="material-symbols-outlined text-lg">receipt_long</span>
             </span>
           </div>
           <div className="text-2xl font-poppins font-black text-slate-900">{p.successful || 0}</div>
-          <div className="text-[10px] text-slate-500">
-            <span>{p.refunded || 0} refunded / cancelled</span>
+          <div className="text-[10px] text-slate-500 flex items-center justify-between">
+            <span className="text-amber-600 font-semibold">{p.pending || 0} pending</span>
+            <span className="text-purple-600 font-semibold">{p.refunded || 0} refunded</span>
           </div>
         </div>
 
-        {/* Registered Users */}
-        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-2">
+        {/* Active Sports Venues */}
+        <div
+          onClick={() => navigateTab('venues')}
+          className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-2 cursor-pointer hover:border-purple-400 transition-all"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] text-slate-500 font-bold uppercase">Registered Users</span>
+            <span className="text-[11px] text-slate-500 font-bold uppercase">Active Grounds</span>
             <span className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-              <span className="material-symbols-outlined text-lg">group</span>
+              <span className="material-symbols-outlined text-lg">stadium</span>
             </span>
           </div>
-          <div className="text-2xl font-poppins font-black text-slate-900">{u.total || 0}</div>
+          <div className="text-2xl font-poppins font-black text-slate-900">{v.active || v.total || 3}</div>
           <div className="text-[10px] text-slate-500">
-            <span>Across {v.total || 3} official grounds</span>
+            <span>{u.total || 0} registered players</span>
           </div>
         </div>
       </div>

@@ -27,6 +27,7 @@ interface VenueItem {
   amenities: any;
   rating: number;
   reviewsCount: number;
+  isActive?: boolean;
   stats: VenueStats;
   url: string;
 }
@@ -39,6 +40,8 @@ export const AdminVenuesView: React.FC<AdminVenuesViewProps> = ({ onNavigateTab 
   const [venues, setVenues] = useState<VenueItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [successToast, setSuccessToast] = useState('');
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [selectedSport, setSelectedSport] = useState('ALL');
 
@@ -53,6 +56,23 @@ export const AdminVenuesView: React.FC<AdminVenuesViewProps> = ({ onNavigateTab 
       setError(err.response?.data?.message || 'Unable to load official venues from database.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleToggleStatus = async (id: string, currentStatus: boolean = true) => {
+    setTogglingId(id);
+    try {
+      await api.patch(`/admin/venues/${id}/toggle-status`);
+      setVenues((prev) =>
+        prev.map((v) => (v.id === id ? { ...v, isActive: !currentStatus } : v))
+      );
+      setSuccessToast(`Venue status updated to ${!currentStatus ? 'Active' : 'Inactive'}`);
+      setTimeout(() => setSuccessToast(''), 4000);
+    } catch (err: any) {
+      console.error('Toggle venue error:', err);
+      setError(err.response?.data?.message || 'Failed to update venue status.');
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -77,6 +97,14 @@ export const AdminVenuesView: React.FC<AdminVenuesViewProps> = ({ onNavigateTab 
 
   return (
     <div className="space-y-6">
+      {/* Success Notification */}
+      {successToast && (
+        <div className="fixed top-24 right-6 z-50 bg-emerald-700 text-white px-5 py-3 rounded-2xl shadow-xl flex items-center gap-3 animate-fade-in">
+          <span className="material-symbols-outlined text-lg">check_circle</span>
+          <span className="text-xs font-bold">{successToast}</span>
+        </div>
+      )}
+
       {/* Top Banner & KPI Row */}
       <div className="bg-white rounded-3xl p-6 shadow-xs border border-gray-200">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -111,11 +139,11 @@ export const AdminVenuesView: React.FC<AdminVenuesViewProps> = ({ onNavigateTab 
         {/* Mini stats cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6 pt-6 border-t border-gray-100">
           <div className="p-4 rounded-2xl bg-surface-container-low border border-outline-variant/30">
-            <span className="text-[11px] uppercase tracking-wider text-gray-400 font-bold">Total Venues Active</span>
+            <span className="text-[11px] uppercase tracking-wider text-gray-400 font-bold">Total Venues</span>
             <div className="text-2xl font-bold text-primary mt-1 font-poppins">{venues.length} Facilities</div>
           </div>
           <div className="p-4 rounded-2xl bg-surface-container-low border border-outline-variant/30">
-            <span className="text-[11px] uppercase tracking-wider text-gray-400 font-bold">Total Confirmed Bookings</span>
+            <span className="text-[11px] uppercase tracking-wider text-gray-400 font-bold">Total Bookings</span>
             <div className="text-2xl font-bold text-primary mt-1 font-poppins">{totalBookings} Bookings</div>
           </div>
           <div className="p-4 rounded-2xl bg-surface-container-low border border-outline-variant/30">
@@ -197,8 +225,12 @@ export const AdminVenuesView: React.FC<AdminVenuesViewProps> = ({ onNavigateTab 
                       <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-secondary/10 text-secondary">
                         {v.sport}
                       </span>
-                      <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/50">
-                        Official Partner
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${
+                        v.isActive !== false
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200/60'
+                          : 'bg-rose-50 text-rose-700 border-rose-200/60'
+                      }`}>
+                        {v.isActive !== false ? 'Active Facility' : 'Inactive'}
                       </span>
                     </div>
                     <h3 className="text-lg font-bold font-poppins text-primary mt-1.5">{v.name}</h3>
@@ -264,6 +296,20 @@ export const AdminVenuesView: React.FC<AdminVenuesViewProps> = ({ onNavigateTab 
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleToggleStatus(v.id, v.isActive !== false)}
+                    disabled={togglingId === v.id}
+                    className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${
+                      v.isActive !== false
+                        ? 'border-rose-200 text-rose-700 hover:bg-rose-50'
+                        : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-xs">
+                      {v.isActive !== false ? 'pause_circle' : 'play_circle'}
+                    </span>
+                    {togglingId === v.id ? 'Updating...' : v.isActive !== false ? 'Deactivate' : 'Activate'}
+                  </button>
                   <button
                     onClick={() => onNavigateTab('bookings')}
                     className="px-3 py-1.5 rounded-xl border border-gray-200 text-primary hover:bg-gray-50 text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer"

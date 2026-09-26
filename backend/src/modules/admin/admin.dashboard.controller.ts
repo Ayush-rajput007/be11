@@ -41,11 +41,16 @@ export const getAdminDashboard = async (req: AuthenticatedRequest, res: Response
     const [
       totalUsers,
       totalGrounds,
+      activeGrounds,
       totalBookings,
       pendingBookings,
       confirmedBookings,
+      completedBookings,
       cancelledBookings,
       todayBookings,
+      upcomingBookings,
+      pendingPaymentsCount,
+      refundedBookingsCount,
       revenueAllTimeAgg,
       revenueTodayAgg,
       revenueWeekAgg,
@@ -64,30 +69,35 @@ export const getAdminDashboard = async (req: AuthenticatedRequest, res: Response
       prisma.user.count(),
 
       // Grounds
+      prisma.ground.count(),
       prisma.ground.count({ where: { isActive: true } }),
 
       // Bookings
       prisma.booking.count(),
       prisma.booking.count({ where: { status: 'PENDING' } }),
       prisma.booking.count({ where: { status: 'CONFIRMED' } }),
+      prisma.booking.count({ where: { status: 'COMPLETED' } }),
       prisma.booking.count({ where: { status: 'CANCELLED' } }),
       prisma.booking.count({ where: { date: todayStr } }),
+      prisma.booking.count({ where: { date: { gte: todayStr }, status: { in: ['CONFIRMED', 'PENDING'] } } }),
+      prisma.booking.count({ where: { paymentStatus: 'PENDING', status: { not: 'CANCELLED' } } }),
+      prisma.booking.count({ where: { paymentStatus: 'REFUNDED' } }),
 
-      // Revenue aggregations
+      // Revenue aggregations (CONFIRMED + COMPLETED)
       prisma.booking.aggregate({
-        where: { status: 'CONFIRMED' },
+        where: { status: { in: ['CONFIRMED', 'COMPLETED'] } },
         _sum: { totalPrice: true },
       }),
       prisma.booking.aggregate({
-        where: { status: 'CONFIRMED', date: todayStr },
+        where: { status: { in: ['CONFIRMED', 'COMPLETED'] }, date: todayStr },
         _sum: { totalPrice: true },
       }),
       prisma.booking.aggregate({
-        where: { status: 'CONFIRMED', date: { gte: startOfWeekStr, lte: endOfWeekStr } },
+        where: { status: { in: ['CONFIRMED', 'COMPLETED'] }, date: { gte: startOfWeekStr, lte: endOfWeekStr } },
         _sum: { totalPrice: true },
       }),
       prisma.booking.aggregate({
-        where: { status: 'CONFIRMED', date: { gte: startOfMonthStr, lte: endOfMonthStr } },
+        where: { status: { in: ['CONFIRMED', 'COMPLETED'] }, date: { gte: startOfMonthStr, lte: endOfMonthStr } },
         _sum: { totalPrice: true },
       }),
 
@@ -103,7 +113,7 @@ export const getAdminDashboard = async (req: AuthenticatedRequest, res: Response
 
       // Recent Bookings
       prisma.booking.findMany({
-        take: 6,
+        take: 8,
         orderBy: { createdAt: 'desc' },
         include: {
           ground: { select: { id: true, name: true, slug: true, city: true } },
@@ -123,19 +133,19 @@ export const getAdminDashboard = async (req: AuthenticatedRequest, res: Response
 
       // Grounds with booking counts and revenue
       prisma.ground.findMany({
-        where: { isActive: true },
         select: {
           id: true,
           name: true,
           slug: true,
           city: true,
           sport: true,
+          isActive: true,
           pricePerHour: true,
           pricingLabel: true,
           ownerName: true,
           ownerPhone: true,
           bookings: {
-            where: { status: 'CONFIRMED' },
+            where: { status: { in: ['CONFIRMED', 'COMPLETED'] } },
             select: { totalPrice: true },
           },
         },
@@ -157,6 +167,7 @@ export const getAdminDashboard = async (req: AuthenticatedRequest, res: Response
         slug: g.slug,
         city: g.city,
         sport: g.sport,
+        isActive: g.isActive,
         pricingLabel: g.pricingLabel,
         ownerName: g.ownerName,
         ownerPhone: g.ownerPhone,
@@ -174,17 +185,21 @@ export const getAdminDashboard = async (req: AuthenticatedRequest, res: Response
       data: {
         bookings: {
           total: totalBookings,
+          today: todayBookings,
+          upcoming: upcomingBookings,
           pending: pendingBookings,
           confirmed: confirmedBookings,
+          completed: completedBookings,
           cancelled: cancelledBookings,
-          today: todayBookings,
+          refunded: refundedBookingsCount,
         },
         payments: {
-          total: totalWalletTopups + confirmedBookings,
-          successful: paidWalletTopups + confirmedBookings,
+          total: totalWalletTopups + confirmedBookings + completedBookings,
+          successful: paidWalletTopups + confirmedBookings + completedBookings,
+          pending: pendingPaymentsCount,
           failed: failedWalletTopups,
-          refunded: refundedWalletTopups + cancelledBookings,
-          bookingPaymentsCount: confirmedBookings,
+          refunded: refundedWalletTopups + refundedBookingsCount,
+          bookingPaymentsCount: confirmedBookings + completedBookings,
           walletTopupsCount: paidWalletTopups,
         },
         revenue: {
@@ -204,6 +219,7 @@ export const getAdminDashboard = async (req: AuthenticatedRequest, res: Response
         },
         venues: {
           total: totalGrounds,
+          active: activeGrounds,
           list: venueBreakdown,
         },
         recentBookings: recentBookings.map((b) => ({

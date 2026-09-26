@@ -7,6 +7,7 @@ import {
   getAdminBookingById,
   confirmAdminBooking,
   cancelAdminBooking,
+  completeAdminBooking,
   getAdminVenueAvailability,
 } from './admin.bookings.controller.js';
 import {
@@ -24,7 +25,7 @@ import {
   getAdminReports,
   exportAdminBookingsCsv,
 } from './admin.reports.controller.js';
-import { getAdminVenues, getAdminAuditLogs } from './admin.venues.controller.js';
+import { getAdminVenues, toggleAdminVenueStatus, getAdminAuditLogs } from './admin.venues.controller.js';
 import { getAdminAiKnowledge, syncAdminAiKnowledge } from './admin.ai.controller.js';
 import {
   getAdminOverview,
@@ -52,6 +53,7 @@ router.get('/bookings/export/csv', exportAdminBookingsCsv as any);
 router.get('/bookings/:id', getAdminBookingById as any);
 router.patch('/bookings/:id/confirm', confirmAdminBooking as any);
 router.patch('/bookings/:id/cancel', cancelAdminBooking as any);
+router.patch('/bookings/:id/complete', completeAdminBooking as any);
 router.get('/venues/:venueId/availability', getAdminVenueAvailability as any);
 
 // 3. Payments Ledger Management
@@ -70,6 +72,7 @@ router.get('/reports', getAdminReports as any);
 
 // 6. Venues Management
 router.get('/venues', getAdminVenues as any);
+router.patch('/venues/:id/toggle-status', toggleAdminVenueStatus as any);
 
 // 7. System Audit Log
 router.get('/audit', getAdminAuditLogs as any);
