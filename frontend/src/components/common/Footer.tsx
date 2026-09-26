@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Instagram, Mail } from 'lucide-react';
 export const Footer: React.FC = () => {
 
   // Modal State
@@ -97,19 +98,27 @@ export const Footer: React.FC = () => {
           <p className="text-[#6B7280] text-[11px] leading-relaxed font-light">
             Premium sports venue bookings, professional academies, and customized sublimated squad merchandise.
           </p>
-          <div className="flex gap-3">
-            {['facebook', 'instagram', 'linkedin', 'twitter'].map((soc) => (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
               <a
-                key={soc}
-                href={`https://${soc}.com`}
+                href="https://www.instagram.com/be11.in/?hl=en"
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className="w-8 h-8 rounded-full border border-[#E5E7EB] flex items-center justify-center text-[#6B7280] hover:text-[#FF8C1A] hover:border-[#FF8C1A] transition-all transform hover:-translate-y-0.5"
-                title={soc}
+                title="Follow BE11 on Instagram"
+                aria-label="Instagram"
               >
-                <span className="material-symbols-outlined text-sm">share</span>
+                <Instagram className="w-4 h-4" />
               </a>
-            ))}
+            </div>
+            <a
+              href="mailto:support@be11.in"
+              className="inline-flex items-center gap-2 text-[11px] text-[#6B7280] hover:text-[#FF8C1A] transition-colors group"
+              title="Email BE11 Support"
+            >
+              <Mail className="w-3.5 h-3.5 text-[#6B7280] group-hover:text-[#FF8C1A] transition-colors" />
+              <span>support@be11.in</span>
+            </a>
           </div>
         </div>
 
