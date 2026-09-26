@@ -214,11 +214,11 @@ export const Dashboard: React.FC = () => {
     const connectSocket = () => {
       if (socket && socket.connected) return;
       socket = io(API_URL, {
-        reconnectionAttempts: 5,
-        reconnectionDelay: 2000,
-        reconnectionDelayMax: 10000,
-        timeout: 10000,
-        transports: ['websocket', 'polling'],
+        reconnectionAttempts: 3,
+        reconnectionDelay: 5000,
+        reconnectionDelayMax: 15000,
+        timeout: 5000,
+        transports: ['websocket'],
       });
       socket.emit('register-user', user.id);
       socket.on('notification', (newNotif: NotificationDTO) => {

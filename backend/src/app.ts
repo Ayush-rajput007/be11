@@ -106,6 +106,12 @@ app.get('/api/health', (req, res) => {
 
 // Socket.io handshake and polling handler for Express / serverless runtime
 app.all('/socket.io*', (req, res, next) => {
+  if (process.env.VERCEL) {
+    return res.status(200).json({
+      success: true,
+      message: 'Serverless runtime: WebSockets disabled on stateless functions',
+    });
+  }
   const io = app.get('io');
   if (io && io.engine) {
     io.engine.handleRequest(req, res);

@@ -204,31 +204,44 @@ export class AnalyticsService {
           deviceType,
           referrer: cleanReferrer || undefined,
         });
-      } else {
-        // Touch session
-        await prisma.visitorSession.update({
-          where: { id: session.id },
+
+        const pageView = await prisma.pageView.create({
           data: {
-            lastSeenAt: now,
-            exitPage: cleanPath,
-            ...(userId && !session.userId ? { userId } : {}),
+            visitorId,
+            sessionId: session ? session.id : null,
+            userId: userId || null,
+            path: cleanPath,
+            referrer: cleanReferrer,
+            createdAt: now,
           },
-        }).catch(() => null);
+        });
+
+        return { pageView, sessionId: session?.id };
+      } else {
+        // Parallelize pageView creation and session lastSeenAt update concurrently
+        const [pageView] = await Promise.all([
+          prisma.pageView.create({
+            data: {
+              visitorId,
+              sessionId: session.id,
+              userId: userId || null,
+              path: cleanPath,
+              referrer: cleanReferrer,
+              createdAt: now,
+            },
+          }),
+          prisma.visitorSession.update({
+            where: { id: session.id },
+            data: {
+              lastSeenAt: now,
+              exitPage: cleanPath,
+              ...(userId && !session.userId ? { userId } : {}),
+            },
+          }).catch(() => null),
+        ]);
+
+        return { pageView, sessionId: session.id };
       }
-
-      // Record page view
-      const pageView = await prisma.pageView.create({
-        data: {
-          visitorId,
-          sessionId: session ? session.id : null,
-          userId: userId || null,
-          path: cleanPath,
-          referrer: cleanReferrer,
-          createdAt: now,
-        },
-      });
-
-      return { pageView, sessionId: session?.id };
     } catch (err) {
       logger.warn('⚠️ Analytics: Failed to record page view:', (err as Error).message);
       return null;
