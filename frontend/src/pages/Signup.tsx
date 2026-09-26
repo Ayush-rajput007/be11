@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { isValidIndianMobile, canonicalPhone } from '@be11/shared';
 import { SEO } from '../components/common/SEO.js';
+import { trackGA4SignUp } from '../lib/analytics/ga4.js';
 
 export const Signup: React.FC = () => {
   const navigate = useNavigate();
@@ -79,6 +80,8 @@ export const Signup: React.FC = () => {
         phone: normalizedPhone,
         role: 'PLAYER', // Default public safe role
       });
+
+      trackGA4SignUp('email_password');
 
       // Direct to email verification
       navigate('/verify-email', {

@@ -7,6 +7,14 @@ import { loadRazorpaySdk } from '../lib/razorpay.js';
 import { SEO } from '../components/common/SEO.js';
 import { FAQSection } from '../components/common/FAQSection.js';
 import { AEO_KNOWLEDGE } from '../config/aeoKnowledge.js';
+import {
+  trackGA4VenueView,
+  trackGA4SelectBookingDate,
+  trackGA4SelectBookingPeriod,
+  trackGA4BeginBooking,
+  trackGA4BookingPaymentStarted,
+  trackGA4BookingCompleted,
+} from '../lib/analytics/ga4.js';
 
 type WizardStep = 'PERIOD' | 'DETAILS' | 'TYPE' | 'SUMMARY' | 'SUCCESS';
 type BookingTypeChoice = 'SINGLE_TEAM_OF_11' | 'WHOLE_GROUND' | 'INDIVIDUAL' | 'HALF_TEAM' | 'ENTIRE_VENUE';
@@ -149,9 +157,14 @@ export const VenueDetail: React.FC = () => {
         api.get(`/reviews/ground/${id}`),
       ]);
 
-      setGround(groundRes.data.data.ground);
+      const g = groundRes.data.data.ground;
+      setGround(g);
       setMatchPeriods(slotsRes.data.data.matchPeriods || []);
       setReviews(reviewsRes.data.data.reviews || []);
+
+      if (g) {
+        trackGA4VenueView(g.id, g.name);
+      }
     } catch (err: any) {
       console.error(err);
       setError('Failed to fetch venue details.');
@@ -190,6 +203,9 @@ export const VenueDetail: React.FC = () => {
   const handleDateSelect = (selectedDateStr: string) => {
     setDate(selectedDateStr);
     updateUrlParams(selectedDateStr, selectedPeriod || 'MORNING');
+    if (ground) {
+      trackGA4SelectBookingDate(ground.id, ground.name, selectedDateStr);
+    }
     setError('');
   };
 
@@ -198,6 +214,9 @@ export const VenueDetail: React.FC = () => {
     const canonical = canonicalPeriod(periodId);
     setSelectedPeriod(canonical);
     updateUrlParams(date, canonical);
+    if (ground) {
+      trackGA4SelectBookingPeriod(ground.id, ground.name, canonical);
+    }
     setError('');
   };
 
@@ -359,6 +378,10 @@ export const VenueDetail: React.FC = () => {
     if (!selectedPeriod) {
       setError('Please select a match period to continue.');
       return;
+    }
+
+    if (ground) {
+      trackGA4BeginBooking(ground.id, ground.name, date, selectedPeriod, bookingType);
     }
 
     if (!isAuthenticated) {
@@ -528,8 +551,20 @@ export const VenueDetail: React.FC = () => {
 
       // 2. If already paid (or if paid with wallet during creation), complete instantly
       if (b.paymentStatus === 'PAID') {
+        const finalAmt = b.totalPrice || b.serverPrice || 0;
         if (user) {
-          updateWalletBalance(user.walletBalance - (b.totalPrice || b.serverPrice));
+          updateWalletBalance(user.walletBalance - finalAmt);
+        }
+        if (ground) {
+          trackGA4BookingCompleted({
+            bookingId: b.id,
+            venueId: ground.id,
+            venueName: ground.name,
+            bookingType: b.bookingType || bookingType,
+            bookingPeriod: b.matchPeriod || selectedPeriod,
+            amount: finalAmt,
+            currency: 'INR',
+          });
         }
         setPaymentState('successful');
         setBookingStep('SUCCESS');
@@ -555,6 +590,10 @@ export const VenueDetail: React.FC = () => {
       });
 
       const { orderId, amount, currency, keyId } = orderRes.data.data;
+
+      if (ground) {
+        trackGA4BookingPaymentStarted(ground.id, ground.name, (amount || 0) / 100, paymentMethod);
+      }
 
       // 5. Ensure Razorpay Standard Checkout SDK is loaded
       const isSdkLoaded = await loadRazorpaySdk();
@@ -587,6 +626,19 @@ export const VenueDetail: React.FC = () => {
               ...verifiedBooking,
               serverPrice: verifiedBooking.totalPrice,
             });
+
+            if (ground) {
+              trackGA4BookingCompleted({
+                bookingId: verifiedBooking.id,
+                venueId: ground.id,
+                venueName: ground.name,
+                bookingType: verifiedBooking.bookingType || bookingType,
+                bookingPeriod: verifiedBooking.matchPeriod || selectedPeriod,
+                amount: verifiedBooking.totalPrice,
+                currency: 'INR',
+              });
+            }
+
             setPaymentState('successful');
             setBookingStep('SUCCESS');
             fetchDetails();

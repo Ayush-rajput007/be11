@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/authStore.js';
 import { api } from '../lib/api.js';
 import { env } from '../config/env.js';
 import { SEO } from '../components/common/SEO.js';
+import { trackGA4Login } from '../lib/analytics/ga4.js';
 
 export const Login: React.FC = () => {
   const { login } = useAuthStore();
@@ -57,6 +58,7 @@ export const Login: React.FC = () => {
 
       const { user, token } = res.data.data;
       login(user, token);
+      trackGA4Login('email_password');
 
       if (rememberMe) {
         localStorage.setItem('be11_remembered_email', email.trim());
