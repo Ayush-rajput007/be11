@@ -51,6 +51,7 @@ const io = new SocketIOServer(server, {
     methods: ['GET', 'POST'],
     credentials: true,
   },
+  transports: ['websocket'],
 });
 
 app.set('io', io);
@@ -104,12 +105,12 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Socket.io handshake and polling handler for Express / serverless runtime
+// Socket.io handler: support native WebSocket upgrades while rejecting 25s HTTP long-polling holds
 app.all('/socket.io*', (req, res, next) => {
-  if (process.env.VERCEL) {
-    return res.status(200).json({
-      success: true,
-      message: 'Serverless runtime: WebSockets disabled on stateless functions',
+  if (req.query.transport === 'polling') {
+    return res.status(400).json({
+      success: false,
+      message: 'Socket.IO HTTP long-polling is disabled. Please connect using native WebSocket transport.',
     });
   }
   const io = app.get('io');

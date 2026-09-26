@@ -517,9 +517,15 @@ export const LiveMatches: React.FC = () => {
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    // Safety refresh every 45 seconds while tab is active
+    const safetyRefreshInterval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        fetchMatches();
+      }
+    }, 45000);
 
     return () => {
+      clearInterval(safetyRefreshInterval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       disconnectSocket();
     };
